@@ -1,10 +1,720 @@
-<!-- Placeholder: substitua pelo conteúdo completo de cockerPitZAI.html -->
-<!-- Lembre de trocar o fetch('inspect.json') por fetch('/api/containers/{id}') -->
 <!DOCTYPE html>
 <html lang="pt-BR">
-<head><meta charset="UTF-8"><title>Docker Cockpit</title></head>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cockpit Docker — Live</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a1020; --bg-2:#0f1830; --surface:#141f3a; --surface-2:#1a2747;
+  --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.16);
+  --text:#e6edf7; --text-dim:#9aa7bd; --text-mute:#64748b;
+  --accent:#2496ED; --accent-2:#60a5fa;
+  --ok:#22c55e; --ok-soft:rgba(34,197,94,.14);
+  --warn:#f59e0b; --warn-soft:rgba(245,158,11,.14);
+  --bad:#ef4444; --bad-soft:rgba(239,68,68,.14);
+  --neutral:#64748b; --neutral-soft:rgba(100,116,139,.16);
+  --ease-quiet:cubic-bezier(.22,1,.36,1); --ease-precise:cubic-bezier(.4,0,.2,1);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body{min-height:100vh}
+::selection{background:rgba(36,150,237,.35);color:#fff}
+.app{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
+.sidebar{background:linear-gradient(180deg,#0c1428 0%,#0a1020 100%);border-right:1px solid var(--border);padding:1.75rem 1rem;position:sticky;top:0;height:100vh;overflow-y:auto;display:flex;flex-direction:column;gap:1.25rem}
+.brand{display:flex;align-items:center;gap:.75rem;padding:0 .5rem}
+.brand-logo{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#2496ED 0%,#0db7ed 100%);display:grid;place-items:center;box-shadow:0 4px 14px rgba(36,150,237,.4)}
+.brand-logo svg{width:22px;height:22px;color:#fff}
+.brand-title{font-weight:800;font-size:1.05rem;letter-spacing:-.02em;line-height:1.1}
+.brand-sub{font-size:.7rem;color:var(--text-mute);letter-spacing:.18em;text-transform:uppercase;margin-top:2px}
+.nav-label{font-size:.68rem;letter-spacing:.18em;text-transform:uppercase;color:var(--text-mute);padding:0 .75rem;margin-bottom:.4rem}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav-item{display:flex;align-items:center;gap:.7rem;padding:.6rem .75rem;border-radius:8px;color:var(--text-dim);font-size:.875rem;font-weight:500;cursor:pointer;text-decoration:none;transition:background .2s,color .2s;border:1px solid transparent}
+.nav-item:hover{background:var(--surface);color:var(--text)}
+.nav-item.active{background:var(--surface-2);color:#fff;border-color:var(--border-strong)}
+.nav-item .nav-ico{width:16px;height:16px;flex-shrink:0;opacity:.8}
+.nav-kbd{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:.65rem;padding:1px 6px;border-radius:4px;border:1px solid var(--border);background:rgba(255,255,255,.03);color:var(--text-mute)}
+.sidebar-foot{margin-top:auto;padding:.75rem;font-size:.7rem;color:var(--text-mute);line-height:1.5;border-top:1px solid var(--border)}
+.live-indicator{display:inline-flex;align-items:center;gap:.4rem;color:var(--ok);font-weight:600}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--ok);position:relative}
+.live-dot::after{content:'';position:absolute;inset:-4px;border-radius:50%;background:var(--ok);opacity:.4;animation:pulse 2s var(--ease-quiet) infinite}
+@keyframes pulse{0%{transform:scale(.8);opacity:.7}100%{transform:scale(1.8);opacity:0}}
+.main{padding:0;min-width:0}
+.topbar{position:sticky;top:0;z-index:10;background:rgba(10,16,32,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:1rem 2rem;display:flex;align-items:center;gap:1rem}
+.topbar-title{font-weight:700;font-size:1rem;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar-title .muted{color:var(--text-mute);font-weight:400;margin-left:.5rem;font-size:.85rem}
+.btn{display:inline-flex;align-items:center;gap:.5rem;padding:.5rem .85rem;border-radius:8px;font-size:.8rem;font-weight:500;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);cursor:pointer;font-family:inherit;transition:background .2s,border-color .2s}
+.btn:hover{background:var(--surface-2);border-color:rgba(36,150,237,.4)}
+.btn svg{width:14px;height:14px}
+.content{padding:2rem;max-width:1280px;margin:0 auto}
+/* Container selector */
+.selector-wrap{margin-bottom:1.5rem}
+.container-list{display:flex;gap:.75rem;overflow-x:auto;padding-bottom:.5rem;scrollbar-width:thin}
+.container-list::-webkit-scrollbar{height:6px}
+.container-list::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:3px}
+.container-chip{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:.85rem 1.1rem;cursor:pointer;min-width:200px;transition:all .2s;display:flex;flex-direction:column;gap:.35rem}
+.container-chip:hover{border-color:var(--border-strong);transform:translateY(-2px)}
+.container-chip.active{border-color:var(--accent);background:var(--surface-2);box-shadow:0 4px 12px rgba(36,150,237,.15)}
+.chip-head{display:flex;justify-content:space-between;align-items:center;gap:.5rem}
+.chip-name{font-weight:600;font-size:.875rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip-image{font-size:.7rem;color:var(--text-mute);font-family:'JetBrains Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Empty */
+.empty{text-align:center;padding:5rem 2rem;border:1px dashed var(--border-strong);border-radius:16px;background:linear-gradient(180deg,rgba(36,150,237,.04) 0%,transparent 100%)}
+.empty-icon{width:64px;height:64px;border-radius:16px;background:var(--surface);border:1px solid var(--border-strong);display:grid;place-items:center;margin:0 auto 1.5rem;color:var(--accent)}
+.empty-icon svg{width:30px;height:30px}
+.empty h2{font-size:1.5rem;font-weight:800;margin:0 0 .5rem}
+.empty p{color:var(--text-dim);max-width:480px;margin:0 auto;line-height:1.6}
+/* Hero */
+.hero{background:linear-gradient(180deg,var(--surface) 0%,var(--bg-2) 100%);border:1px solid var(--border-strong);border-radius:16px;padding:2rem;margin-bottom:1.5rem;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at top right,rgba(36,150,237,.15),transparent 60%);pointer-events:none}
+.hero-grid{display:grid;grid-template-columns:1fr auto;gap:2rem;align-items:center;position:relative}
+.hero-eyebrow{font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:var(--accent-2);font-weight:600;margin-bottom:.5rem}
+.hero-title{font-size:2rem;font-weight:800;letter-spacing:-.03em;line-height:1.05;margin:0 0 .35rem}
+.hero-sub{color:var(--text-dim);font-size:.95rem;line-height:1.6;max-width:680px}
+.hero-sub code{background:rgba(36,150,237,.12);color:var(--accent-2);padding:1px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:.85em}
+.hero-status-big{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;margin-top:1rem}
+.status-pill{display:inline-flex;align-items:center;gap:.5rem;padding:.5rem .9rem;border-radius:999px;font-weight:600;font-size:.82rem;border:1px solid var(--border-strong)}
+.status-pill .dot{width:8px;height:8px;border-radius:50%;position:relative}
+.status-pill .dot::after{content:'';position:absolute;inset:-4px;border-radius:50%;animation:pulse 2s var(--ease-quiet) infinite}
+.status-pill.running{background:var(--ok-soft);color:#86efac;border-color:rgba(34,197,94,.3)}
+.status-pill.running .dot{background:var(--ok)}
+.status-pill.running .dot::after{background:rgba(34,197,94,.3)}
+.status-pill.exited,.status-pill.dead,.status-pill.created{background:var(--neutral-soft);color:#cbd5e1;border-color:rgba(100,116,139,.3)}
+.status-pill.exited .dot,.status-pill.dead .dot,.status-pill.created .dot{background:var(--neutral)}
+.status-pill.paused{background:var(--warn-soft);color:#fcd34d;border-color:rgba(245,158,11,.3)}
+.status-pill.paused .dot{background:var(--warn)}
+.status-pill.restarting{background:rgba(36,150,237,.14);color:#7dd3fc;border-color:rgba(36,150,237,.3)}
+.status-pill.restarting .dot{background:var(--accent)}
+.status-pill.healthy{background:var(--ok-soft);color:#86efac;border-color:rgba(34,197,94,.3)}
+.status-pill.healthy .dot{background:var(--ok)}
+.status-pill.unhealthy{background:var(--bad-soft);color:#fca5a5;border-color:rgba(239,68,68,.3)}
+.status-pill.unhealthy .dot{background:var(--bad)}
+.status-pill.none{background:rgba(100,116,139,.14);color:#94a3b8;border-color:rgba(100,116,139,.25)}
+.status-pill.none .dot{background:var(--neutral)}
+.status-pill.none .dot::after{display:none}
+.restart-policy{display:inline-flex;align-items:center;gap:.4rem;padding:.3rem .6rem;border-radius:6px;background:rgba(36,150,237,.1);border:1px solid rgba(36,150,237,.25);color:var(--accent-2);font-family:'JetBrains Mono',monospace;font-size:.75rem}
+/* KPIs */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.85rem;margin-bottom:2rem}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.1rem 1.15rem;transition:transform .25s,border-color .25s}
+.kpi:hover{transform:translateY(-2px);border-color:var(--border-strong)}
+.kpi-label{font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text-mute);font-weight:600;margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem}
+.kpi-label svg{width:12px;height:12px}
+.kpi-value{font-family:'JetBrains Mono',monospace;font-size:1.55rem;font-weight:600;line-height:1}
+.kpi-sub{font-size:.75rem;color:var(--text-dim);margin-top:.4rem;line-height:1.4}
+.kpi.kpi-ok .kpi-value{color:#86efac}
+.kpi.kpi-warn .kpi-value{color:#fcd34d}
+.kpi.kpi-bad .kpi-value{color:#fca5a5}
+.kpi.kpi-accent .kpi-value{color:#7dd3fc}
+/* Sections */
+.section{margin-bottom:1.5rem;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.75rem;scroll-margin-top:90px;opacity:0;transform:translateY(20px);transition:opacity .6s var(--ease-quiet),transform .6s var(--ease-quiet)}
+.section.in{opacity:1;transform:translateY(0)}
+.section-head{display:flex;align-items:flex-start;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap}
+.section-num{width:34px;height:34px;border-radius:8px;background:rgba(36,150,237,.12);color:var(--accent-2);display:grid;place-items:center;font-family:'JetBrains Mono',monospace;font-weight:600;font-size:.85rem;border:1px solid rgba(36,150,237,.25);flex-shrink:0}
+.section-head-text{flex:1;min-width:200px}
+.section-title{font-size:1.25rem;font-weight:700;margin:0 0 .25rem}
+.section-desc{color:var(--text-dim);font-size:.875rem;line-height:1.55;margin:0;max-width:680px}
+.section-desc a{color:var(--accent-2);text-decoration:none;border-bottom:1px dashed rgba(96,165,250,.4)}
+.card-grid{display:grid;gap:.85rem}
+.card-grid.cols-2{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.card-grid.cols-3{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+.field{background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:.85rem 1rem}
+.field-label{font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text-mute);font-weight:600;margin-bottom:.35rem}
+.field-value{font-family:'JetBrains Mono',monospace;font-size:.85rem;color:var(--text);word-break:break-all;line-height:1.4}
+.table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th{text-align:left;font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text-mute);font-weight:600;padding:.7rem 1rem;background:var(--bg-2);border-bottom:1px solid var(--border);position:sticky;top:0;white-space:nowrap}
+td{padding:.7rem 1rem;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--text)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(36,150,237,.04)}
+.badge{display:inline-flex;align-items:center;gap:.35rem;padding:2px 8px;border-radius:5px;font-size:.7rem;font-weight:600;font-family:'JetBrains Mono',monospace}
+.badge-ok{background:var(--ok-soft);color:#86efac}
+.badge-warn{background:var(--warn-soft);color:#fcd34d}
+.badge-bad{background:var(--bad-soft);color:#fca5a5}
+.badge-info{background:rgba(36,150,237,.14);color:#7dd3fc}
+.badge-neutral{background:var(--neutral-soft);color:#cbd5e1}
+.health-log{display:flex;flex-direction:column;gap:.5rem;max-height:340px;overflow-y:auto;padding-right:.25rem}
+.log-entry{background:var(--bg-2);border:1px solid var(--border);border-left:3px solid;border-radius:8px;padding:.7rem .9rem}
+.log-entry.ok{border-left-color:var(--ok)}
+.log-entry.fail{border-left-color:var(--bad)}
+.log-entry-head{display:flex;align-items:center;gap:.6rem;margin-bottom:.4rem;flex-wrap:wrap}
+.log-exit{font-family:'JetBrains Mono',monospace;font-size:.75rem;font-weight:600;padding:2px 7px;border-radius:4px}
+.log-exit.exit-0{background:var(--ok-soft);color:#86efac}
+.log-exit.exit-nonzero{background:var(--bad-soft);color:#fca5a5}
+.log-time{font-size:.7rem;color:var(--text-mute);font-family:'JetBrains Mono',monospace}
+.log-output{font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--text-dim);background:rgba(0,0,0,.25);padding:.5rem .65rem;border-radius:5px;white-space:pre-wrap;word-break:break-word;max-height:90px;overflow-y:auto;border:1px solid var(--border);margin-top:.4rem}
+.port-viz{display:flex;flex-direction:column;gap:.6rem}
+.port-row{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:1rem;background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:.85rem 1rem}
+.port-side{display:flex;align-items:center;gap:.5rem}
+.port-ctn{justify-content:flex-end;text-align:right}
+.port-label{font-size:.7rem;color:var(--text-mute);letter-spacing:.1em;text-transform:uppercase;font-weight:600;display:block;margin-bottom:.2rem}
+.port-num{font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:600;color:#fff}
+.port-ip{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--text-dim)}
+.port-arrow{display:flex;align-items:center;justify-content:center;color:var(--accent-2)}
+.port-arrow svg{width:34px;height:14px}
+.secret-toggle{display:inline-flex;align-items:center;gap:.4rem;font-size:.75rem;color:var(--text-dim);cursor:pointer;padding:.3rem .6rem;border-radius:6px;border:1px solid var(--border);background:var(--bg-2)}
+.secret-masked{filter:blur(5px);user-select:none;transition:filter .2s}
+.secret-masked.revealed{filter:none}
+.empty-field{background:rgba(245,158,11,.06);border:1px dashed rgba(245,158,11,.3);border-radius:8px;padding:.7rem .9rem;color:#fcd34d;font-size:.8rem;display:flex;align-items:center;gap:.5rem;line-height:1.5}
+.empty-field svg{width:16px;height:16px;flex-shrink:0}
+.json-wrap{position:relative;background:#0a1020;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.json-toolbar{display:flex;align-items:center;justify-content:space-between;padding:.6rem .85rem;border-bottom:1px solid var(--border);background:var(--bg-2)}
+.json-toolbar-left{display:flex;align-items:center;gap:.6rem;font-size:.75rem;color:var(--text-dim)}
+.json-content{max-height:520px;overflow:auto;padding:1rem 1.25rem;font-family:'JetBrains Mono',monospace;font-size:.78rem;line-height:1.65;color:#cbd5e1;white-space:pre}
+.json-key{color:#7dd3fc}.json-string{color:#86efac}.json-number{color:#fbbf24}.json-bool{color:#f472b6}.json-null{color:#94a3b8}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;z-index:100;background:var(--surface-2);border:1px solid var(--border-strong);color:var(--text);padding:.8rem 1.1rem;border-radius:10px;font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.4);transform:translateY(20px);opacity:0;pointer-events:none;transition:transform .3s,opacity .3s;display:flex;align-items:center;gap:.6rem}
+.toast.show{transform:translateY(0);opacity:1}
+.toast svg{width:16px;height:16px;color:var(--ok)}
+@media(max-width:900px){
+  .app{grid-template-columns:1fr}
+  .sidebar{position:fixed;height:100vh;z-index:30;transform:translateX(-100%);transition:transform .3s;width:260px}
+  .sidebar.open{transform:translateX(0)}
+  .content{padding:1.25rem}
+  .topbar{padding:1rem 1.25rem}
+  .menu-btn{display:inline-flex!important}
+}
+.menu-btn{display:none;align-items:center;justify-content:center;width:38px;height:38px;border-radius:8px;background:var(--surface);border:1px solid var(--border-strong);color:var(--text)}
+.backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:20;opacity:0;pointer-events:none;transition:opacity .3s}
+.backdrop.show{opacity:1;pointer-events:auto}
+</style>
+</head>
 <body>
-  <p>Coloque aqui o conteúdo de <strong>cockerPitZAI.html</strong> e adapte
-     os <code>fetch</code> para consumir <code>/api/containers</code>.</p>
+<div class="app" id="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-title">Cockpit Docker</div>
+        <div class="brand-sub">Live — Read Only</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="nav-label">Navegação</div>
+      <nav class="nav">
+        <a class="nav-item active" data-target="overview">
+          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+          <span>Overview</span><span class="nav-kbd">1</span>
+        </a>
+        <a class="nav-item" data-target="estado">
+          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>
+          <span>Estado / Uptime</span><span class="nav-kbd">2</span>
+        </a>
+        <a class="nav-item" data-target="health">
+          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21l8.84-8.61a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          <span>Health Check</span><span class="nav-kbd">3</span>
+        </a>
+        <a class="nav-item" data-target="rede">
+          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          <span>Rede / Portas</span><span class="nav-kbd">4</span>
+        </a>
+        <a class="nav-item" data-target="volumes">
+          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          <span>Volumes</span><span class="nav-kbd">5</span>
+        </a>
+        <a class="nav-item" data-target="env">
+          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 3h16v18H4z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>
+          <span>Variáveis de Ambiente</span><span class="nav-kbd">6</span>
+        </a>
+        <a class="nav-item" data-target="json">
+          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H7a2 2 0 0 0-2 2v4M7 17a2 2 0 0 0 2 2h1"/><path d="M17 3h1a2 2 0 0 1 2 2v4M17 21h1a2 2 0 0 0 2-2v-4"/></svg>
+          <span>JSON Bruto</span><span class="nav-kbd">7</span>
+        </a>
+      </nav>
+    </div>
+
+    <div class="sidebar-foot">
+      <div class="live-indicator"><span class="live-dot"></span> Live</div>
+      <div style="margin-top:.4rem">Polling a cada <strong>5s</strong> &mdash; somente leitura.</div>
+    </div>
+  </aside>
+
+  <div class="backdrop" id="backdrop"></div>
+
+  <main class="main">
+    <header class="topbar">
+      <button class="menu-btn btn" id="menuBtn" aria-label="Menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="topbar-title">
+        <span id="topbarName">Cockpit Docker</span>
+        <span class="muted" id="topbarImage"></span>
+      </div>
+      <button class="btn" id="refreshBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Atualizar
+      </button>
+    </header>
+
+    <div class="content">
+      <!-- Seletor de containers -->
+      <div class="selector-wrap" id="selectorWrap" style="display:none">
+        <div class="nav-label" style="margin-bottom:.6rem">Containers</div>
+        <div class="container-list" id="containerList"></div>
+      </div>
+
+      <!-- Empty state -->
+      <div class="empty" id="emptyState" style="display:none">
+        <div class="empty-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        </div>
+        <h2>Nenhum container encontrado</h2>
+        <p>Nenhum container em execução ou parado. Verifique a conexão com o docker-socket-proxy.</p>
+      </div>
+
+      <!-- Hero -->
+      <section class="hero" id="overview" style="display:none">
+        <div class="hero-grid">
+          <div>
+            <div class="hero-eyebrow">Container</div>
+            <h1 class="hero-title" id="heroName">—</h1>
+            <p class="hero-sub" id="heroSub"></p>
+            <div class="hero-status-big" id="heroStatus"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- KPIs -->
+      <div class="kpis" id="kpis" style="display:none"></div>
+
+      <!-- Estado -->
+      <section class="section" id="estado" style="display:none">
+        <div class="section-head">
+          <div class="section-num">02</div>
+          <div class="section-head-text">
+            <h2 class="section-title">Estado / Uptime</h2>
+            <p class="section-desc">Status do processo, tempo em execução, código de saída e política de reinício.</p>
+          </div>
+        </div>
+        <div id="estadoContent" class="card-grid cols-3"></div>
+      </section>
+
+      <!-- Health -->
+      <section class="section" id="health" style="display:none">
+        <div class="section-head">
+          <div class="section-num">03</div>
+          <div class="section-head-text">
+            <h2 class="section-title">Health Check</h2>
+            <p class="section-desc">Resultado do HEALTHCHECK definido na imagem ou em <code>docker run</code>.</p>
+          </div>
+        </div>
+        <div id="healthContent"></div>
+      </section>
+
+      <!-- Rede -->
+      <section class="section" id="rede" style="display:none">
+        <div class="section-head">
+          <div class="section-num">04</div>
+          <div class="section-head-text">
+            <h2 class="section-title">Rede / Portas</h2>
+            <p class="section-desc">Portas publicadas no host, redes conectadas e IP interno.</p>
+          </div>
+        </div>
+        <div id="redeContent"></div>
+      </section>
+
+      <!-- Volumes -->
+      <section class="section" id="volumes" style="display:none">
+        <div class="section-head">
+          <div class="section-num">05</div>
+          <div class="section-head-text">
+            <h2 class="section-title">Volumes</h2>
+            <p class="section-desc">Bind mounts e volumes nomeados do container.</p>
+          </div>
+        </div>
+        <div id="volumesContent"></div>
+      </section>
+
+      <!-- Env -->
+      <section class="section" id="env" style="display:none">
+        <div class="section-head">
+          <div class="section-num">06</div>
+          <div class="section-head-text">
+            <h2 class="section-title">Variáveis de Ambiente</h2>
+            <p class="section-desc">Chaves como SECRET, TOKEN e PASSWORD são ofuscadas por padrão.</p>
+          </div>
+        </div>
+        <div id="envContent"></div>
+      </section>
+
+      <!-- JSON bruto -->
+      <section class="section" id="json" style="display:none">
+        <div class="section-head">
+          <div class="section-num">07</div>
+          <div class="section-head-text">
+            <h2 class="section-title">JSON Bruto</h2>
+            <p class="section-desc">Saída completa de <code>docker inspect</code> com syntax highlight.</p>
+          </div>
+        </div>
+        <div class="json-wrap">
+          <div class="json-toolbar">
+            <div class="json-toolbar-left"><span class="live-dot" style="width:6px;height:6px"></span><span>inspect</span><code id="jsonSize"></code></div>
+            <button class="btn" id="copyJson">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copiar
+            </button>
+          </div>
+          <pre class="json-content" id="jsonRaw"></pre>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+  <span id="toastMsg">Pronto!</span>
+</div>
+
+<script>
+'use strict';
+let currentData = null;
+let selectedContainerId = null;
+let pollTimer = null;
+
+/* =========================================================
+   Parser (docker inspect → objeto normalizado)
+   ========================================================= */
+function parseInspect(data){
+  const c = Array.isArray(data) ? data[0] : data;
+  if(!c) throw new Error('JSON vazio ou inválido');
+  const state  = c.State       || {};
+  const config = c.Config      || {};
+  const host   = c.HostConfig  || {};
+  const net    = c.NetworkSettings || {};
+  const health = state.Health  || null;
+  const startedAt = state.StartedAt ? new Date(state.StartedAt) : null;
+  const now = new Date();
+  let uptimeMs = 0;
+  if(state.Status === 'running' && startedAt) uptimeMs = now - startedAt;
+  return {
+    name: c.Name || '',
+    id:   c.Id   || '',
+    image: config.Image || '',
+    state: {
+      status: state.Status || 'unknown',
+      running:  !!state.Running,
+      paused:   !!state.Paused,
+      exitCode: state.ExitCode ?? null,
+      error:    state.Error || '',
+      pid:      state.Pid   ?? null,
+      startedAt, uptimeMs,
+      restartCount: state.RestartCount ?? 0,
+      health: health ? {
+        status: health.Status || 'none',
+        failingStreak: health.FailingStreak ?? 0,
+        log: (health.Log || []).map(l => ({
+          start:    l.Start ? new Date(l.Start) : null,
+          exitCode: l.ExitCode ?? null,
+          output:   l.Output || ''
+        }))
+      } : null
+    },
+    config: { cmd: config.Cmd || [], env: config.Env || [], entrypoint: config.Entrypoint || [] },
+    host: { portBindings: host.PortBindings || {}, restartPolicy: host.RestartPolicy || {} },
+    net:  { ip: net.IPAddress || '', ports: net.Ports || {}, networks: net.Networks || {} },
+    mounts: c.Mounts || [],
+    __raw: c
+  };
+}
+
+/* =========================================================
+   Helpers
+   ========================================================= */
+function fmtDuration(ms){
+  if(!ms || ms < 0) return '—';
+  const s=Math.floor(ms/1000),d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60),sec=s%60;
+  if(d>0) return `${d}d ${h}h ${m}m`;
+  if(h>0) return `${h}h ${m}m ${sec}s`;
+  if(m>0) return `${m}m ${sec}s`;
+  return `${sec}s`;
+}
+function fmtDate(d){ if(!d) return '—'; return d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+function shortId(id){ return id ? id.substring(0,12) : '—'; }
+function escapeHtml(s){ if(s==null) return ''; return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function isSecret(k){ return /SECRET|PASSWORD|TOKEN|KEY|CREDENTIAL|PRIVATE/i.test(k); }
+
+/* =========================================================
+   API
+   ========================================================= */
+async function fetchContainers(){
+  try {
+    const res = await fetch('/api/containers');
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    return await res.json();
+  } catch(err){ showToast('Erro ao listar containers: '+err.message, true); return []; }
+}
+async function fetchContainerDetail(id){
+  try {
+    const res = await fetch(`/api/containers/${id}/json`);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    render(parseInspect(data));
+  } catch(err){ showToast('Erro ao inspecionar container: '+err.message, true); }
+}
+
+/* =========================================================
+   Polling
+   ========================================================= */
+function startPolling(){
+  if(pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    const list = await fetchContainers();
+    renderChips(list);
+    if(selectedContainerId) fetchContainerDetail(selectedContainerId);
+  }, 5000);
+}
+
+/* =========================================================
+   Render: chips de containers
+   ========================================================= */
+function renderChips(containers){
+  const listEl = document.getElementById('containerList');
+  const wrapEl = document.getElementById('selectorWrap');
+  const emptyEl = document.getElementById('emptyState');
+  const sections = ['overview','kpis','estado','health','rede','volumes','env','json'];
+  if(!containers || !containers.length){
+    wrapEl.style.display='none'; emptyEl.style.display='block';
+    sections.forEach(id => { const el=document.getElementById(id); if(el) el.style.display='none'; });
+    return;
+  }
+  wrapEl.style.display='block'; emptyEl.style.display='none';
+  listEl.innerHTML = containers.map(c => {
+    const id   = c.Id;
+    const name = c.Names && c.Names[0] ? c.Names[0].replace(/^\//,'') : 'sem-nome';
+    const st   = c.State || 'unknown';
+    const img  = c.Image || '';
+    return `<div class="container-chip ${id===selectedContainerId?'active':''}" data-id="${id}">
+      <div class="chip-head">
+        <span class="chip-name">${escapeHtml(name)}</span>
+        <span class="status-pill ${st}" style="padding:.2rem .5rem;font-size:.7rem"><span class="dot"></span>${st}</span>
+      </div>
+      <div class="chip-image">${escapeHtml(img)}</div>
+    </div>`;
+  }).join('');
+  listEl.querySelectorAll('.container-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      selectedContainerId = chip.dataset.id;
+      listEl.querySelectorAll('.container-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      fetchContainerDetail(selectedContainerId);
+    });
+  });
+  if(!selectedContainerId || !containers.find(c=>c.Id===selectedContainerId)){
+    selectedContainerId = containers[0].Id;
+    listEl.querySelector('.container-chip').classList.add('active');
+    fetchContainerDetail(selectedContainerId);
+  }
+}
+
+/* =========================================================
+   Render: dashboard completo
+   ========================================================= */
+function render(data){
+  currentData = data;
+  const sections = ['overview','kpis','estado','health','rede','volumes','env','json'];
+  sections.forEach(id => { const el=document.getElementById(id); if(el) el.style.display='block'; });
+  document.getElementById('heroName').textContent = data.name || data.id || '—';
+  const subParts = [];
+  if(data.image) subParts.push(`<code>${escapeHtml(data.image)}</code>`);
+  if(data.id)    subParts.push(`ID <code>${shortId(data.id)}</code>`);
+  document.getElementById('heroSub').innerHTML = subParts.join(' · ');
+  document.getElementById('topbarName').textContent  = data.name;
+  document.getElementById('topbarImage').textContent = data.image;
+  const heroStatus = document.getElementById('heroStatus');
+  heroStatus.innerHTML = '';
+  heroStatus.appendChild(makeStatusPill(data.state.status));
+  if(data.state.health) heroStatus.appendChild(makeStatusPill(data.state.health.status));
+  if(data.host.restartPolicy && data.host.restartPolicy.Name){
+    const rp = document.createElement('div');
+    rp.className = 'restart-policy';
+    rp.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/></svg>${data.host.restartPolicy.Name}`;
+    heroStatus.appendChild(rp);
+  }
+  renderKpis(data); renderEstado(data); renderHealth(data); renderRede(data); renderVolumes(data); renderEnv(data); renderJson(data);
+  document.querySelectorAll('.section').forEach(s => s.classList.add('in'));
+}
+
+function makeStatusPill(status){
+  const map = {running:'running',paused:'paused',exited:'exited',created:'created',dead:'dead',restarting:'restarting',healthy:'healthy',unhealthy:'unhealthy',starting:'starting','no healthcheck':'none',none:'none'};
+  const cls = map[status] || 'none';
+  const p = document.createElement('div');
+  p.className = `status-pill ${cls}`;
+  p.innerHTML = `<span class="dot"></span><span>${escapeHtml(status)}</span>`;
+  return p;
+}
+
+function renderKpis(data){
+  const defs = [
+    {label:'Status', value:data.state.status, sub:data.state.running?'Container ativo':'Container parado', cls:data.state.running?'kpi-ok':'kpi-bad'},
+    {label:'Uptime', value:fmtDuration(data.state.uptimeMs), sub:data.state.running?'Tempo desde start':'Não está rodando', cls:data.state.running?'kpi-ok':'kpi-warn'},
+  ];
+  let hv='—',hs='Sem healthcheck',hc='kpi-warn';
+  if(data.state.health){ hv=data.state.health.status; hs=data.state.health.failingStreak>0?`${data.state.health.failingStreak} falhas`:'OK'; hc=data.state.health.status==='healthy'?'kpi-ok':data.state.health.status==='unhealthy'?'kpi-bad':'kpi-warn'; }
+  defs.push({label:'Health',value:hv,sub:hs,cls:hc});
+  let portCount=0; Object.keys(data.host.portBindings||{}).forEach(k=>{if(data.host.portBindings[k]) portCount+=data.host.portBindings[k].length;});
+  defs.push({label:'Portas',value:portCount,sub:portCount>0?'Bindings no host':'Nenhuma porta exposta',cls:'kpi-accent'});
+  const netCount=Object.keys(data.net.networks).length;
+  defs.push({label:'Redes',value:netCount,sub:netCount>0?'Conectado':'Sem rede',cls:'kpi-accent'});
+  defs.push({label:'Volumes',value:data.mounts.length,sub:data.mounts.length>0?'Mounts ativos':'Sem mounts',cls:'kpi-accent'});
+  defs.push({label:'Restarts',value:data.state.restartCount,sub:data.state.restartCount>0?'Política atuou':'Sem reinícios',cls:data.state.restartCount>0?'kpi-warn':'kpi-ok'});
+  const icons={Status:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0M12 2v10"/></svg>',Uptime:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>',Health:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>',Portas:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/></svg>',Redes:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><path d="M12 8v8"/></svg>',Volumes:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>',Restarts:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 4v4h4"/></svg>'};
+  document.getElementById('kpis').innerHTML = defs.map(k=>`<div class="kpi ${k.cls}"><div class="kpi-label">${icons[k.label]||''}${k.label}</div><div class="kpi-value">${escapeHtml(String(k.value))}</div><div class="kpi-sub">${escapeHtml(k.sub)}</div></div>`).join('');
+}
+
+function renderEstado(data){
+  const s = data.state;
+  const fields = [
+    {label:'Status',   value:s.status},
+    {label:'Running',  value:s.running?'true':'false'},
+    {label:'Started',  value:fmtDate(s.startedAt)},
+    {label:'Uptime',   value:fmtDuration(s.uptimeMs)},
+    {label:'Exit Code',value:s.exitCode},
+    {label:'PID',      value:s.pid},
+    {label:'Restarts', value:s.restartCount},
+    {label:'Error',    value:s.error||'—'},
+    {label:'Restart Policy', value:data.host.restartPolicy.Name||'no'},
+  ];
+  document.getElementById('estadoContent').innerHTML = fields.map(f=>`<div class="field"><div class="field-label">${f.label}</div><div class="field-value">${escapeHtml(String(f.value??'—'))}</div></div>`).join('');
+}
+
+function renderHealth(data){
+  const h = data.state.health;
+  if(!h){ document.getElementById('healthContent').innerHTML = `<div class="empty-field"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>Nenhum HEALTHCHECK definido neste container.</div>`; return; }
+  const logHtml = h.log.length ? h.log.slice().reverse().map(l=>{
+    const ok = l.exitCode===0;
+    return `<div class="log-entry ${ok?'ok':'fail'}"><div class="log-entry-head"><span class="log-exit ${ok?'exit-0':'exit-nonzero'}">exit ${l.exitCode}</span><span class="log-time">${fmtDate(l.start)}</span></div>${l.output?`<div class="log-output">${escapeHtml(l.output.trim().slice(0,500))}</div>`:''}</div>`;
+  }).join('') : '<div class="empty-field">Sem entradas de log de health.</div>';
+  document.getElementById('healthContent').innerHTML = `<div class="card-grid cols-2" style="margin-bottom:1rem"><div class="field"><div class="field-label">Status</div><div class="field-value">${h.status}</div></div><div class="field"><div class="field-label">Failing Streak</div><div class="field-value">${h.failingStreak}</div></div></div><div class="nav-label" style="margin:.5rem 0">Log de Execuções</div><div class="health-log">${logHtml}</div>`;
+}
+
+function renderRede(data){
+  const pb = data.host.portBindings;
+  const portKeys = Object.keys(pb||{}).filter(k=>pb[k]);
+  let portHtml = portKeys.length ? `<div class="port-viz">${portKeys.map(k=>pb[k].map(b=>`<div class="port-row"><div class="port-side"><div><span class="port-label">Host</span><span class="port-num">${escapeHtml(b.HostPort)}</span><div class="port-ip">${b.HostIp||'0.0.0.0'}</div></div></div><div class="port-arrow"><svg viewBox="0 0 34 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M0 7h28M22 1l6 6-6 6"/></svg></div><div class="port-side port-ctn"><div><span class="port-label">Container</span><span class="port-num">${escapeHtml(k.split('/')[0])}</span></div></div></div>`).join('')).join('')}</div>` : '<div class="empty-field">Nenhuma porta publicada no host.</div>';
+  const nets = Object.entries(data.net.networks);
+  let netHtml = nets.length ? `<div class="table-wrap"><table><thead><tr><th>Rede</th><th>Driver</th><th>IP</th><th>Gateway</th></tr></thead><tbody>${nets.map(([name,n])=>`<tr><td>${escapeHtml(name)}</td><td>${escapeHtml(n.Driver||'')}</td><td>${escapeHtml(n.IPAddress||'')}</td><td>${escapeHtml(n.Gateway||'')}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty-field">Sem redes conectadas.</div>';
+  document.getElementById('redeContent').innerHTML = `<div class="nav-label" style="margin-bottom:.5rem">Portas Publicadas</div>${portHtml}<div class="nav-label" style="margin-top:1.5rem;margin-bottom:.5rem">Redes Conectadas</div>${netHtml}`;
+}
+
+function renderVolumes(data){
+  if(!data.mounts.length){ document.getElementById('volumesContent').innerHTML = '<div class="empty-field">Nenhum volume ou bind mount neste container.</div>'; return; }
+  document.getElementById('volumesContent').innerHTML = `<div class="table-wrap"><table><thead><tr><th>Tipo</th><th>Origem</th><th>Destino</th><th>Modo</th><th>RW</th></tr></thead><tbody>${data.mounts.map(m=>`<tr><td><span class="badge ${m.Type==='volume'?'badge-info':'badge-neutral'}">${m.Type||'—'}</span></td><td>${escapeHtml(m.Source||m.Name||'')}</td><td>${escapeHtml(m.Destination||'')}</td><td>${escapeHtml(m.Mode||'')}</td><td>${m.RW===false?'<span class="badge badge-warn">ro</span>':'<span class="badge badge-ok">rw</span>'}</td></tr>`).join('')}</tbody></table></div>`;
+}
+
+function renderEnv(data){
+  const envs = data.config.env;
+  if(!envs.length){ document.getElementById('envContent').innerHTML='<div class="empty-field">Sem variáveis de ambiente.</div>'; return; }
+  const rows = envs.map(e=>{
+    const idx=e.indexOf('='), k=idx>=0?e.slice(0,idx):e, v=idx>=0?e.slice(idx+1):'';
+    const masked = isSecret(k) ? '••••••••' : v;
+    return `<tr><td><strong>${escapeHtml(k)}</strong></td><td class="${isSecret(k)?'secret-masked':''}">${escapeHtml(masked)}</td></tr>`;
+  }).join('');
+  document.getElementById('envContent').innerHTML = `<label class="secret-toggle"><input type="checkbox" id="revealSecrets"> Mostrar valores sensíveis</label><div class="table-wrap" style="margin-top:.75rem"><table><thead><tr><th>Variável</th><th>Valor</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  document.getElementById('revealSecrets')?.addEventListener('change',e=>{ document.querySelectorAll('.secret-masked').forEach(el=>el.classList.toggle('revealed',e.target.checked)); });
+}
+
+function renderJson(data){
+  const pretty = JSON.stringify(data.__raw||data, null, 2);
+  const highlighted = pretty
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/(["\w]+:?(?:true|false|null|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)?)/g, m => {
+      if(/^".*":$/.test(m)) return `<span class="json-key">${m}</span>`;
+      if(/^"/.test(m))      return `<span class="json-string">${m}</span>`;
+      if(/true|false/.test(m)) return `<span class="json-bool">${m}</span>`;
+      if(m==='null')           return `<span class="json-null">${m}</span>`;
+      if(/^-?\d/.test(m))      return `<span class="json-number">${m}</span>`;
+      return m;
+    });
+  document.getElementById('jsonRaw').innerHTML = highlighted;
+  const sizeKb = (new Blob([pretty]).size/1024).toFixed(1);
+  document.getElementById('jsonSize').textContent = sizeKb+' KB';
+}
+
+/* =========================================================
+   Toast
+   ========================================================= */
+function showToast(msg, isError=false){
+  const toast=document.getElementById('toast');
+  document.getElementById('toastMsg').textContent=msg;
+  toast.classList.toggle('error',isError);
+  toast.classList.add('show');
+  setTimeout(()=>toast.classList.remove('show'),3000);
+}
+
+/* =========================================================
+   Nav + Scroll spy
+   ========================================================= */
+document.querySelectorAll('.nav-item').forEach(item=>{
+  item.addEventListener('click',e=>{
+    e.preventDefault();
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+    item.classList.add('active');
+    document.getElementById(item.dataset.target)?.scrollIntoView({behavior:'smooth',block:'start'});
+  });
+});
+document.addEventListener('keydown',e=>{
+  if(e.altKey && /[1-7]/.test(e.key)){
+    e.preventDefault();
+    document.querySelectorAll('.nav-item')[parseInt(e.key)-1]?.click();
+  }
+});
+const spy=new IntersectionObserver(entries=>{
+  entries.forEach(entry=>{
+    if(entry.isIntersecting){
+      const id=entry.target.id;
+      document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.target===id));
+    }
+  });
+},{rootMargin:'-30px 0px -50% 0px'});
+document.querySelectorAll('.section').forEach(s=>spy.observe(s));
+
+/* =========================================================
+   Mobile menu
+   ========================================================= */
+document.getElementById('menuBtn')?.addEventListener('click',()=>{
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('backdrop').classList.toggle('show');
+});
+document.getElementById('backdrop')?.addEventListener('click',()=>{
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('backdrop').classList.remove('show');
+});
+
+/* =========================================================
+   Copy JSON
+   ========================================================= */
+document.getElementById('copyJson')?.addEventListener('click',()=>{
+  if(!currentData) return;
+  navigator.clipboard.writeText(JSON.stringify(currentData.__raw||currentData,null,2))
+    .then(()=>showToast('JSON copiado!'))
+    .catch(()=>showToast('Falha ao copiar',true));
+});
+
+/* =========================================================
+   Refresh manual
+   ========================================================= */
+document.getElementById('refreshBtn')?.addEventListener('click',async()=>{
+  const list=await fetchContainers();
+  renderChips(list);
+  if(selectedContainerId) fetchContainerDetail(selectedContainerId);
+  showToast('Atualizado!');
+});
+
+/* =========================================================
+   Boot
+   ========================================================= */
+window.addEventListener('DOMContentLoaded',async()=>{
+  const list=await fetchContainers();
+  renderChips(list);
+  startPolling();
+});
+</script>
 </body>
 </html>
