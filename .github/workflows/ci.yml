@@ -50,22 +50,25 @@ jobs:
       - name: Subir servicos
         run: docker compose up -d docker-socket-proxy app
 
-      - name: Aguardar app ficar saudavel
+      # O app fica na rede 'internal' (isolada) — o runner nao acessa via localhost.
+      # Usamos `docker compose exec` para rodar wget de DENTRO do container.
+      - name: Aguardar app ficar saudavel (exec interno)
         run: |
           for i in 1 2 3 4 5 6 7 8 9; do
             echo "Tentativa $i..."
-            curl -sf http://localhost:8000/health && exit 0
+            docker compose exec app wget -qO- http://localhost:8000/health && exit 0
             sleep 5
           done
           echo "Timeout: app nao respondeu"
           docker compose logs app
+          docker compose logs docker-socket-proxy
           exit 1
 
-      - name: Smoke test endpoints
+      - name: Smoke test endpoints (exec interno)
         run: |
-          curl -sf http://localhost:8000/health
-          curl -sf http://localhost:8000/api/containers
-          curl -sf http://localhost:8000/api/info
+          docker compose exec app wget -qO- http://localhost:8000/health
+          docker compose exec app wget -qO- http://localhost:8000/api/containers
+          docker compose exec app wget -qO- http://localhost:8000/api/info
 
       - name: Derrubar servicos
         if: always()
