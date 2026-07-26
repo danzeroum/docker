@@ -22,70 +22,94 @@ html,body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;
 
 /* ── Layout ── */
 .shell{display:grid;grid-template-rows:56px 1fr;height:100vh;overflow:hidden}
-.topbar{display:flex;align-items:center;gap:1rem;padding:0 1.5rem;background:var(--bg2);border-bottom:1px solid var(--border);z-index:20}
-.brand{display:flex;align-items:center;gap:.6rem;font-weight:800;font-size:.95rem;letter-spacing:-.02em}
+.topbar{display:flex;align-items:center;gap:.75rem;padding:0 1.25rem;background:var(--bg2);border-bottom:1px solid var(--border);z-index:20;flex-wrap:nowrap}
+.brand{display:flex;align-items:center;gap:.6rem;font-weight:800;font-size:.95rem;letter-spacing:-.02em;flex-shrink:0}
 .brand-logo{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#2496ED,#0db7ed);display:grid;place-items:center;box-shadow:0 2px 8px rgba(36,150,237,.4)}
 .brand-logo svg{width:16px;height:16px;color:#fff}
-.live{display:flex;align-items:center;gap:.4rem;font-size:.72rem;color:var(--ok);font-weight:600}
+.live{display:flex;align-items:center;gap:.4rem;font-size:.72rem;color:var(--ok);font-weight:600;flex-shrink:0}
 .pulse{width:7px;height:7px;border-radius:50%;background:var(--ok);position:relative}
 .pulse::after{content:'';position:absolute;inset:-4px;border-radius:50%;background:var(--ok);opacity:.4;animation:p 2s ease infinite}
 @keyframes p{0%{transform:scale(.7);opacity:.6}100%{transform:scale(2);opacity:0}}
-.top-stats{display:flex;gap:.6rem;margin-left:.5rem}
-.top-badge{display:inline-flex;align-items:center;gap:.35rem;padding:.25rem .6rem;border-radius:6px;font-size:.72rem;font-weight:600;border:1px solid}
+.top-stats{display:flex;gap:.4rem;flex-wrap:nowrap}
+.top-badge{display:inline-flex;align-items:center;gap:.3rem;padding:.22rem .55rem;border-radius:6px;font-size:.7rem;font-weight:600;border:1px solid;cursor:pointer;white-space:nowrap;transition:opacity .15s}
+.top-badge:hover{opacity:.8}
 .top-badge.ok{background:var(--ok-s);color:#86efac;border-color:rgba(34,197,94,.25)}
 .top-badge.warn{background:var(--warn-s);color:#fcd34d;border-color:rgba(245,158,11,.25)}
 .top-badge.bad{background:var(--bad-s);color:#fca5a5;border-color:rgba(239,68,68,.25)}
 .top-badge.info{background:rgba(36,150,237,.12);color:#7dd3fc;border-color:rgba(36,150,237,.25)}
-.spacer{flex:1}
-.btn{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .7rem;border-radius:7px;font-size:.75rem;font-weight:500;border:1px solid var(--border2);background:var(--surface);color:var(--text);cursor:pointer;font-family:inherit;transition:background .15s}
+.top-badge.neu{background:var(--neu-s);color:#cbd5e1;border-color:rgba(100,116,139,.25)}
+.top-badge.active-filter{outline:2px solid currentColor;outline-offset:1px}
+.spacer{flex:1;min-width:.5rem}
+.btn{display:inline-flex;align-items:center;gap:.35rem;padding:.32rem .65rem;border-radius:7px;font-size:.73rem;font-weight:500;border:1px solid var(--border2);background:var(--surface);color:var(--text);cursor:pointer;font-family:inherit;transition:background .15s;flex-shrink:0;white-space:nowrap}
 .btn:hover{background:var(--surface2)}
-.btn svg{width:13px;height:13px}
-.filter-wrap{display:flex;gap:.4rem;align-items:center}
-.filter-input{background:var(--surface);border:1px solid var(--border2);border-radius:7px;padding:.35rem .7rem;font-size:.78rem;color:var(--text);font-family:inherit;width:180px;outline:none}
-.filter-input:focus{border-color:rgba(36,150,237,.5)}
+.btn svg{width:12px;height:12px}
+.btn.danger{border-color:rgba(239,68,68,.3);color:#fca5a5}
+.btn.danger:hover{background:var(--bad-s)}
+.filter-wrap{display:flex;gap:.4rem;align-items:center;flex-shrink:1;min-width:0}
+.filter-input{background:var(--surface);border:1px solid var(--border2);border-radius:7px;padding:.32rem .65rem;font-size:.76rem;color:var(--text);font-family:inherit;width:160px;outline:none;transition:border-color .2s,width .2s}
+.filter-input:focus{border-color:rgba(36,150,237,.5);width:220px}
+.sort-sel{background:var(--surface);border:1px solid var(--border2);border-radius:7px;padding:.32rem .55rem;font-size:.73rem;color:var(--dim);font-family:inherit;outline:none;cursor:pointer}
+.sort-sel:focus{border-color:rgba(36,150,237,.5)}
 
 /* ── Main body ── */
-.body{display:grid;grid-template-columns:1fr 420px;overflow:hidden}
+.body{display:grid;grid-template-columns:1fr 420px;overflow:hidden;height:100%}
 .body.no-detail{grid-template-columns:1fr}
 
 /* ── Left: projects ── */
-.projects{overflow-y:auto;padding:1.25rem;display:flex;flex-direction:column;gap:1.25rem}
+.projects{overflow-y:auto;padding:1.25rem;display:flex;flex-direction:column;gap:1rem}
 .projects::-webkit-scrollbar{width:5px}
 .projects::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
 
+/* ── Host Overview (shown when nothing selected) ── */
+.host-overview{display:flex;flex-direction:column;gap:1rem}
+.host-hero{background:linear-gradient(135deg,var(--surface) 0%,var(--bg2) 100%);border:1px solid var(--border2);border-radius:14px;padding:1.5rem}
+.host-hero h2{font-size:1.25rem;font-weight:800;letter-spacing:-.02em;margin-bottom:.35rem}
+.host-hero p{color:var(--dim);font-size:.82rem;line-height:1.6;margin-bottom:1.25rem}
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.75rem}
+.kpi{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:.9rem 1rem;cursor:pointer;transition:all .2s}
+.kpi:hover{transform:translateY(-2px);border-color:var(--accent)}
+.kpi-label{font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);font-weight:600;margin-bottom:.35rem}
+.kpi-value{font-family:'JetBrains Mono',monospace;font-size:1.75rem;font-weight:700;letter-spacing:-.02em;line-height:1}
+.kpi.kpi-ok .kpi-value{color:#86efac}
+.kpi.kpi-warn .kpi-value{color:#fcd34d}
+.kpi.kpi-bad .kpi-value{color:#fca5a5}
+.kpi.kpi-accent .kpi-value{color:#7dd3fc}
+
 /* ── Project group ── */
 .project{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden}
-.project-header{display:flex;align-items:center;gap:.75rem;padding:.85rem 1.1rem;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;transition:background .15s}
+.project-header{display:flex;align-items:center;gap:.75rem;padding:.8rem 1rem;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;transition:background .15s}
 .project-header:hover{background:var(--surface2)}
-.project-icon{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,rgba(36,150,237,.25),rgba(36,150,237,.08));border:1px solid rgba(36,150,237,.3);display:grid;place-items:center;flex-shrink:0}
-.project-icon svg{width:15px;height:15px;color:var(--accent2)}
-.project-name{font-weight:700;font-size:.9rem;flex:1}
-.project-meta{font-size:.72rem;color:var(--dim)}
-.project-chevron{color:var(--dim);transition:transform .2s}
+.project-icon{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,rgba(36,150,237,.2),rgba(36,150,237,.06));border:1px solid rgba(36,150,237,.25);display:grid;place-items:center;flex-shrink:0}
+.project-icon svg{width:14px;height:14px;color:var(--accent2)}
+.project-name{font-weight:700;font-size:.88rem;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.project-meta{font-size:.7rem;color:var(--dim);white-space:nowrap}
+.project-chevron{color:var(--dim);transition:transform .2s;flex-shrink:0}
 .project.collapsed .project-chevron{transform:rotate(-90deg)}
-.project-body{display:flex;flex-direction:column;gap:0}
+.project-body{display:flex;flex-direction:column}
 .project.collapsed .project-body{display:none}
+/* Project summary row (click on header → show in main panel) */
+.project-click-hint{font-size:.62rem;color:var(--mute);margin-left:auto;padding:.15rem .4rem;border:1px solid var(--border);border-radius:4px;white-space:nowrap;flex-shrink:0}
 
 /* ── Container row ── */
-.ctr-row{display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:.75rem;padding:.75rem 1.1rem;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s}
+.ctr-row{display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:.65rem;padding:.7rem 1rem;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s}
 .ctr-row:last-child{border-bottom:none}
 .ctr-row:hover{background:rgba(36,150,237,.05)}
 .ctr-row.active{background:rgba(36,150,237,.09);border-left:3px solid var(--accent)}
-.ctr-name{font-weight:600;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ctr-image{font-size:.7rem;color:var(--dim);font-family:'JetBrains Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:.15rem}
+.ctr-name{font-weight:600;font-size:.84rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ctr-image{font-size:.69rem;color:var(--dim);font-family:'JetBrains Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:.12rem}
 .status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .status-dot.running{background:var(--ok);box-shadow:0 0 6px rgba(34,197,94,.5)}
 .status-dot.exited,.status-dot.dead,.status-dot.created{background:var(--neu)}
 .status-dot.paused{background:var(--warn)}
 .status-dot.restarting{background:var(--accent)}
 .status-dot.unhealthy{background:var(--bad);box-shadow:0 0 6px rgba(239,68,68,.4)}
-.status-tag{font-size:.68rem;font-weight:600;padding:.2rem .5rem;border-radius:5px;white-space:nowrap}
+.status-tag{font-size:.67rem;font-weight:600;padding:.18rem .45rem;border-radius:5px;white-space:nowrap}
 .status-tag.running{background:var(--ok-s);color:#86efac}
 .status-tag.exited,.status-tag.dead,.status-tag.created{background:var(--neu-s);color:#cbd5e1}
 .status-tag.paused{background:var(--warn-s);color:#fcd34d}
 .status-tag.restarting{background:rgba(36,150,237,.14);color:#7dd3fc}
 .status-tag.unhealthy{background:var(--bad-s);color:#fca5a5}
-.health-tag{font-size:.65rem;padding:.2rem .45rem;border-radius:5px;font-weight:600;white-space:nowrap}
+.health-tag{font-size:.64rem;padding:.18rem .4rem;border-radius:5px;font-weight:600;white-space:nowrap}
 .health-tag.healthy{background:var(--ok-s);color:#86efac}
 .health-tag.unhealthy{background:var(--bad-s);color:#fca5a5}
 .health-tag.starting{background:rgba(36,150,237,.14);color:#7dd3fc}
@@ -94,29 +118,29 @@ html,body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;
 .detail{background:var(--bg2);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
 .detail::-webkit-scrollbar{width:5px}
 .detail::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
-.detail-header{position:sticky;top:0;background:var(--bg2);border-bottom:1px solid var(--border);padding:1rem 1.25rem;z-index:5}
-.detail-header-top{display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem}
-.detail-close{background:none;border:1px solid var(--border2);border-radius:6px;color:var(--dim);cursor:pointer;padding:.3rem .5rem;font-size:.8rem;line-height:1;transition:color .15s}
+.detail-header{position:sticky;top:0;background:var(--bg2);border-bottom:1px solid var(--border);padding:.9rem 1.1rem;z-index:5}
+.detail-header-top{display:flex;align-items:center;gap:.6rem;margin-bottom:.45rem}
+.detail-close{background:none;border:1px solid var(--border2);border-radius:6px;color:var(--dim);cursor:pointer;padding:.28rem .45rem;font-size:.78rem;line-height:1;transition:color .15s;flex-shrink:0}
 .detail-close:hover{color:var(--text)}
-.detail-name{font-size:1.05rem;font-weight:800;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.detail-image{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--dim)}
-.detail-status-row{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.4rem}
-
-.detail-body{padding:1.25rem;display:flex;flex-direction:column;gap:1rem;flex:1}
+.detail-name{font-size:1rem;font-weight:800;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.detail-image{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--dim);margin-bottom:.35rem}
+.detail-status-row{display:flex;gap:.35rem;flex-wrap:wrap}
+.detail-body{padding:1.1rem;display:flex;flex-direction:column;gap:.85rem;flex:1}
 
 /* Tabs */
 .tabs{display:flex;gap:2px;background:var(--surface);border-radius:9px;padding:3px;flex-wrap:wrap}
-.tab{padding:.35rem .75rem;border-radius:7px;font-size:.75rem;font-weight:600;cursor:pointer;color:var(--dim);border:none;background:none;font-family:inherit;transition:background .15s,color .15s}
+.tab{padding:.32rem .7rem;border-radius:7px;font-size:.73rem;font-weight:600;cursor:pointer;color:var(--dim);border:none;background:none;font-family:inherit;transition:background .15s,color .15s}
+.tab:hover{color:var(--text)}
 .tab.active{background:var(--surface2);color:var(--text)}
 .tab-panel{display:none}
 .tab-panel.active{display:block}
 
 /* Cards */
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
-.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.6rem}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:.8rem .9rem}
-.card-label{font-size:.65rem;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);font-weight:600;margin-bottom:.3rem}
-.card-value{font-family:'JetBrains Mono',monospace;font-size:.85rem;color:var(--text);word-break:break-all;line-height:1.4}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:.55rem}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.55rem}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:.75rem .85rem}
+.card-label{font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);font-weight:600;margin-bottom:.28rem}
+.card-value{font-family:'JetBrains Mono',monospace;font-size:.83rem;color:var(--text);word-break:break-all;line-height:1.4}
 .card-value.ok{color:#86efac}
 .card-value.bad{color:#fca5a5}
 .card-value.warn{color:#fcd34d}
@@ -124,76 +148,94 @@ html,body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;
 
 /* Tables */
 .tbl-wrap{border:1px solid var(--border);border-radius:9px;overflow:hidden}
-table{width:100%;border-collapse:collapse;font-size:.78rem}
-th{text-align:left;font-size:.63rem;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);font-weight:600;padding:.55rem .8rem;background:var(--surface);border-bottom:1px solid var(--border)}
-td{padding:.6rem .8rem;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--text)}
+table{width:100%;border-collapse:collapse;font-size:.77rem}
+th{text-align:left;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);font-weight:600;padding:.5rem .75rem;background:var(--surface);border-bottom:1px solid var(--border)}
+td{padding:.55rem .75rem;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:.73rem;color:var(--text)}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:rgba(36,150,237,.04)}
-.badge{display:inline-flex;align-items:center;padding:1px 6px;border-radius:4px;font-size:.67rem;font-weight:600;font-family:'JetBrains Mono',monospace}
+.badge{display:inline-flex;align-items:center;padding:1px 6px;border-radius:4px;font-size:.65rem;font-weight:600;font-family:'JetBrains Mono',monospace}
 .badge.ok{background:var(--ok-s);color:#86efac}
 .badge.warn{background:var(--warn-s);color:#fcd34d}
 .badge.info{background:rgba(36,150,237,.14);color:#7dd3fc}
 .badge.neu{background:var(--neu-s);color:#cbd5e1}
 
 /* Port viz */
-.port-row{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:.6rem;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:.65rem .85rem;margin-bottom:.5rem}
-.port-lbl{font-size:.6rem;color:var(--mute);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:.2rem}
-.port-num{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:600}
+.port-row{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:.6rem;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:.6rem .8rem;margin-bottom:.45rem}
+.port-lbl{font-size:.59rem;color:var(--mute);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:.18rem}
+.port-num{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:600}
 .port-arr{color:var(--accent2)}
 
 /* Env */
-.env-row{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:.4rem}
-.env-k{font-family:'JetBrains Mono',monospace;font-size:.73rem;color:var(--accent2);word-break:break-all}
-.env-v{font-family:'JetBrains Mono',monospace;font-size:.73rem;color:var(--text);word-break:break-all}
+.env-row{display:grid;grid-template-columns:1fr 1fr;gap:.45rem;margin-bottom:.35rem}
+.env-k{font-family:'JetBrains Mono',monospace;font-size:.71rem;color:var(--accent2);word-break:break-all}
+.env-v{font-family:'JetBrains Mono',monospace;font-size:.71rem;color:var(--text);word-break:break-all}
 .env-secret{filter:blur(4px);transition:filter .2s;user-select:none}
 .env-secret.reveal{filter:none}
-.reveal-toggle{display:flex;align-items:center;gap:.4rem;font-size:.72rem;color:var(--dim);cursor:pointer;margin-bottom:.6rem;padding:.3rem .6rem;border:1px solid var(--border);border-radius:6px;background:none;font-family:inherit}
+.reveal-toggle{display:flex;align-items:center;gap:.4rem;font-size:.71rem;color:var(--dim);cursor:pointer;margin-bottom:.55rem;padding:.28rem .55rem;border:1px solid var(--border);border-radius:6px;background:none;font-family:inherit}
 
 /* Logs */
-.log-box{background:#060c18;border:1px solid var(--border);border-radius:9px;padding:.85rem;font-family:'JetBrains Mono',monospace;font-size:.72rem;line-height:1.65;color:#94a3b8;max-height:380px;overflow-y:auto;white-space:pre-wrap;word-break:break-word}
+.log-box{background:#060c18;border:1px solid var(--border);border-radius:9px;padding:.8rem;font-family:'JetBrains Mono',monospace;font-size:.7rem;line-height:1.65;color:#94a3b8;max-height:380px;overflow-y:auto;white-space:pre-wrap;word-break:break-word}
 .log-box::-webkit-scrollbar{width:4px}
 .log-box::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
-.log-loading{color:var(--dim);padding:.5rem;font-size:.75rem}
-.log-toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem}
+.log-loading{color:var(--dim);padding:.5rem;font-size:.73rem}
+.log-toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:.45rem}
 
 /* JSON */
-.json-box{background:#060c18;border:1px solid var(--border);border-radius:9px;padding:.85rem;font-family:'JetBrains Mono',monospace;font-size:.71rem;line-height:1.6;max-height:440px;overflow:auto;white-space:pre;color:#94a3b8}
+.json-box{background:#060c18;border:1px solid var(--border);border-radius:9px;padding:.8rem;font-family:'JetBrains Mono',monospace;font-size:.69rem;line-height:1.6;max-height:440px;overflow:auto;white-space:pre;color:#94a3b8}
 .jk{color:#7dd3fc}.js{color:#86efac}.jn{color:#fbbf24}.jb{color:#f472b6}.jnu{color:#94a3b8}
 
 /* Health log */
-.hlog{display:flex;flex-direction:column;gap:.45rem;max-height:300px;overflow-y:auto}
-.hlog-entry{background:var(--surface);border-left:3px solid;border-radius:7px;padding:.55rem .75rem;font-size:.73rem}
+.hlog{display:flex;flex-direction:column;gap:.4rem;max-height:280px;overflow-y:auto}
+.hlog-entry{background:var(--surface);border-left:3px solid;border-radius:7px;padding:.5rem .7rem;font-size:.71rem}
 .hlog-entry.ok{border-color:var(--ok)}
 .hlog-entry.fail{border-color:var(--bad)}
-.hlog-meta{display:flex;gap:.5rem;align-items:center;margin-bottom:.25rem;flex-wrap:wrap}
-.exit-badge{font-family:'JetBrains Mono',monospace;font-size:.68rem;font-weight:600;padding:1px 6px;border-radius:4px}
+.hlog-meta{display:flex;gap:.45rem;align-items:center;margin-bottom:.2rem;flex-wrap:wrap}
+.exit-badge{font-family:'JetBrains Mono',monospace;font-size:.66rem;font-weight:600;padding:1px 6px;border-radius:4px}
 .exit-badge.ok{background:var(--ok-s);color:#86efac}
 .exit-badge.bad{background:var(--bad-s);color:#fca5a5}
-.hlog-time{font-size:.67rem;color:var(--mute)}
-.hlog-out{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--dim);background:rgba(0,0,0,.3);padding:.35rem .5rem;border-radius:4px;max-height:70px;overflow-y:auto;margin-top:.25rem;white-space:pre-wrap;word-break:break-word}
+.hlog-time{font-size:.65rem;color:var(--mute)}
+.hlog-out{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--dim);background:rgba(0,0,0,.3);padding:.3rem .45rem;border-radius:4px;max-height:65px;overflow-y:auto;margin-top:.22rem;white-space:pre-wrap;word-break:break-word}
 
 /* Empty / info */
-.empty-msg{background:rgba(245,158,11,.06);border:1px dashed rgba(245,158,11,.25);border-radius:8px;padding:.65rem .85rem;color:#fcd34d;font-size:.77rem;display:flex;align-items:center;gap:.4rem}
-.empty-msg svg{width:14px;height:14px;flex-shrink:0}
+.empty-msg{background:rgba(245,158,11,.06);border:1px dashed rgba(245,158,11,.25);border-radius:8px;padding:.6rem .8rem;color:#fcd34d;font-size:.75rem;display:flex;align-items:center;gap:.4rem}
+.empty-msg svg{width:13px;height:13px;flex-shrink:0}
+.sec-label{font-size:.62rem;letter-spacing:.15em;text-transform:uppercase;color:var(--mute);font-weight:600;margin-bottom:.35rem;margin-top:.15rem}
 
-/* Section label */
-.sec-label{font-size:.64rem;letter-spacing:.15em;text-transform:uppercase;color:var(--mute);font-weight:600;margin-bottom:.4rem;margin-top:.2rem}
+/* Project detail in main panel */
+.proj-detail{display:flex;flex-direction:column;gap:.85rem}
+.proj-detail-header{background:linear-gradient(135deg,var(--surface),var(--bg2));border:1px solid var(--border2);border-radius:14px;padding:1.25rem}
+.proj-detail-header h2{font-size:1.15rem;font-weight:800;margin-bottom:.35rem}
+.proj-detail-ctr-table .ctr-row-sm{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:.6rem;padding:.6rem .85rem;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;font-size:.81rem}
+.proj-detail-ctr-table .ctr-row-sm:last-child{border-bottom:none}
+.proj-detail-ctr-table .ctr-row-sm:hover{background:rgba(36,150,237,.06)}
+.proj-detail-ctr-table .ctr-row-sm.active{background:rgba(36,150,237,.1);border-left:3px solid var(--accent)}
 
 /* Toast */
-.toast{position:fixed;bottom:1.25rem;right:1.25rem;z-index:100;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:.7rem 1rem;border-radius:9px;font-size:.8rem;box-shadow:0 8px 24px rgba(0,0,0,.45);transform:translateY(16px);opacity:0;pointer-events:none;transition:transform .3s,opacity .3s;display:flex;align-items:center;gap:.5rem}
+.toast{position:fixed;bottom:1.25rem;right:1.25rem;z-index:100;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:.65rem .95rem;border-radius:9px;font-size:.78rem;box-shadow:0 8px 24px rgba(0,0,0,.45);transform:translateY(16px);opacity:0;pointer-events:none;transition:transform .3s,opacity .3s;display:flex;align-items:center;gap:.5rem}
 .toast.show{transform:translateY(0);opacity:1}
 
 /* Placeholder panel */
-.placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:1rem;color:var(--mute);text-align:center;padding:2rem}
-.placeholder svg{width:48px;height:48px;opacity:.25}
-.placeholder p{font-size:.85rem;max-width:260px;line-height:1.6}
+.placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:.85rem;color:var(--mute);text-align:center;padding:2rem}
+.placeholder svg{width:44px;height:44px;opacity:.22}
+.placeholder p{font-size:.82rem;max-width:240px;line-height:1.6}
+
+/* Keyboard shortcut hint */
+.kbd{display:inline-flex;align-items:center;gap:.2rem;font-size:.68rem;color:var(--mute);background:var(--surface);border:1px solid var(--border2);border-radius:4px;padding:.1rem .35rem;font-family:'JetBrains Mono',monospace}
+
+/* No results */
+.no-results{text-align:center;padding:3rem 1.5rem;color:var(--dim)}
+.no-results svg{width:36px;height:36px;opacity:.2;margin-bottom:.75rem}
 
 @media(max-width:900px){
   .body{grid-template-columns:1fr!important}
-  .detail{position:fixed;right:0;top:56px;bottom:0;width:100%;z-index:30;transform:translateX(100%);transition:transform .3s}
+  .detail{position:fixed;right:0;top:56px;bottom:0;width:100%;max-width:440px;z-index:30;transform:translateX(100%);transition:transform .3s}
   .detail.open{transform:translateX(0)}
   .bd-overlay{position:fixed;inset:0;top:56px;background:rgba(0,0,0,.6);z-index:29;display:none}
   .bd-overlay.show{display:block}
+  .filter-input{width:120px}
+  .filter-input:focus{width:160px}
+  .sort-sel{display:none}
+  .top-stats{display:none}
 }
 </style>
 </head>
@@ -206,15 +248,25 @@ tr:hover td{background:rgba(36,150,237,.04)}
       <div class="brand-logo">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
       </div>
-      Cockpit Docker
+      Cockpit
     </div>
     <div class="live"><span class="pulse"></span> Live</div>
     <div class="top-stats" id="topStats"></div>
     <div class="spacer"></div>
     <div class="filter-wrap">
-      <input class="filter-input" id="filterInput" placeholder="🔍 Filtrar containers..." />
+      <input class="filter-input" id="filterInput" placeholder="🔍 Ctrl+F para buscar..." autocomplete="off" />
+      <select class="sort-sel" id="sortSel" title="Ordenar por">
+        <option value="name">Nome ↑</option>
+        <option value="name-desc">Nome ↓</option>
+        <option value="status">Status</option>
+        <option value="project">Projeto</option>
+      </select>
     </div>
-    <button class="btn" id="refreshBtn">
+    <button class="btn" id="exportBtn" title="Exportar CSV">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+      CSV
+    </button>
+    <button class="btn" id="refreshBtn" title="Atualizar (R)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
       Atualizar
     </button>
@@ -223,16 +275,21 @@ tr:hover td{background:rgba(36,150,237,.04)}
   <!-- ── Body ── -->
   <div class="body no-detail" id="body">
 
-    <!-- Left -->
+    <!-- Left: project list -->
     <div class="projects" id="projects">
       <div style="color:var(--dim);font-size:.82rem;padding:.5rem 0">Carregando containers...</div>
     </div>
 
-    <!-- Right: detail -->
+    <!-- Right: detail panel -->
     <aside class="detail" id="detail">
       <div class="placeholder">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-        <p>Clique em um container para ver seus detalhes, logs e configurações.</p>
+        <p>Selecione um container ou clique em um projeto para ver detalhes.</p>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;margin-top:.5rem">
+          <span class="kbd">Ctrl+F</span><span style="font-size:.7rem;color:var(--mute)">Buscar</span>
+          <span class="kbd">ESC</span><span style="font-size:.7rem;color:var(--mute)">Fechar</span>
+          <span class="kbd">R</span><span style="font-size:.7rem;color:var(--mute)">Atualizar</span>
+        </div>
       </div>
     </aside>
   </div>
@@ -244,27 +301,25 @@ tr:hover td{background:rgba(36,150,237,.04)}
 <script>
 'use strict';
 
-const API = { containers: '/api/containers', info: '/api/info' };
+const API = { containers: '/api/containers' };
 let allContainers = [];
 let selectedId = null;
+let selectedProject = null; // project name shown in main panel
 let filterText = '';
+let statusFilter = null; // null | 'running' | 'exited' | 'unhealthy'
+let sortBy = 'name';
 let pollTimer = null;
 
 /* ── Helpers ── */
-const esc = s => s == null ? '' : String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const mono = s => `<span style="font-family:'JetBrains Mono',monospace;font-size:.9em">${esc(s)}</span>`;
+const esc = s => s == null ? '' : String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmtDur = ms => { if(!ms||ms<0) return '—'; const s=Math.floor(ms/1e3),d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60),sec=s%60; if(d>0) return `${d}d ${h}h ${m}m`; if(h>0) return `${h}h ${m}m`; if(m>0) return `${m}m ${sec}s`; return `${sec}s`; };
 const fmtDate = d => d ? new Date(d).toLocaleString('pt-BR') : '—';
 const shortId = id => id ? id.substring(0,12) : '—';
 const isSecret = k => /SECRET|PASSWORD|TOKEN|KEY|CREDENTIAL|PRIVATE|PWD/i.test(k);
 
-function showToast(msg){ const t=document.getElementById('toast'); document.getElementById('toastMsg').textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),3000); }
+function showToast(msg,dur=3000){ const t=document.getElementById('toast'); document.getElementById('toastMsg').textContent=msg; t.classList.add('show'); clearTimeout(t._timer); t._timer=setTimeout(()=>t.classList.remove('show'),dur); }
 
-/* ── Project grouping ──
-   Heuristic: container name prefix before first '-' or '_',
-   or the Docker Compose project label if available.
-   Also groups orphans under "standalone".
-── */
+/* ── Project grouping ── */
 function getProject(c){
   const labels = c.Labels || {};
   if(labels['com.docker.compose.project']) return labels['com.docker.compose.project'];
@@ -283,52 +338,141 @@ function groupByProject(containers){
   return map;
 }
 
-/* ── Top stats ── */
+/* ── Sort containers ── */
+function sortContainers(list){
+  return [...list].sort((a,b)=>{
+    const na=(a.Names&&a.Names[0]||'').toLowerCase();
+    const nb=(b.Names&&b.Names[0]||'').toLowerCase();
+    const pa=getProject(a).toLowerCase();
+    const pb=getProject(b).toLowerCase();
+    if(sortBy==='name') return na.localeCompare(nb);
+    if(sortBy==='name-desc') return nb.localeCompare(na);
+    if(sortBy==='status') return (a.State||'').localeCompare(b.State||'');
+    if(sortBy==='project') return pa.localeCompare(pb) || na.localeCompare(nb);
+    return 0;
+  });
+}
+
+/* ── Top stats with clickable filters ── */
 function renderTopStats(containers){
-  const running = containers.filter(c=>c.State==='running').length;
+  const running   = containers.filter(c=>c.State==='running').length;
   const unhealthy = containers.filter(c=>c.Status&&c.Status.includes('unhealthy')).length;
-  const exited = containers.filter(c=>c.State==='exited').length;
+  const exited    = containers.filter(c=>c.State==='exited'||c.State==='dead').length;
+  const paused    = containers.filter(c=>c.State==='paused').length;
   document.getElementById('topStats').innerHTML =
-    `<span class="top-badge info">${containers.length} total</span>` +
-    `<span class="top-badge ok">${running} rodando</span>` +
-    (unhealthy ? `<span class="top-badge bad">${unhealthy} unhealthy</span>` : '') +
-    (exited    ? `<span class="top-badge warn">${exited} parado</span>` : '');
+    `<span class="top-badge info ${statusFilter===null?'active-filter':''}" data-sf="null">${containers.length} total</span>` +
+    `<span class="top-badge ok ${statusFilter==='running'?'active-filter':''}" data-sf="running">${running} rodando</span>` +
+    (unhealthy ? `<span class="top-badge bad ${statusFilter==='unhealthy'?'active-filter':''}" data-sf="unhealthy">${unhealthy} unhealthy</span>` : '') +
+    (exited    ? `<span class="top-badge warn ${statusFilter==='exited'?'active-filter':''}" data-sf="exited">${exited} parado</span>` : '') +
+    (paused    ? `<span class="top-badge neu ${statusFilter==='paused'?'active-filter':''}" data-sf="paused">${paused} pausado</span>` : '');
+
+  document.querySelectorAll('.top-badge[data-sf]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const val = b.dataset.sf;
+      statusFilter = val === 'null' ? null : val;
+      renderProjects(allContainers);
+    });
+  });
+}
+
+/* ── Host overview (default view, no selection) ── */
+function renderHostOverview(containers){
+  const total     = containers.length;
+  const running   = containers.filter(c=>c.State==='running').length;
+  const exited    = containers.filter(c=>c.State==='exited'||c.State==='dead').length;
+  const unhealthy = containers.filter(c=>c.Status&&c.Status.includes('unhealthy')).length;
+  const projects  = Object.keys(groupByProject(containers)).length;
+
+  const proj = document.getElementById('projects');
+  // Insert overview hero at top if not already there
+  let hero = document.getElementById('hostHero');
+  if(!hero){
+    hero = document.createElement('div');
+    hero.id = 'hostHero';
+    hero.className = 'host-overview';
+    proj.insertBefore(hero, proj.firstChild);
+  }
+  hero.innerHTML = `
+    <div class="host-hero">
+      <h2>Dashboard do Host</h2>
+      <p>Clique em um projeto para ver detalhes agregados, ou selecione um container individual na lista abaixo. Use os badges acima para filtrar por status.</p>
+      <div class="kpi-row">
+        <div class="kpi kpi-accent" onclick="setStatusFilter(null)"><div class="kpi-label">Containers</div><div class="kpi-value">${total}</div></div>
+        <div class="kpi kpi-ok" onclick="setStatusFilter('running')"><div class="kpi-label">Rodando</div><div class="kpi-value">${running}</div></div>
+        <div class="kpi kpi-warn" onclick="setStatusFilter('exited')"><div class="kpi-label">Parados</div><div class="kpi-value">${exited}</div></div>
+        <div class="kpi kpi-bad" onclick="setStatusFilter('unhealthy')"><div class="kpi-label">Unhealthy</div><div class="kpi-value">${unhealthy}</div></div>
+        <div class="kpi kpi-accent" style="cursor:default"><div class="kpi-label">Projetos</div><div class="kpi-value">${projects}</div></div>
+      </div>
+    </div>`;
+}
+
+function setStatusFilter(val){
+  statusFilter = val;
+  renderProjects(allContainers);
 }
 
 /* ── Render project list ── */
 function renderProjects(containers){
-  const filter = filterText.toLowerCase();
-  const filtered = filter
-    ? containers.filter(c => {
-        const name = (c.Names&&c.Names[0]||'').toLowerCase();
-        const img  = (c.Image||'').toLowerCase();
-        const proj = getProject(c).toLowerCase();
-        return name.includes(filter)||img.includes(filter)||proj.includes(filter);
-      })
-    : containers;
-
   renderTopStats(containers);
+
+  // Apply status filter
+  let filtered = containers;
+  if(statusFilter === 'running')   filtered = containers.filter(c=>c.State==='running');
+  if(statusFilter === 'exited')    filtered = containers.filter(c=>c.State==='exited'||c.State==='dead');
+  if(statusFilter === 'unhealthy') filtered = containers.filter(c=>c.Status&&c.Status.includes('unhealthy'));
+  if(statusFilter === 'paused')    filtered = containers.filter(c=>c.State==='paused');
+
+  // Apply text filter
+  if(filterText){
+    const term = filterText.toLowerCase();
+    filtered = filtered.filter(c => {
+      const name = (c.Names&&c.Names[0]||'').toLowerCase();
+      const img  = (c.Image||'').toLowerCase();
+      const proj = getProject(c).toLowerCase();
+      return name.includes(term)||img.includes(term)||proj.includes(term);
+    });
+  }
+
+  // Sort
+  filtered = sortContainers(filtered);
+
+  const projEl = document.getElementById('projects');
+
+  // Keep or create hero
+  if(!selectedId && !selectedProject) renderHostOverview(containers);
+  else { const h=document.getElementById('hostHero'); if(h) h.remove(); }
+
+  // Remove old project cards (keep hero)
+  projEl.querySelectorAll('.project').forEach(el=>el.remove());
+
+  if(!filtered.length){
+    const d=document.createElement('div');
+    d.className='no-results';
+    d.id='noResults';
+    d.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><br>Nenhum container encontrado';
+    projEl.appendChild(d);
+    return;
+  }
+  projEl.querySelector('#noResults')?.remove();
 
   const groups = groupByProject(filtered);
   const projectNames = Object.keys(groups).sort();
 
-  if(!projectNames.length){
-    document.getElementById('projects').innerHTML =
-      `<div class="empty-msg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>Nenhum container encontrado.</div>`;
-    return;
-  }
-
-  document.getElementById('projects').innerHTML = projectNames.map(proj => {
+  projectNames.forEach(proj => {
     const ctrs = groups[proj];
-    const running = ctrs.filter(c=>c.State==='running').length;
+    const running   = ctrs.filter(c=>c.State==='running').length;
     const hasUnhealthy = ctrs.some(c=>c.Status&&c.Status.includes('unhealthy'));
     const statusIcon = hasUnhealthy
-      ? '<span style="color:#fca5a5">⚠</span>'
+      ? '<span style="color:#fca5a5;font-size:.8rem">⚠</span>'
       : running===ctrs.length
-        ? '<span style="color:#86efac">●</span>'
+        ? '<span style="color:#86efac;font-size:.8rem">●</span>'
         : running===0
-          ? '<span style="color:#64748b">●</span>'
-          : '<span style="color:#fcd34d">◐</span>';
+          ? '<span style="color:#64748b;font-size:.8rem">●</span>'
+          : '<span style="color:#fcd34d;font-size:.8rem">◐</span>';
+
+    const el = document.createElement('div');
+    el.className = 'project';
+    el.id = `proj-${proj}`;
 
     const rows = ctrs.map(c => {
       const name = (c.Names&&c.Names[0]||'').replace(/^\//, '');
@@ -339,39 +483,49 @@ function renderProjects(containers){
       const uptime = hlt.replace(/\s*\(.+\)/,'').trim();
       return `<div class="ctr-row ${c.Id===selectedId?'active':''}" data-id="${c.Id}">
         <div>
-          <div class="ctr-name">${esc(name)}</div>
-          <div class="ctr-image">${esc(c.Image)}</div>
+          <div class="ctr-name" title="${esc(name)}">${esc(name)}</div>
+          <div class="ctr-image" title="${esc(c.Image)}">${esc(c.Image)}</div>
         </div>
-        <div style="font-size:.7rem;color:var(--dim)">${esc(uptime)}</div>
+        <div style="font-size:.68rem;color:var(--dim);white-space:nowrap">${esc(uptime)}</div>
         ${healthLabel ? `<span class="health-tag ${healthLabel}">${healthLabel}</span>` : '<span></span>'}
         <span class="status-tag ${st}">${st}</span>
       </div>`;
     }).join('');
 
-    return `<div class="project" id="proj-${proj}">
-      <div class="project-header" data-proj="${proj}">
+    el.innerHTML = `
+      <div class="project-header" data-proj="${esc(proj)}">
         <div class="project-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
         </div>
-        <div class="project-name">${esc(proj)} ${statusIcon}</div>
-        <div class="project-meta">${running}/${ctrs.length} rodando</div>
-        <svg class="project-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        <div class="project-name" title="${esc(proj)}">${esc(proj)} ${statusIcon}</div>
+        <div class="project-meta">${running}/${ctrs.length}</div>
+        <span class="project-click-hint">clique</span>
+        <svg class="project-chevron" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
       </div>
-      <div class="project-body">${rows}</div>
-    </div>`;
-  }).join('');
+      <div class="project-body">${rows}</div>`;
 
-  // Events: collapse
+    projEl.appendChild(el);
+  });
+
+  // Events: project header click — show project overview OR collapse
   document.querySelectorAll('.project-header').forEach(h => {
-    h.addEventListener('click', () => {
-      document.getElementById('proj-'+h.dataset.proj).classList.toggle('collapsed');
+    h.addEventListener('click', (e) => {
+      // If click on chevron area (right portion), collapse
+      const rect = h.getBoundingClientRect();
+      const clickedRight = e.clientX > rect.right - 40;
+      if(clickedRight){
+        document.getElementById(`proj-${h.dataset.proj}`).classList.toggle('collapsed');
+      } else {
+        openProjectDetail(h.dataset.proj, groups[h.dataset.proj]);
+      }
     });
   });
 
-  // Events: select container
+  // Events: container row click
   document.querySelectorAll('.ctr-row').forEach(row => {
     row.addEventListener('click', () => {
       selectedId = row.dataset.id;
+      selectedProject = null;
       document.querySelectorAll('.ctr-row').forEach(r=>r.classList.remove('active'));
       row.classList.add('active');
       openDetail(selectedId);
@@ -379,7 +533,71 @@ function renderProjects(containers){
   });
 }
 
-/* ── Open detail panel ── */
+/* ── Project Detail in main panel ── */
+function openProjectDetail(projName, ctrs){
+  selectedProject = projName;
+  selectedId = null;
+  document.querySelectorAll('.ctr-row').forEach(r=>r.classList.remove('active'));
+
+  // Remove hero
+  document.getElementById('hostHero')?.remove();
+
+  const panel = document.getElementById('detail');
+  const body  = document.getElementById('body');
+  body.classList.remove('no-detail');
+  panel.classList.add('open');
+  document.getElementById('bdOverlay').classList.add('show');
+
+  const running   = ctrs.filter(c=>c.State==='running').length;
+  const exited    = ctrs.filter(c=>c.State==='exited'||c.State==='dead').length;
+  const unhealthy = ctrs.filter(c=>c.Status&&c.Status.includes('unhealthy')).length;
+
+  const rows = ctrs.map(c => {
+    const name = (c.Names&&c.Names[0]||'').replace(/^\//, '');
+    const st = c.State||'unknown';
+    return `<div class="ctr-row-sm ${c.Id===selectedId?'active':''}" data-id="${c.Id}">
+      <span style="font-weight:600;font-size:.82rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(name)}">${esc(name)}</span>
+      <span class="status-dot ${st}" style="width:7px;height:7px;border-radius:50%;flex-shrink:0"></span>
+      <span class="status-tag ${st}">${st}</span>
+    </div>`;
+  }).join('');
+
+  panel.innerHTML = `
+    <div class="detail-header">
+      <div class="detail-header-top">
+        <button class="detail-close" id="detailClose">✕</button>
+        <div class="detail-name">📦 ${esc(projName)}</div>
+      </div>
+      <div class="detail-status-row">
+        <span class="top-badge ok">${running} rodando</span>
+        ${exited ? `<span class="top-badge warn">${exited} parado</span>` : ''}
+        ${unhealthy ? `<span class="top-badge bad">${unhealthy} unhealthy</span>` : ''}
+      </div>
+    </div>
+    <div class="detail-body">
+      <div class="grid3" style="margin-bottom:.25rem">
+        <div class="card"><div class="card-label">Total</div><div class="card-value accent">${ctrs.length}</div></div>
+        <div class="card"><div class="card-label">Rodando</div><div class="card-value ok">${running}</div></div>
+        <div class="card"><div class="card-label">Parados</div><div class="card-value warn">${exited}</div></div>
+      </div>
+      <div class="sec-label" style="margin-top:.25rem">Containers do Projeto</div>
+      <div class="tbl-wrap proj-detail-ctr-table">${rows}</div>
+    </div>`;
+
+  document.getElementById('detailClose').addEventListener('click', closeDetail);
+  document.getElementById('bdOverlay').addEventListener('click', closeDetail);
+
+  // Click container from project list
+  panel.querySelectorAll('.ctr-row-sm').forEach(row => {
+    row.addEventListener('click', () => {
+      selectedId = row.dataset.id;
+      selectedProject = null;
+      openDetail(selectedId);
+    });
+  });
+}
+
+/* ── Open container detail panel ── */
 async function openDetail(id){
   const panel = document.getElementById('detail');
   const body  = document.getElementById('body');
@@ -398,7 +616,7 @@ async function openDetail(id){
   }
 }
 
-/* ── Render detail ── */
+/* ── Render container detail ── */
 function renderDetail(c){
   const panel = document.getElementById('detail');
   const state  = c.State       || {};
@@ -412,26 +630,27 @@ function renderDetail(c){
   const running= !!state.Running;
   const startedAt = state.StartedAt ? new Date(state.StartedAt) : null;
   const uptimeMs  = running && startedAt ? Date.now() - startedAt : 0;
+  const proj   = getProject({Names:[c.Name||''],Labels:config.Labels||{}});
 
-  // status pill html
   const stClass = st.includes('unhealthy')?'bad':st.includes('healthy')?'ok':running?'ok':'neu';
-  const stPill = `<span class="top-badge ${stClass}">${esc(st)}</span>`;
-  const hPill  = health ? `<span class="top-badge ${health.Status==='healthy'?'ok':health.Status==='unhealthy'?'bad':'info'}">${health.Status}</span>` : '';
-  const rp     = (host.RestartPolicy||{}).Name;
-  const rpPill = rp ? `<span class="top-badge info" style="font-family:'JetBrains Mono',monospace">${esc(rp)}</span>` : '';
+  const stPill  = `<span class="top-badge ${stClass}">${esc(st)}</span>`;
+  const hPill   = health ? `<span class="top-badge ${health.Status==='healthy'?'ok':health.Status==='unhealthy'?'bad':'info'}">${health.Status}</span>` : '';
+  const rp      = (host.RestartPolicy||{}).Name;
+  const rpPill  = rp ? `<span class="top-badge info" style="font-family:'JetBrains Mono',monospace">${esc(rp)}</span>` : '';
+  const projPill= `<span class="top-badge info" style="cursor:pointer" id="projPillBtn">📦 ${esc(proj)}</span>`;
 
   panel.innerHTML = `
     <div class="detail-header">
       <div class="detail-header-top">
         <button class="detail-close" id="detailClose">✕</button>
-        <div class="detail-name">${esc(name)}</div>
+        <div class="detail-name" title="${esc(name)}">${esc(name)}</div>
       </div>
-      <div class="detail-image">${esc(img)}</div>
-      <div class="detail-status-row">${stPill}${hPill}${rpPill}</div>
+      <div class="detail-image" title="${esc(img)}">${esc(img)}</div>
+      <div class="detail-status-row">${stPill}${hPill}${rpPill}${projPill}</div>
     </div>
     <div class="detail-body">
       <div class="tabs" id="tabs">
-        <button class="tab active" data-tab="kpi">Visão Geral</button>
+        <button class="tab active" data-tab="kpi">Overview</button>
         <button class="tab" data-tab="net">Rede</button>
         <button class="tab" data-tab="vols">Volumes</button>
         <button class="tab" data-tab="env">Env</button>
@@ -441,34 +660,28 @@ function renderDetail(c){
 
       <!-- KPI -->
       <div class="tab-panel active" id="tab-kpi">
-        <div class="grid3" style="margin-bottom:.75rem">
+        <div class="grid3" style="margin-bottom:.65rem">
           <div class="card"><div class="card-label">Status</div><div class="card-value ${running?'ok':'warn'}">${esc(state.Status)}</div></div>
           <div class="card"><div class="card-label">Uptime</div><div class="card-value accent">${fmtDur(uptimeMs)}</div></div>
           <div class="card"><div class="card-label">Restarts</div><div class="card-value ${state.RestartCount>0?'warn':'ok'}">${state.RestartCount??0}</div></div>
         </div>
-        <div class="grid2" style="margin-bottom:.75rem">
+        <div class="grid2" style="margin-bottom:.65rem">
           <div class="card"><div class="card-label">PID</div><div class="card-value">${state.Pid??'—'}</div></div>
           <div class="card"><div class="card-label">Exit Code</div><div class="card-value ${state.ExitCode===0?'ok':'bad'}">${state.ExitCode??'—'}</div></div>
         </div>
-        <div class="card" style="margin-bottom:.75rem"><div class="card-label">ID</div><div class="card-value">${esc(shortId(c.Id))}</div></div>
-        <div class="card" style="margin-bottom:.75rem"><div class="card-label">Iniciado em</div><div class="card-value">${fmtDate(state.StartedAt)}</div></div>
+        <div class="card" style="margin-bottom:.65rem"><div class="card-label">ID</div><div class="card-value">${esc(shortId(c.Id))}</div></div>
+        <div class="card" style="margin-bottom:.65rem"><div class="card-label">Iniciado em</div><div class="card-value">${fmtDate(state.StartedAt)}</div></div>
         ${health ? renderHealthCard(health) : '<div class="empty-msg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/></svg>Sem HEALTHCHECK definido.</div>'}
       </div>
 
       <!-- Net -->
-      <div class="tab-panel" id="tab-net">
-        ${renderNetPanel(host, net)}
-      </div>
+      <div class="tab-panel" id="tab-net">${renderNetPanel(host,net)}</div>
 
       <!-- Volumes -->
-      <div class="tab-panel" id="tab-vols">
-        ${renderVolsPanel(c.Mounts||[])}
-      </div>
+      <div class="tab-panel" id="tab-vols">${renderVolsPanel(c.Mounts||[])}</div>
 
       <!-- Env -->
-      <div class="tab-panel" id="tab-env">
-        ${renderEnvPanel(config.Env||[])}
-      </div>
+      <div class="tab-panel" id="tab-env">${renderEnvPanel(config.Env||[])}</div>
 
       <!-- Logs -->
       <div class="tab-panel" id="tab-logs">
@@ -481,10 +694,10 @@ function renderDetail(c){
 
       <!-- JSON -->
       <div class="tab-panel" id="tab-json">
-        <div style="display:flex;justify-content:flex-end;margin-bottom:.5rem">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:.45rem">
           <button class="btn" id="copyJson">⎘ Copiar</button>
         </div>
-        <div class="json-box" id="jsonBox">${syntaxHL(JSON.stringify(c,null,2))}</div>
+        <div class="json-box">${syntaxHL(JSON.stringify(c,null,2))}</div>
       </div>
     </div>`;
 
@@ -499,21 +712,24 @@ function renderDetail(c){
     });
   });
 
-  // Close
   document.getElementById('detailClose').addEventListener('click', closeDetail);
   document.getElementById('bdOverlay').addEventListener('click', closeDetail);
 
-  // Copy JSON
   document.getElementById('copyJson').addEventListener('click', () => {
     navigator.clipboard.writeText(JSON.stringify(c,null,2)).then(()=>showToast('JSON copiado!'));
   });
 
-  // Refresh logs
-  document.getElementById('refreshLogs').addEventListener('click', () => loadLogs(c.Id));
+  document.getElementById('refreshLogs').addEventListener('click', ()=>loadLogs(c.Id));
 
-  // Reveal secrets toggle
+  // Project pill → open project detail
+  document.getElementById('projPillBtn')?.addEventListener('click', () => {
+    const projCtrs = allContainers.filter(x=>getProject(x)===proj);
+    openProjectDetail(proj, projCtrs);
+  });
+
+  // Reveal secrets
   const revBtn = document.getElementById('revealBtn');
-  if(revBtn) revBtn.addEventListener('click', () => {
+  if(revBtn) revBtn.addEventListener('click', ()=>{
     const show = revBtn.textContent.includes('Mostrar');
     revBtn.textContent = show ? '🙈 Ocultar sensíveis' : '👁 Mostrar sensíveis';
     document.querySelectorAll('.env-secret').forEach(el=>el.classList.toggle('reveal',show));
@@ -531,11 +747,11 @@ function renderHealthCard(h){
   return `<div class="sec-label">Health Check — ${esc(h.Status)}</div><div class="hlog">${logHtml}</div>`;
 }
 
-function renderNetPanel(host, net){
+function renderNetPanel(host,net){
   const pb = host.PortBindings||{};
   const portKeys = Object.keys(pb).filter(k=>pb[k]&&pb[k].length);
   const portsHtml = portKeys.length
-    ? portKeys.flatMap(k=>pb[k].map(b=>`<div class="port-row"><div><div class="port-lbl">Host</div><div class="port-num">${esc(b.HostPort)}</div><div style="font-size:.68rem;color:var(--dim)">${b.HostIp||'0.0.0.0'}</div></div><div class="port-arr"><svg width="28" height="12" viewBox="0 0 34 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M0 7h28M22 1l6 6-6 6"/></svg></div><div style="text-align:right"><div class="port-lbl">Container</div><div class="port-num">${esc(k.split('/')[0])}</div></div></div>`)).join('')
+    ? portKeys.flatMap(k=>pb[k].map(b=>`<div class="port-row"><div><div class="port-lbl">Host</div><div class="port-num">${esc(b.HostPort)}</div><div style="font-size:.66rem;color:var(--dim)">${b.HostIp||'0.0.0.0'}</div></div><div class="port-arr"><svg width="24" height="10" viewBox="0 0 34 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M0 7h28M22 1l6 6-6 6"/></svg></div><div style="text-align:right"><div class="port-lbl">Container</div><div class="port-num">${esc(k.split('/')[0])}</div></div></div>`)).join('')
     : '<div class="empty-msg">Sem portas publicadas.</div>';
 
   const nets = Object.entries(net.Networks||{});
@@ -543,7 +759,7 @@ function renderNetPanel(host, net){
     ? `<div class="tbl-wrap"><table><thead><tr><th>Rede</th><th>IP</th><th>Gateway</th></tr></thead><tbody>${nets.map(([n,v])=>`<tr><td>${esc(n)}</td><td>${esc(v.IPAddress||'—')}</td><td>${esc(v.Gateway||'—')}</td></tr>`).join('')}</tbody></table></div>`
     : '<div class="empty-msg">Sem redes.</div>';
 
-  return `<div class="sec-label">Portas</div>${portsHtml}<div class="sec-label" style="margin-top:.75rem">Redes</div>${netsHtml}`;
+  return `<div class="sec-label">Portas</div>${portsHtml}<div class="sec-label" style="margin-top:.65rem">Redes</div>${netsHtml}`;
 }
 
 function renderVolsPanel(mounts){
@@ -594,7 +810,31 @@ function closeDetail(){
   document.getElementById('detail').classList.remove('open');
   document.getElementById('bdOverlay').classList.remove('show');
   selectedId = null;
+  selectedProject = null;
   document.querySelectorAll('.ctr-row').forEach(r=>r.classList.remove('active'));
+  renderHostOverview(allContainers);
+}
+
+/* ── Export CSV ── */
+function exportCSV(){
+  let filtered = allContainers;
+  if(statusFilter==='running')   filtered=filtered.filter(c=>c.State==='running');
+  if(statusFilter==='exited')    filtered=filtered.filter(c=>c.State==='exited'||c.State==='dead');
+  if(statusFilter==='unhealthy') filtered=filtered.filter(c=>c.Status&&c.Status.includes('unhealthy'));
+  if(filterText){ const t=filterText.toLowerCase(); filtered=filtered.filter(c=>(c.Names&&c.Names[0]||'').toLowerCase().includes(t)||(c.Image||'').toLowerCase().includes(t)||getProject(c).toLowerCase().includes(t)); }
+
+  const rows = [['Nome','Projeto','Status','Imagem','ID']];
+  filtered.forEach(c=>{
+    const name=(c.Names&&c.Names[0]||'').replace(/^\//,'');
+    rows.push([name, getProject(c), c.State||'', c.Image||'', (c.Id||'').substring(0,12)]);
+  });
+  const csv = rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv],{type:'text/csv'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href=url; a.download=`docker-containers-${new Date().toISOString().slice(0,10)}.csv`; a.click();
+  URL.revokeObjectURL(url);
+  showToast(`${filtered.length} containers exportados`);
 }
 
 /* ── API ── */
@@ -604,21 +844,44 @@ async function loadContainers(){
     if(!res.ok) throw new Error('HTTP '+res.status);
     allContainers = await res.json();
     renderProjects(allContainers);
-    // refresh detail se aberto
     if(selectedId) openDetail(selectedId);
   } catch(e){ showToast('Erro: '+e.message); }
 }
 
-/* ── Filter ── */
+/* ── Events ── */
 document.getElementById('filterInput').addEventListener('input', e => {
   filterText = e.target.value;
   renderProjects(allContainers);
 });
 
-/* ── Refresh btn ── */
+document.getElementById('sortSel').addEventListener('change', e => {
+  sortBy = e.target.value;
+  renderProjects(allContainers);
+});
+
 document.getElementById('refreshBtn').addEventListener('click', () => {
   loadContainers();
   showToast('Atualizado!');
+});
+
+document.getElementById('exportBtn').addEventListener('click', exportCSV);
+
+/* ── Keyboard shortcuts ── */
+document.addEventListener('keydown', e => {
+  // Ctrl+F → focus search
+  if((e.ctrlKey||e.metaKey) && e.key==='f'){
+    e.preventDefault();
+    document.getElementById('filterInput').focus();
+  }
+  // ESC → close panel or clear search
+  if(e.key==='Escape'){
+    if(selectedId||selectedProject){ closeDetail(); }
+    else if(filterText){ document.getElementById('filterInput').value=''; filterText=''; renderProjects(allContainers); }
+  }
+  // R → refresh (when not typing in input)
+  if(e.key==='r' && document.activeElement.tagName!=='INPUT' && document.activeElement.tagName!=='SELECT'){
+    loadContainers(); showToast('Atualizado!');
+  }
 });
 
 /* ── Boot ── */
