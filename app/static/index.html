@@ -296,29 +296,187 @@
   </main>
 </div>
 
-<script>
+  <script>
+'use strict';
+
 let allContainers = [];
 let selectedContainerId = null;
 let currentFilter = 'all';
 let searchTerm = '';
 
+/* ==========================
+   API Calls
+   ========================== */
+async function fetchContainers() {
+  try {
+    const res = await fetch('/api/containers');
+    if (!res.ok) throw new Error('API Error');
+    allContainers = await res.json();
+    renderContainerList();
+    renderGlobalOverview();
+  } catch (err) {
+    document.getElementById('containerList').innerHTML =
+      '<div class="empty">Erro ao conectar</div>';
+    document.getElementById('mainContent').innerHTML =
+      '<div class="empty">Erro ao carregar containers</div>';
+  }
+}
+
+/* ==========================
+   Render: Sidebar List
+   ========================== */
+function renderContainerList() {
+  const listEl = document.getElementById('containerList');
+  let filtered = allContainers;
+
+  // Status filter
+  if (currentFilter === 'running') {
+    filtered = filtered.filter(c => c.State === 'running');
+  }
+  if (currentFilter === 'exited') {
+    filtered = filtered.filter(c => c.State === 'exited' || c.State === 'created' || c.State === 'dead');
+  }
+  if (currentFilter === 'unhealthy') {
+    filtered = filtered.filter(c => c.State === 'unhealthy' ||
+      (c.Status && c.Status.includes('unhealthy')));
+  }
+
+  // Search
+  if (searchTerm) {
+    const term = searchTerm.toLowerCase();
+    filtered = filtered.filter(c => {
+      const name = (c.Names && c.Names[0] || '').toLowerCase();
+      const image = (c.Image || '').toLowerCase();
+      return name.includes(term) || image.includes(term);
+    });
+  }
+
+  if (filtered.length === 0) {
+    listEl.innerHTML = '<div class="empty">Nenhum container encontrado</div>';
+    return;
+  }
+
+  listEl.innerHTML = filtered.map(c => {
+    const id = c.Id;
+    const name = (c.Names && c.Names[0] || '').replace(/^\//, '');
+    const image = c.Image || '';
+    let statusCls = c.State || 'unknown';
+    if (c.Status && c.Status.includes('unhealthy')) statusCls = 'unhealthy';
+
+    return `
+      <div class="list-item ${id === selectedContainerId ? 'active' : ''}" data-id="${id}">
+        <div class="item-status ${statusCls}"></div>
+        <div class="item-info">
+          <div class="item-name" title="${escapeHtml(name)}">${escapeHtml(name)}</div>
+          <div class="item-image" title="${escapeHtml(image)}">${escapeHtml(image)}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Click → seleciona container (Parte 3 vai completar o detalhe)
+  listEl.querySelectorAll('.list-item').forEach(item => {
+    item.addEventListener('click', () => {
+      selectedContainerId = item.dataset.id;
+      document.getElementById('tabNav').style.display = 'flex';
+      renderContainerList(); // atualiza estado ativo
+      // Parte 3: aqui entra fetchContainerDetail(selectedContainerId);
+    });
+  });
+}
+
+/* ==========================
+   Render: Global Overview
+   ========================== */
+function renderGlobalOverview() {
+  if (selectedContainerId) return; // só host quando nada selecionado
+
+  const total = allContainers.length;
+  const running = allContainers.filter(c => c.State === 'running').length;
+  const exited = allContainers.filter(c => c.State === 'exited' || c.State === 'created' || c.State === 'dead').length;
+  const unhealthy = allContainers.filter(c =>
+    c.State === 'unhealthy' || (c.Status && c.Status.includes('unhealthy'))
+  ).length;
+
+  document.getElementById('mainTitle').textContent = 'Visão Geral do Host';
+  document.getElementById('mainSubtitle').textContent = `${total} containers detectados`;
+  document.getElementById('tabNav').style.display = 'none';
+
+  document.getElementById('mainContent').innerHTML = `
+    <div class="overview-hero">
+      <h2 style="margin:0 0 .5rem;font-size:1.5rem">Dashboard do Host</h2>
+      <p style="color:var(--text-dim);margin:0">
+        Selecione um container na lista à esquerda para ver detalhes profundos,
+        ou filtre por estado clicando nos cards abaixo.
+      </p>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi kpi-accent" onclick="setFilter('all')">
+        <div class="kpi-label">Total de Containers</div>
+        <div class="kpi-value">${total}</div>
+      </div>
+      <div class="kpi kpi-ok" onclick="setFilter('running')">
+        <div class="kpi-label">Rodando</div>
+        <div class="kpi-value">${running}</div>
+      </div>
+      <div class="kpi kpi-warn" onclick="setFilter('exited')">
+        <div class="kpi-label">Parados / Exited</div>
+        <div class="kpi-value">${exited}</div>
+      </div>
+      <div class="kpi kpi-bad" onclick="setFilter('unhealthy')">
+        <div class="kpi-label">Unhealthy</div>
+        <div class="kpi-value">${unhealthy}</div>
+      </div>
+    </div>
+  `;
+}
+
+function setFilter(filter) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-pill').forEach(p =>
+    p.classList.toggle('active', p.dataset.filter === filter)
+  );
+  renderContainerList();
+}
+
+/* ==========================
+   Helpers
+   ========================== */
+function escapeHtml(s){
+  if (s == null) return '';
+  return String(s).replace(/[&<>"]/g, c => (
+    {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]
+  ));
+}
+
+/* ==========================
+   Events
+   ========================== */
 document.getElementById('searchInput').addEventListener('input', e => {
   searchTerm = e.target.value;
+  renderContainerList();
 });
 
 document.querySelectorAll('.filter-pill').forEach(pill => {
-  pill.addEventListener('click', () => {
-    currentFilter = pill.dataset.filter;
-    document.querySelectorAll('.filter-pill').forEach(p => p.classList.toggle('active', p === pill));
-  });
+  pill.addEventListener('click', () => setFilter(pill.dataset.filter));
 });
 
+// Tabs já estão ligados na Parte 1; mantemos só scrollIntoView
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById(btn.dataset.target)?.scrollIntoView({behavior:'smooth', block:'start'});
   });
+});
+
+/* ==========================
+   Init — polling da lista
+   ========================== */
+window.addEventListener('DOMContentLoaded', () => {
+  fetchContainers();
+  setInterval(fetchContainers, 5000);
 });
 </script>
 
