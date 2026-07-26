@@ -1,84 +1,63 @@
-# docker-cockpit
+# Docker Cockpit
 
-Dashboard read-only de containers Docker, exposto via HTTPS com Basic Auth.
+Dashboard somente-leitura para monitoramento de containers Docker, servido via HTTPS com autenticacao basica.
 
 ## Arquitetura
 
 ```
-Internet → Nginx (80/443, TLS) → Basic Auth → FastAPI (GET only) → docker-socket-proxy (GET only) → /var/run/docker.sock (ro)
+Browser
+  HTTPS (443)
+bdv-nginx-prod  (global-ingress /opt/btv/ingress)
+  proxy_pass -> docker-cockpit:8000  (btv-prod-net)
+FastAPI (app:8000)
+  httpx -> docker-cockpit-proxy:2375  (rede internal)
+docker-socket-proxy
+  /var/run/docker.sock:ro
+Docker Daemon
 ```
 
-- **docker-socket-proxy** — filtra o socket, expõe só endpoints de leitura (GET)
-- **app (FastAPI)** — serve o cockpit HTML + API `/api/*`
-- **nginx** — termina TLS (Let's Encrypt), aplica Basic Auth, bloqueia métodos de escrita
-- **certbot** — emissão/renovação de certificado (perfil `renew`)
+## Pre-requisitos
 
-## 3 passos para rodar na VPS
+- Servidor com `global-ingress` rodando (`btv-nginx-prod` nas portas 80/443)
+- Rede Docker `btv-prod-net` existente
+- DNS do dominio apontando para o IP do servidor
 
-### 1. Configurar variáveis
+## Deploy
 
 ```bash
+git clone https://github.com/danzeroum/docker /opt/btv/docker
+cd /opt/btv/docker
+
+# 1. Configurar variaveis de ambiente
 cp .env.example .env
-nano .env  # preencha DOMAIN, EMAIL, BASIC_AUTH_USER, BASIC_AUTH_PASS
+# editar .env se necessario
+
+# 2. Subir app + socket-proxy
+docker compose up -d
+
+# 3. Emitir certificado e registrar no global-ingress
+# (rodar APOS DNS estar propagado)
+bash scripts/setup-ingress.sh docker.danzeroum.com
 ```
 
-### 2. Apontar DNS
-
-Crie um registro A: `docker.danzeroum.com → <IP da VPS>`  
-Aguarde a propagação antes de continuar.
-
-### 3. Subir
+## Desenvolvimento / CI
 
 ```bash
-chmod +x init.sh scripts/renew.sh
-./init.sh
+# Testes (sem Docker)
+pip install -r tests/requirements-test.txt
+pytest tests/ -v
 ```
 
-O script `init.sh`:
-1. Gera `nginx/.htpasswd` automaticamente
-2. Emite o certificado TLS via Certbot (webroot)
-3. Sobe a stack completa com `docker compose up -d`
+CI verde em cada push na `main` via GitHub Actions (`.github/workflows/ci.yml`).
 
-### Renovação automática
+## Endpoints da API
 
-Adicione ao cron da VPS:
-
-```cron
-0 3 * * * /caminho/absoluto/scripts/renew.sh >> /var/log/certbot-renew.log 2>&1
-```
-
-### Testar
-
-```bash
-curl -u admin:sua_senha https://docker.danzeroum.com/health
-curl -u admin:sua_senha https://docker.danzeroum.com/api/containers
-```
-
-## Adaptando o Cockpit HTML
-
-1. Copie o conteúdo de `cockerPitZAI.html` para `app/static/index.html`
-2. Substitua `fetch('inspect.json')` por `fetch('/api/containers')`  
-   e `fetch(...)` de inspect individual por `fetch('/api/containers/${id}')`
-3. Rebuild: `docker compose build app && docker compose up -d app`
-
-## Estrutura
-
-```
-.
-├── .env.example
-├── docker-compose.yml
-├── init.sh
-├── scripts/
-│   └── renew.sh
-├── nginx/
-│   └── nginx.conf
-├── certbot/
-│   ├── conf/   ← montado como bind mount (certificados)
-│   └── www/    ← montado como bind mount (challenge ACME)
-└── app/
-    ├── Dockerfile
-    ├── requirements.txt
-    ├── app.py
-    └── static/
-        └── index.html  ← cockpit HTML aqui
-```
+| Endpoint | Descricao |
+|---|---|
+| `GET /health` | Health check |
+| `GET /api/containers` | Lista todos os containers |
+| `GET /api/containers/{id}` | Inspect completo |
+| `GET /api/containers/{id}/logs` | Logs (tail=500) |
+| `GET /api/containers/{id}/stats` | CPU/mem/rede snapshot |
+| `GET /api/images` | Lista imagens |
+| `GET /api/info` | Info do daemon Docker |

@@ -1,8 +1,14 @@
+# O cockpit nao sobe nginx proprio — o servidor ja tem um global-ingress
+# em /opt/btv/ingress que detem as portas 80/443.
+# O servico app entra na rede btv-prod-net para que o ingress possa
+# fazer proxy_pass para http://docker-cockpit:8000.
+
 services:
 
   docker-socket-proxy:
     image: tecnativa/docker-socket-proxy:latest
     restart: unless-stopped
+    container_name: docker-cockpit-proxy
     environment:
       CONTAINERS: 1
       IMAGES: 1
@@ -25,18 +31,18 @@ services:
 
   app:
     build: ./app
+    container_name: docker-cockpit
     restart: unless-stopped
     env_file: .env
     environment:
-      SOCKET_PROXY: http://docker-socket-proxy:2375
+      SOCKET_PROXY: http://docker-cockpit-proxy:2375
     networks:
       - internal
-      - web
+      - btv-prod-net   # visivel ao global-ingress
     depends_on:
       docker-socket-proxy:
         condition: service_healthy
     healthcheck:
-      # python:3.12-slim nao tem wget nem curl — usa urllib da stdlib
       test: ["CMD", "python3", "-c",
              "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
@@ -44,34 +50,8 @@ services:
       retries: 3
       start_period: 10s
 
-  nginx:
-    image: nginx:stable-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./nginx/.htpasswd:/etc/nginx/.htpasswd:ro
-      - ./certbot/conf:/etc/letsencrypt:ro
-      - ./certbot/www:/var/www/certbot:ro
-    networks:
-      - web
-    depends_on:
-      app:
-        condition: service_healthy
-
-  certbot:
-    image: certbot/certbot:latest
-    volumes:
-      - ./certbot/conf:/etc/letsencrypt
-      - ./certbot/www:/var/www/certbot
-    entrypoint: /bin/sh
-    command: -c "trap exit TERM; while :; do certbot renew --quiet; sleep 12h & wait $${!}; done;"
-    profiles:
-      - renew
-
 networks:
-  web:
   internal:
     internal: true
+  btv-prod-net:
+    external: true   # rede ja existente criada pelo global-ingress
