@@ -9,18 +9,17 @@ services:
       INFO: 1
       NETWORKS: 1
       VOLUMES: 1
-      POST: 0          # bloqueia qualquer escrita
+      POST: 0
       DELETE: 0
       LOG_LEVEL: warning
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - internal
-    # curl vão embutido na imagem; wget não
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:2375/version"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:2375/version"]
       interval: 10s
-      timeout: 3s
+      timeout: 5s
       retries: 3
       start_period: 5s
 

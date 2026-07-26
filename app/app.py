@@ -7,9 +7,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 SOCKET_PROXY = os.getenv("SOCKET_PROXY", "http://docker-socket-proxy:2375")
 
+# Resolve o diretorio static relativo ao proprio app.py,
+# independente de onde o processo e iniciado (CI, Docker, local)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+
 app = FastAPI(title="Docker Cockpit", docs_url=None, redoc_url=None)
 
-# Permite que o cockpit HTML (mesmo origin) consuma a API sem erros de CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -23,11 +27,11 @@ async def health():
     return {"ok": True}
 
 # ---------- static (cockpit HTML) ----------
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 @app.get("/", include_in_schema=False)
 async def root():
-    return FileResponse("static/index.html")
+    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
 # ---------- helpers ----------
 async def _get(path: str):
@@ -45,19 +49,19 @@ async def list_containers():
 
 @app.get("/api/containers/{container_id}")
 async def inspect_container(container_id: str):
-    """Retorna docker inspect de um container (GET /containers/{id}/json)."""
+    """Retorna docker inspect de um container."""
     return await _get(f"/containers/{container_id}/json")
 
-# Alias explícito para o frontend que chama /api/containers/{id}/json
 @app.get("/api/containers/{container_id}/json")
 async def inspect_container_json(container_id: str):
+    """Alias explcito — frontend chama /api/containers/{id}/json."""
     return await _get(f"/containers/{container_id}/json")
 
 @app.get("/api/containers/{container_id}/logs")
 async def container_logs(container_id: str, tail: int = 500):
     """
-    Retorna até `tail` linhas de log (padrão 500).
-    Sem streaming — buffer seguro para dashboards read-only.
+    Retorna ate `tail` linhas de log (padrao 500).
+    Desempacota o formato multiplexado do Docker (8-byte header por frame).
     """
     async with httpx.AsyncClient(base_url=SOCKET_PROXY, timeout=20) as client:
         r = await client.get(
@@ -66,13 +70,12 @@ async def container_logs(container_id: str, tail: int = 500):
         )
         if r.status_code >= 400:
             raise HTTPException(status_code=r.status_code, detail=r.text)
-        # Docker multiplex header (8 bytes por frame): strip para texto limpo
         raw = r.content
         lines = []
         idx = 0
         while idx + 8 <= len(raw):
-            frame_size = int.from_bytes(raw[idx+4:idx+8], "big")
-            payload = raw[idx+8:idx+8+frame_size]
+            frame_size = int.from_bytes(raw[idx + 4:idx + 8], "big")
+            payload = raw[idx + 8:idx + 8 + frame_size]
             lines.append(payload.decode("utf-8", errors="replace"))
             idx += 8 + frame_size
         text = "".join(lines) if lines else raw.decode("utf-8", errors="replace")
@@ -80,7 +83,7 @@ async def container_logs(container_id: str, tail: int = 500):
 
 @app.get("/api/containers/{container_id}/stats")
 async def container_stats(container_id: str):
-    """Stats snapshot (stream=false) — CPU, memória, rede."""
+    """Stats snapshot (stream=false) — CPU, memoria, rede."""
     return await _get(f"/containers/{container_id}/stats?stream=false")
 
 # ---------- images / info ----------
