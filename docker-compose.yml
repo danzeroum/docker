@@ -36,7 +36,9 @@ services:
       docker-socket-proxy:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8000/health"]
+      # python:3.12-slim nao tem wget nem curl — usa urllib da stdlib
+      test: ["CMD", "python3", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
       timeout: 5s
       retries: 3
