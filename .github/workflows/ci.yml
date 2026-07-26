@@ -44,6 +44,11 @@ jobs:
           mkdir -p nginx certbot/conf certbot/www
           touch nginx/nginx.conf nginx/.htpasswd
 
+      - name: Criar redes externas exigidas pelo compose
+        # No servidor de producao essas redes ja existem (criadas pelo global-ingress).
+        # No runner do CI elas nao existem, entao as criamos antes do compose up.
+        run: docker network create btv-prod-net || true
+
       - name: Build das imagens
         run: docker compose build --no-cache
 
