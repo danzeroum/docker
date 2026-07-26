@@ -15,7 +15,6 @@ if [[ -z "$DOMAIN" ]]; then
 fi
 
 INGRESS_CONF="/opt/btv/ingress/nginx/nginx.conf"
-HTTPASSWD="/opt/btv/ingress/.htpasswd"
 CERTBOT_WWW="/var/www/certbot"
 CERTBOT_CONF="/etc/letsencrypt"
 
@@ -40,12 +39,13 @@ docker run --rm \
 
 echo "[3/4] Adicionando bloco server{} em $INGRESS_CONF..."
 
-# Verifica se ja existe entrada para o dominio
 if grep -q "server_name ${DOMAIN}" "$INGRESS_CONF"; then
   echo "  Bloco para $DOMAIN ja existe em nginx.conf — pulando."
 else
-  # Injeta antes do ultimo '}' do bloco http {}
-  BLOCK="
+  # Gera o bloco num arquivo temporario para evitar problemas de escaping
+  TMPBLOCK=$(mktemp)
+  cat > "$TMPBLOCK" <<NGINX
+
     # ---- docker-cockpit (${DOMAIN}) ----
     server {
         listen 80;
@@ -58,31 +58,33 @@ else
         server_name ${DOMAIN};
         ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
         ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
-        add_header Strict-Transport-Security \"max-age=63072000\" always;
+        add_header Strict-Transport-Security "max-age=63072000" always;
 
-        # Autenticacao basica (mesmo .htpasswd do ingress)
-        auth_basic \"Docker Cockpit\";
+        auth_basic "Docker Cockpit";
         auth_basic_user_file /etc/nginx/.htpasswd;
 
         location ~* (wp-login|\.git|\.env) { return 444; }
         location / {
-            set \$upstream \"http://docker-cockpit:8000\";
+            set \$upstream "http://docker-cockpit:8000";
             proxy_pass \$upstream;
             proxy_read_timeout 60s;
         }
-    }"
+    }
+NGINX
 
-  # Insere antes do ultimo } do arquivo
-  python3 - <<PYEOF
-import re, pathlib
-p = pathlib.Path("$INGRESS_CONF")
-content = p.read_text()
-# Insere o bloco antes do ultimo }
-insert = '''$BLOCK'''
-new_content = content.rstrip().rstrip('}').rstrip() + '\n' + insert + '\n}\n'
-p.write_text(new_content)
+  # Insere o bloco antes do ultimo '}' do arquivo via python (sem heredoc interpolado)
+  python3 - "$INGRESS_CONF" "$TMPBLOCK" <<'PYEOF'
+import sys, pathlib, re
+conf_path = pathlib.Path(sys.argv[1])
+block_path = pathlib.Path(sys.argv[2])
+content = conf_path.read_text()
+block = block_path.read_text()
+new_content = content.rstrip().rstrip('}').rstrip() + '\n' + block + '\n}\n'
+conf_path.write_text(new_content)
 print('  Bloco inserido em nginx.conf')
 PYEOF
+
+  rm -f "$TMPBLOCK"
 fi
 
 echo "[4/4] Recarregando btv-nginx-prod (zero-downtime)..."
