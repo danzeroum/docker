@@ -7,9 +7,9 @@ on:
     branches: ["main"]
 
 jobs:
-  # ─────────────────────────────────────────────
-  # 1. Testes de unidade/integração (sem Docker)
-  # ─────────────────────────────────────────────
+  # -------------------------------------------------
+  # 1. Testes de unidade/integracao (sem Docker)
+  # -------------------------------------------------
   test:
     name: pytest
     runs-on: ubuntu-latest
@@ -23,42 +23,50 @@ jobs:
           cache: pip
           cache-dependency-path: tests/requirements-test.txt
 
-      - name: Instalar dependências de teste
+      - name: Instalar dependencias de teste
         run: pip install -r tests/requirements-test.txt
 
       - name: Rodar pytest
         run: pytest tests/ -v --tb=short
 
-  # ─────────────────────────────────────────────
-  # 2. Build das imagens Docker
-  # ─────────────────────────────────────────────
+  # -------------------------------------------------
+  # 2. Build das imagens Docker + smoke test
+  # -------------------------------------------------
   docker-build:
     name: docker compose build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Criar .env mínimo para o build
+      - name: Criar .env minimo para o build
         run: |
           cp .env.example .env
-          # Cria arquivos que o compose referencia como volumes
           mkdir -p nginx certbot/conf certbot/www
           touch nginx/nginx.conf nginx/.htpasswd
 
       - name: Build das imagens
         run: docker compose build --no-cache
 
-      - name: Smoke test: health endpoint
+      - name: Subir servicos
+        run: docker compose up -d docker-socket-proxy app
+
+      - name: Aguardar app ficar saudavel
         run: |
-          docker compose up -d docker-socket-proxy app
-          # Aguarda healthchecks passarem (máx 45s)
-          for i in $(seq 1 9); do
-            STATUS=$(docker compose ps --format json app 2>/dev/null | python3 -c \
-              "import sys,json; d=json.load(sys.stdin); print(d.get('Health',''))" 2>/dev/null || echo '')
-            echo "Tentativa $i — Health: ${STATUS:-aguardando}"
-            curl -sf http://localhost:8000/health && break
+          for i in 1 2 3 4 5 6 7 8 9; do
+            echo "Tentativa $i..."
+            curl -sf http://localhost:8000/health && exit 0
             sleep 5
           done
+          echo "Timeout: app nao respondeu"
+          docker compose logs app
+          exit 1
+
+      - name: Smoke test endpoints
+        run: |
           curl -sf http://localhost:8000/health
-          curl -sf http://localhost:8000/api/containers | python3 -c "import sys,json; json.load(sys.stdin); print('JSON válido')"
-          docker compose down
+          curl -sf http://localhost:8000/api/containers
+          curl -sf http://localhost:8000/api/info
+
+      - name: Derrubar servicos
+        if: always()
+        run: docker compose down
