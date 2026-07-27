@@ -1,0 +1,80 @@
+function handleContainerAction(action) {
+  const id = selectedContainerId;
+  if (!id) return;
+
+  const labels = {
+    start: 'Iniciar', stop: 'Parar', restart: 'Reiniciar', remove: 'Remover'
+  };
+  const label = labels[action] || action;
+
+  if (action === 'remove') {
+    const container = allContainers.find(c => c.Id === id);
+    const name = container ? (container.Names?.[0] || '').replace(/^\//, '') : shortId(id);
+    showConfirmModal({
+      title: 'Remover Container',
+      message: `Tem certeza que deseja remover <strong>${escapeHtml(name)}</strong>?`,
+      confirmText: 'Remover',
+      confirmClass: '',
+      confirmName: name,
+      checkboxLabel: 'Remover volumes associados (-v)',
+      checkboxChecked: false
+    }).then(async (result) => {
+      if (!result.confirmed) return;
+      const params = new URLSearchParams();
+      if (result.checkbox) params.set('v', 'true');
+      params.set('force', 'true');
+      await executeAction(id, 'remove', `?${params.toString()}`, 'DELETE');
+    });
+    return;
+  }
+
+  const needConfirm = ['stop', 'restart'];
+  if (needConfirm.includes(action)) {
+    const container = allContainers.find(c => c.Id === id);
+    const name = container ? (container.Names?.[0] || '').replace(/^\//, '') : shortId(id);
+    showConfirmModal({
+      title: `${label} Container`,
+      message: `Deseja ${label.toLowerCase()} o container <strong>${escapeHtml(name)}</strong>?`,
+      confirmText: label,
+      confirmClass: action === 'stop' ? '' : (action === 'start' ? 'start' : 'restart')
+    }).then(async (result) => {
+      if (!result.confirmed) return;
+      await executeAction(id, action, '', 'POST');
+    });
+    return;
+  }
+
+  executeAction(id, 'start', '', 'POST');
+}
+
+document.getElementById('searchInput').addEventListener('input', e => {
+  searchTerm = e.target.value;
+  renderContainerList();
+});
+
+document.querySelectorAll('.filter-pill').forEach(pill => {
+  pill.addEventListener('click', () => setFilter(pill.dataset.filter));
+});
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.target)?.scrollIntoView({behavior:'smooth', block:'start'});
+  });
+});
+
+document.getElementById('mainContent').addEventListener('click', (e) => {
+  const btn = e.target.closest('.action-btn');
+  if (!btn) return;
+  const id = btn.id;
+  if (id === 'btnStart') handleContainerAction('start');
+  else if (id === 'btnStop') handleContainerAction('stop');
+  else if (id === 'btnRestart') handleContainerAction('restart');
+  else if (id === 'btnRemove') handleContainerAction('remove');
+});
+
+window.addEventListener('DOMContentLoaded', () => {
+  fetchContainers();
+  setInterval(fetchContainers, 5000);
+});
