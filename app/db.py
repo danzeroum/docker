@@ -39,32 +39,32 @@ async def init_db():
     row = await cur.fetchone()
     current = row[0] if row and row[0] else 0
     migrations = [
-        (1, """
-            CREATE TABLE IF NOT EXISTS findings (
-                id            TEXT PRIMARY KEY,
-                rule          TEXT NOT NULL,
-                target        TEXT NOT NULL,
-                scope         TEXT NOT NULL,
-                severity      TEXT NOT NULL,
-                score         INTEGER NOT NULL,
-                caused_by     TEXT,
-                status        TEXT NOT NULL DEFAULT 'open',
-                ack_reason    TEXT,
-                ack_note      TEXT,
-                ack_until     TEXT,
-                first_seen    TEXT NOT NULL,
-                last_seen     TEXT NOT NULL,
-                resolved_at   TEXT,
-                occurrences   INTEGER NOT NULL DEFAULT 1,
-                payload       TEXT NOT NULL
-            );
-            CREATE INDEX IF NOT EXISTS idx_findings_status
-                ON findings(status, score DESC);
-        """),
+        (1, [
+            "CREATE TABLE IF NOT EXISTS findings ("
+            "id TEXT PRIMARY KEY,"
+            "rule TEXT NOT NULL,"
+            "target TEXT NOT NULL,"
+            "scope TEXT NOT NULL,"
+            "severity TEXT NOT NULL,"
+            "score INTEGER NOT NULL,"
+            "caused_by TEXT,"
+            "status TEXT NOT NULL DEFAULT 'open',"
+            "ack_reason TEXT,"
+            "ack_note TEXT,"
+            "ack_until TEXT,"
+            "first_seen TEXT NOT NULL,"
+            "last_seen TEXT NOT NULL,"
+            "resolved_at TEXT,"
+            "occurrences INTEGER NOT NULL DEFAULT 1,"
+            "payload TEXT NOT NULL"
+            ")",
+            "CREATE INDEX IF NOT EXISTS idx_findings_status ON findings(status, score DESC)",
+        ]),
     ]
-    for ver, sql in migrations:
+    for ver, stmts in migrations:
         if ver > current:
-            await db.execute(sql)
+            for stmt in stmts:
+                await db.execute(stmt)
             await db.execute(
                 "INSERT INTO schema_version (version, applied_at) VALUES (?, ?)",
                 (ver, _now()),
@@ -87,22 +87,23 @@ async def upsert_finding(finding: dict) -> bool:
         if existing["status"] == "resolved":
             resolved_at = existing.get("resolved_at")
             if resolved_at:
-                from datetime import datetime, timezone
                 try:
                     resolved_dt = datetime.fromisoformat(resolved_at.replace("Z", "+00:00"))
                     now_dt = datetime.fromisoformat(now.replace("Z", "+00:00"))
                     delta = (now_dt - resolved_dt).total_seconds()
-                    if delta < 1800:
-                        pass
-                    else:
-                        pass
                 except Exception:
-                    pass
+                    delta = 9999
+                if delta < 1800:
+                    await db.execute("""
+                        UPDATE findings SET
+                            last_seen = ?, status = 'open', resolved_at = NULL
+                        WHERE id = ?
+                    """, (now, finding["id"]))
+                    await db.commit()
+                    return False
         await db.execute("""
             UPDATE findings SET
-                last_seen = ?, occurrences = occurrences + 1, payload = ?,
-                status = CASE WHEN status = 'resolved' THEN 'open' ELSE status END,
-                resolved_at = NULL
+                last_seen = ?, occurrences = occurrences + 1, payload = ?
             WHERE id = ?
         """, (now, finding.get("payload", "{}"), finding["id"]))
         await db.commit()
