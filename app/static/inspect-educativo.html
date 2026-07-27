@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="escritorio">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Laboratório de Inspect — Docker Educativo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root[data-theme="escritorio"] {
+    --bg:#f4f6f8; --bg-2:#eef1f5; --surface:#e5e9ef; --surface-2:#d0d7de;
+    --border:rgba(203,213,225,.5); --border-strong:rgba(148,163,184,.4);
+    --text:#1f2937; --text-dim:#64748b; --text-mute:#94a3b8;
+    --accent:#2563eb; --accent-2:#3b74ec;
+    --ok:#10b981; --warn:#f59e0b; --bad:#ef4444;
+    --accent-soft:rgba(37,99,235,.1); --ok-soft:rgba(16,185,129,.12); --warn-soft:rgba(245,158,11,.12); --bad-soft:rgba(239,68,68,.12);
+    --code-bg:#f8fafc; --code-text:#334155;
+    --radius:4px; --radius-card:8px;
+    --shadow:0 1px 3px rgba(0,0,0,.05), 0 1px 2px rgba(0,0,0,.03);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  body{min-height:100vh}
+  ::selection{background:var(--accent-soft);color:var(--accent)}
+  
+  .app{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
+  .sidebar{background:var(--surface);border-right:1px solid var(--border);padding:1.75rem 1rem;position:sticky;top:0;height:100vh;overflow-y:auto;display:flex;flex-direction:column;gap:1.25rem}
+  .brand{display:flex;align-items:center;gap:.75rem;padding:0 .5rem}
+  .brand-logo{width:38px;height:38px;border-radius:var(--radius);background:var(--accent);display:grid;place-items:center;box-shadow:0 4px 14px var(--accent-soft)}
+  .brand-logo svg{width:22px;height:22px;color:#fff}
+  .brand-title{font-weight:800;font-size:1.05rem;letter-spacing:-.02em;line-height:1.1}
+  .brand-sub{font-size:.7rem;color:var(--text-mute);letter-spacing:.18em;text-transform:uppercase;margin-top:2px}
+  
+  .nav-label{font-size:.68rem;letter-spacing:.18em;text-transform:uppercase;color:var(--text-mute);padding:0 .75rem;margin-bottom:.4rem}
+  .nav{display:flex;flex-direction:column;gap:2px}
+  .nav-item{display:flex;align-items:center;gap:.7rem;padding:.6rem .75rem;border-radius:var(--radius);color:var(--text-dim);font-size:.875rem;font-weight:500;cursor:pointer;text-decoration:none;transition:all .2s;border:1px solid transparent}
+  .nav-item:hover{background:var(--surface-2);color:var(--text)}
+  .nav-item.active{background:var(--surface-2);color:var(--accent);border-color:var(--border-strong);border-left:3px solid var(--accent);padding-left:calc(.75rem - 2px)}
+  .nav-item .nav-ico{width:16px;height:16px;flex-shrink:0;opacity:.8}
+  .nav-kbd{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:.65rem;padding:1px 6px;border-radius:4px;border:1px solid var(--border);background:var(--bg-2);color:var(--text-mute)}
+  
+  .main{padding:0;min-width:0}
+  .topbar{position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:1px solid var(--border);padding:1rem 2rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+  .topbar-title{font-weight:700;font-size:1rem;flex:1;min-width:0}
+  .topbar-title .muted{color:var(--text-mute);font-weight:400;margin-left:.5rem;font-size:.85rem}
+  
+  .btn{display:inline-flex;align-items:center;gap:.5rem;padding:.5rem .85rem;border-radius:var(--radius);font-size:.8rem;font-weight:500;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);cursor:pointer;font-family:inherit;transition:all .2s;text-decoration:none}
+  .btn:hover{background:var(--surface-2);border-color:var(--accent)}
+  .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn svg{width:14px;height:14px}
+  
+  .content{padding:2rem;max-width:1280px;margin:0 auto}
+  .empty{text-align:center;padding:5rem 2rem;border:1px dashed var(--border-strong);border-radius:var(--radius-card);background:var(--surface)}
+  .empty-icon{width:64px;height:64px;border-radius:var(--radius-card);background:var(--surface-2);border:1px solid var(--border-strong);display:grid;place-items:center;margin:0 auto 1.5rem;color:var(--accent)}
+  .empty-icon svg{width:30px;height:30px}
+  .empty h2{font-size:1.5rem;font-weight:800;margin:0 0 .5rem}
+  .empty p{color:var(--text-dim);max-width:520px;margin:0 auto 2rem;line-height:1.6}
+  .empty code{background:var(--accent-soft);color:var(--accent);padding:2px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace}
+  
+  .drop-zone{border:2px dashed var(--border-strong);border-radius:var(--radius-card);background:var(--accent-soft);padding:2rem;text-align:center;transition:all .2s;cursor:pointer;margin-bottom:1.5rem}
+  .drop-zone:hover{border-color:var(--accent)}
+  .drop-zone svg{width:48px;height:48px;color:var(--accent);margin-bottom:1rem}
+  
+  .hero{background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--radius-card);padding:2rem;margin-bottom:1.5rem;box-shadow:var(--shadow)}
+  .hero-grid{display:grid;grid-template-columns:1fr auto;gap:2rem;align-items:center}
+  .hero-eyebrow{font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);font-weight:600;margin-bottom:.5rem}
+  .hero-title{font-size:2rem;font-weight:800;margin:0 0 .35rem}
+  .hero-sub{color:var(--text-dim);font-size:.95rem}
+  .hero-sub code{background:var(--accent-soft);color:var(--accent);padding:1px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace}
+  
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.85rem;margin-bottom:2rem}
+  .kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-card);padding:1.1rem;box-shadow:var(--shadow)}
+  .kpi-label{font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text-mute);font-weight:600;margin-bottom:.5rem}
+  .kpi-value{font-family:'JetBrains Mono',monospace;font-size:1.55rem;font-weight:600;color:var(--text)}
+  .kpi-sub{font-size:.75rem;color:var(--text-dim);margin-top:.4rem}
+  .kpi.kpi-ok .kpi-value{color:var(--ok)} .kpi.kpi-warn .kpi-value{color:var(--warn)} .kpi.kpi-bad .kpi-value{color:var(--bad)}
+  
+  .section{margin-bottom:1.5rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-card);padding:1.75rem;box-shadow:var(--shadow);scroll-margin-top:90px}
+  .section-head{display:flex;align-items:flex-start;gap:1rem;margin-bottom:1.5rem}
+  .section-num{width:34px;height:34px;border-radius:var(--radius);background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-family:'JetBrains Mono',monospace;font-weight:600;border:1px solid var(--accent)}
+  .section-title{font-size:1.25rem;font-weight:700;margin:0 0 .25rem}
+  .section-desc{color:var(--text-dim);font-size:.875rem}
+  
+  .findings-list{display:flex;flex-direction:column;gap:1rem}
+  .finding{border:1px solid var(--border-strong);border-radius:var(--radius-card);padding:1.25rem}
+  .finding.critical{background:linear-gradient(135deg,var(--bad-soft),transparent);border-color:var(--bad)}
+  .finding.warning{background:linear-gradient(135deg,var(--warn-soft),transparent);border-color:var(--warn)}
+  .finding.info{background:linear-gradient(135deg,var(--accent-soft),transparent);border-color:var(--accent)}
+  .finding.ok{background:linear-gradient(135deg,var(--ok-soft),transparent);border-color:var(--ok)}
+  .finding-title{font-weight:700;font-size:.95rem;margin:.5rem 0 .4rem}
+  .finding-narrative{font-size:.85rem;color:var(--text-dim);line-height:1.65;margin:0 0 .85rem}
+  .finding-narrative code{background:var(--surface-2);color:var(--text);padding:1px 5px;border-radius:4px;font-family:'JetBrains Mono',monospace}
+  
+  .toast{position:fixed;bottom:1.5rem;right:1.5rem;z-index:300;background:var(--surface-2);border:1px solid var(--border-strong);padding:.8rem 1.1rem;border-radius:var(--radius);box-shadow:0 8px 24px rgba(0,0,0,.1);transform:translateY(20px);opacity:0;transition:all .3s}
+  .toast.show{transform:translateY(0);opacity:1}
+  
+  .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius)}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th{text-align:left;font-size:.68rem;text-transform:uppercase;color:var(--text-mute);padding:.7rem 1rem;background:var(--bg-2);border-bottom:1px solid var(--border)}
+  td{padding:.7rem 1rem;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:.8rem}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      </div>
+      <div>
+        <div class="brand-title">Laboratório</div>
+        <div class="brand-sub">inspect educativo</div>
+      </div>
+    </div>
+    <div class="nav-label">Navegação</div>
+    <nav class="nav">
+      <a class="nav-item active" data-target="diagnostico"><span>1. Diagnóstico</span></a>
+      <a class="nav-item" data-target="overview"><span>2. Visão Geral</span></a>
+      <a class="nav-item" data-target="rede"><span>3. Rede</span></a>
+      <a class="nav-item" data-target="json"><span>4. JSON Bruto</span></a>
+    </nav>
+    <div style="margin-top:auto">
+      <a href="/" class="btn" style="width:100%;justify-content:center">← Voltar ao Cockpit</a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-title">
+        <span id="topbarName">Aguardando dados...</span>
+        <span class="muted" id="topbarImage">—</span>
+      </div>
+      <label class="btn btn-primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+        Carregar JSON Manual
+        <input type="file" id="fileInput" accept=".json" hidden>
+      </label>
+    </header>
+
+    <div class="content">
+      <div class="empty" id="emptyState">
+        <div class="empty-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        </div>
+        <h2>Laboratório de Inspect</h2>
+        <p>Carregue um arquivo <code>inspect.json</code> obtido com <code>docker inspect &lt;container&gt;</code>, ou acesse via Cockpit principal para ver dados reais.</p>
+      </div>
+
+      <div class="drop-zone" id="dropZone" style="display:none">
+        <p>Arraste e solte um arquivo <code>inspect.json</code> aqui</p>
+      </div>
+
+      <div id="dashboardContent" style="display:none">
+        <div class="hero">
+          <div class="hero-grid">
+            <div>
+              <div class="hero-eyebrow">Container</div>
+              <h1 class="hero-title" id="heroName">—</h1>
+              <p class="hero-sub" id="heroSub">—</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="kpis" id="kpis"></div>
+
+        <section class="section" id="diagnostico">
+          <div class="section-head">
+            <div class="section-num">01</div>
+            <div>
+              <h2 class="section-title">Diagnóstico Integrado</h2>
+              <p class="section-desc">Análise automática de causa-raiz baseada nos dados do inspect.</p>
+            </div>
+          </div>
+          <div id="diagContent" class="findings-list"></div>
+        </section>
+
+        <section class="section" id="json">
+          <div class="section-head">
+            <div class="section-num">02</div>
+            <div>
+              <h2 class="section-title">JSON Bruto</h2>
+              <p class="section-desc">Dados completos retornados pelo Docker.</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <pre style="padding:1rem;font-family:'JetBrains Mono',monospace;font-size:.8rem;overflow-x:auto;background:var(--code-bg);color:var(--code-text)" id="jsonRaw"></pre>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast">Pronto!</div>
+
+<script>
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function parseInspect(data) {
+  const c = Array.isArray(data) ? data[0] : data;
+  return {
+    name: c.Name || c.Id.substring(0,12),
+    id: c.Id || '',
+    image: c.Config.Image || '',
+    state: c.State || {},
+    config: c.Config || {},
+    host: c.HostConfig || {},
+    net: c.NetworkSettings || {},
+    __raw: c
+  };
+}
+
+function render(data) {
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('dashboardContent').style.display = 'block';
+  
+  document.getElementById('heroName').textContent = data.name;
+  document.getElementById('heroSub').innerHTML = `Image: <code>${data.image}</code>`;
+  document.getElementById('topbarName').textContent = data.name;
+  
+  // Render KPIs
+  const kpis = [
+    {label: 'Status', val: data.state.Status, cls: data.state.Status === 'running' ? 'kpi-ok' : 'kpi-bad'},
+    {label: 'Health', val: data.state.Health?.Status || 'N/A', cls: data.state.Health?.Status === 'healthy' ? 'kpi-ok' : 'kpi-bad'},
+    {label: 'Restarts', val: data.state.RestartCount || 0, cls: 'kpi-warn'},
+    {label: 'IP', val: data.net.IPAddress || '—', cls: ''}
+  ];
+  document.getElementById('kpis').innerHTML = kpis.map(k => `
+    <div class="kpi ${k.cls}">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value">${k.val}</div>
+    </div>
+  `).join('');
+  
+  // Render JSON
+  document.getElementById('jsonRaw').textContent = JSON.stringify(data.__raw, null, 2);
+  
+  // Simple Diagnosis Logic
+  const findings = [];
+  const portBindings = data.host.PortBindings || {};
+  const hasBindings = Object.keys(portBindings).some(k => portBindings[k]?.length > 0);
+  const isUnhealthy = data.state.Health?.Status === 'unhealthy';
+  
+  if (isUnhealthy && !hasBindings) {
+    findings.push({
+      sev: 'critical',
+      title: 'Healthcheck unhealthy causado por porta não publicada',
+      narrative: 'O container está marcado como unhealthy, mas nenhuma porta está mapeada para o host. O healthcheck não consegue alcançar a aplicação.'
+    });
+  }
+  if (!data.state.Running) {
+    findings.push({
+      sev: 'critical',
+      title: 'Container não está rodando',
+      narrative: `Status atual: ${data.state.Status}. Exit code: ${data.state.ExitCode}.`
+    });
+  }
+  
+  document.getElementById('diagContent').innerHTML = findings.length ? findings.map(f => `
+    <div class="finding ${f.sev}">
+      <strong>${f.sev.toUpperCase()}</strong>
+      <div class="finding-title">${f.title}</div>
+      <p class="finding-narrative">${f.narrative}</p>
+    </div>
+  `).join('') : '<div class="finding ok"><strong>OK</strong><p class="finding-narrative">Nenhum problema crítico detectado automaticamente.</p></div>';
+}
+
+async function loadFromApi(containerId) {
+  try {
+    document.getElementById('emptyState').innerHTML = '<h2>Carregando dados da API...</h2><p>Buscando inspect para o container: ' + containerId + '</p>';
+    const res = await fetch(`/api/containers/${containerId}/json`);
+    if (!res.ok) throw new Error('Container não encontrado');
+    const data = await res.json();
+    render(parseInspect(data));
+    showToast('Dados carregados da API');
+  } catch (err) {
+    document.getElementById('emptyState').innerHTML = `<h2>Erro ao carregar</h2><p>${err.message}. Você pode carregar manualmente abaixo.</p>`;
+    document.getElementById('dropZone').style.display = 'block';
+    showToast('Erro ao carregar da API');
+  }
+}
+
+function loadFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      render(parseInspect(data));
+      showToast('JSON carregado');
+    } catch (err) {
+      showToast('JSON inválido');
+    }
+  };
+  reader.readAsText(file);
+}
+
+// Init
+window.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get('id');
+  
+  if (id) {
+    loadFromApi(id);
+  } else {
+    document.getElementById('dropZone').style.display = 'block';
+  }
+  
+  // File input
+  document.getElementById('fileInput').addEventListener('change', (e) => {
+    if (e.target.files[0]) loadFile(e.target.files[0]);
+  });
+  
+  // Drag & Drop
+  const dropZone = document.getElementById('dropZone');
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(ev => {
+    dropZone.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); });
+  });
+  dropZone.addEventListener('drop', e => {
+    if (e.dataTransfer.files.length > 0 && e.dataTransfer.files[0].name.endsWith('.json')) {
+      loadFile(e.dataTransfer.files[0]);
+    }
+  });
+});
+</script>
+</body>
+</html>
