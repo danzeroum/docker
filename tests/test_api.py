@@ -14,8 +14,6 @@ from fastapi.testclient import TestClient
 import os
 os.environ.setdefault("SOCKET_PROXY", "http://docker-socket-proxy:2375")
 
-import sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "app"))
 from app import app
 
 client = TestClient(app)
@@ -215,6 +213,96 @@ def test_proxy_error_propagates():
     )
     r = client.get("/api/containers/nao-existe/json")
     assert r.status_code == 404
+
+
+def _assert_masked(data):
+    """Asserts masking was applied correctly across Config fields."""
+    # --- Env ---
+    env = {e.split("=", 1)[0]: e.split("=", 1)[1] for e in data["Config"]["Env"] if "=" in e}
+    # Negative: must NOT mask
+    assert env["PATH"] == "/usr/bin"
+    assert env["PUBLIC_URL"] == "https://example.com"
+    assert env["SITE_URL"] == "https://mysite.com"
+    assert env["LOG_LEVEL"] == "debug"
+    # Positive: must mask
+    assert env["SECRET_KEY"] == "********"
+    assert env["API_KEY"] == "********"
+    assert env["DB_PASSWORD"] == "********"
+    assert env["PRIVATE_KEY"] == "********"
+    # URI credential: user:senha masked, host+path preserved
+    assert "********" in env["DATABASE_URL"]
+    assert "@localhost:5432/db" in env["DATABASE_URL"]
+    # --- Cmd ---
+    assert "********" in str(data["Config"]["Cmd"])
+    # --- Entrypoint ---
+    assert "********" in str(data["Config"]["Entrypoint"])
+    # --- Labels ---
+    assert data["Config"]["Labels"]["com.example.token"] == "********"
+    assert data["Config"]["Labels"]["_password"] == "********"
+    assert data["Config"]["Labels"]["maintainer"] == "team@example.com"
+
+
+@respx.mock
+def test_secret_masking_on_inspect():
+    """GET /api/containers/{id} deve mascarar segredos."""
+    fa = dict(FAKE_INSPECT)
+    fa["Config"] = {
+        "Image": "myapp:latest",
+        "Cmd": ["myapp", "--db-password=supersecret", "server"],
+        "Entrypoint": ["/entry.sh", "--token=abc"],
+        "Env": [
+            "PATH=/usr/bin",
+            "SECRET_KEY=sk-1234567890",
+            "DATABASE_URL=postgres://user:pass@localhost:5432/db",
+            "PUBLIC_URL=https://example.com",
+            "SITE_URL=https://mysite.com",
+            "LOG_LEVEL=debug",
+            "API_KEY=abc123",
+            "DB_PASSWORD=oracle",
+            "PRIVATE_KEY=-----BEGIN RSA KEY-----",
+        ],
+        "Labels": {
+            "com.example.token": "should-be-masked",
+            "_password": "hunter2",
+            "maintainer": "team@example.com",
+        },
+    }
+    respx.get(f"{PROXY}/containers/{CONTAINER_ID}/json").mock(
+        return_value=httpx.Response(200, json=fa)
+    )
+    r = client.get(f"/api/containers/{CONTAINER_ID}")
+    assert r.status_code == 200
+    _assert_masked(r.json())
+
+
+@respx.mock
+def test_secret_masking_on_inspect_json():
+    """GET /api/containers/{id}/json deve mascarar segredos (rota alternativa)."""
+    fa = dict(FAKE_INSPECT)
+    fa["Config"] = {
+        "Image": "myapp:latest",
+        "Cmd": ["tool", "--secret=123"],
+        "Entrypoint": ["launcher"],
+        "Env": [
+            "PATH=/usr/bin",
+            "SECRET_KEY=sk-1234567890",
+            "PUBLIC_URL=https://example.com",
+            "LOG_LEVEL=debug",
+            "API_KEY=abc123",
+        ],
+        "Labels": {"maintainer": "team@example.com"},
+    }
+    respx.get(f"{PROXY}/containers/{CONTAINER_ID}/json").mock(
+        return_value=httpx.Response(200, json=fa)
+    )
+    r = client.get(f"/api/containers/{CONTAINER_ID}/json")
+    assert r.status_code == 200
+    data = r.json()
+    env = {e.split("=", 1)[0]: e.split("=", 1)[1] for e in data["Config"]["Env"] if "=" in e}
+    assert env["SECRET_KEY"] == "********"
+    assert env["API_KEY"] == "********"
+    assert env["PUBLIC_URL"] == "https://example.com"
+    assert env["LOG_LEVEL"] == "debug"
 
 
 @respx.mock
