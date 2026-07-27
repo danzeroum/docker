@@ -15,6 +15,8 @@ services:
       INFO: 1
       NETWORKS: 1
       VOLUMES: 1
+      EVENTS: 1
+      SYSTEM: 1
       POST: 1
       DELETE: 1
       LOG_LEVEL: warning
@@ -36,6 +38,9 @@ services:
     env_file: .env
     environment:
       SOCKET_PROXY: http://docker-cockpit-proxy:2375
+    volumes:
+      - /opt/btv/ingress/nginx:/etc/nginx-ingress:ro
+      - cockpit-data:/data
     networks:
       - internal
       - btv-prod-net   # visivel ao global-ingress
@@ -49,6 +54,9 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
+volumes:
+  cockpit-data:
 
 networks:
   internal:
