@@ -65,6 +65,9 @@ function renderGlobalOverview() {
     c.State === 'unhealthy' || (c.Status && c.Status.includes('unhealthy'))
   ).length;
 
+  document.getElementById('globalSummary').textContent = unhealthy > 0
+    ? `${running}/${total} UP · ${unhealthy} unhealthy`
+    : `${running}/${total} UP`;
   document.getElementById('mainTitle').textContent = 'Visão Geral do Host';
   document.getElementById('mainSubtitle').textContent = `${total} containers detectados`;
   document.getElementById('tabNav').style.display = 'none';

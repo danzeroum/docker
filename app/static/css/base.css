@@ -26,6 +26,13 @@ html,body{
 .container-list::-webkit-scrollbar{width:6px}
 .container-list::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:3px}
 
+/* Skeleton loading */
+@keyframes skeleton-pulse{0%{opacity:.6}50%{opacity:.3}100%{opacity:.6}}
+.skeleton{
+  background:var(--surface-2);border-radius:6px;animation:skeleton-pulse 1.5s var(--ease-quiet) infinite;
+  display:inline-block;height:1em
+}
+
 @media (max-width: 1024px){
   .app{grid-template-columns:280px 1fr}
 }
