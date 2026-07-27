@@ -192,6 +192,71 @@
   .status-pill.healthy{background:var(--ok-soft);color:#86efac;border-color:rgba(34,197,94,.3)}
   .status-pill.healthy .dot{background:var(--ok)}
 
+  /* Action buttons */
+  .action-bar{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)}
+  .action-btn{
+    display:inline-flex;align-items:center;gap:.4rem;padding:.4rem .75rem;border-radius:6px;
+    font-size:.75rem;font-weight:500;border:none;cursor:pointer;transition:all .15s;
+    font-family:inherit;color:#fff
+  }
+  .action-btn:disabled{opacity:.5;cursor:not-allowed}
+  .action-btn.start{background:var(--ok)}
+  .action-btn.start:hover:not(:disabled){background:#16a34a}
+  .action-btn.stop{background:var(--bad)}
+  .action-btn.stop:hover:not(:disabled){background:#dc2626}
+  .action-btn.restart{background:var(--accent)}
+  .action-btn.restart:hover:not(:disabled){background:#1a85d6}
+  .action-btn.remove{background:var(--warn)}
+  .action-btn.remove:hover:not(:disabled){background:#d97706}
+
+  /* Modal */
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(2px);
+    z-index:100;display:flex;align-items:center;justify-content:center;padding:1rem;
+    opacity:0;pointer-events:none;transition:opacity .2s
+  }
+  .modal-overlay.open{opacity:1;pointer-events:auto}
+  .modal{
+    background:var(--surface);border:1px solid var(--border-strong);border-radius:12px;
+    padding:1.5rem;max-width:420px;width:100%;box-shadow:0 20px 40px rgba(0,0,0,.4);
+    transform:scale(.95);transition:transform .2s
+  }
+  .modal-overlay.open .modal{transform:scale(1)}
+  .modal-title{font-size:1rem;font-weight:700;margin:0 0 .5rem}
+  .modal-text{color:var(--text-dim);font-size:.85rem;margin:0 0 1rem;line-height:1.5}
+  .modal-input{
+    width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;
+    padding:.5rem .75rem;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.8rem;
+    margin-bottom:1rem;outline:none
+  }
+  .modal-input:focus{border-color:var(--accent)}
+  .modal-checkbox{display:flex;align-items:center;gap:.5rem;font-size:.8rem;color:var(--text-dim);margin-bottom:1rem}
+  .modal-actions{display:flex;gap:.5rem;justify-content:flex-end}
+  .modal-btn{padding:.5rem 1rem;border-radius:6px;font-size:.8rem;font-weight:500;border:none;cursor:pointer;font-family:inherit}
+  .modal-btn.cancel{background:var(--surface);border:1px solid var(--border);color:var(--text)}
+  .modal-btn.confirm{background:var(--bad);color:#fff}
+  .modal-btn.confirm.start{background:var(--ok)}
+  .modal-btn.confirm.restart{background:var(--accent)}
+
+  /* Toast */
+  .toast-container{
+    position:fixed;bottom:1.5rem;right:1.5rem;z-index:200;display:flex;flex-direction:column;gap:.5rem
+  }
+  .toast{
+    background:var(--surface);border:1px solid var(--border-strong);border-radius:8px;
+    padding:.75rem 1rem;box-shadow:0 8px 24px rgba(0,0,0,.3);
+    display:flex;align-items:center;gap:.75rem;min-width:280px;max-width:400px;
+    transform:translateX(120%);opacity:0;transition:all .3s var(--ease-quiet)
+  }
+  .toast.show{transform:translateX(0);opacity:1}
+  .toast.success{border-left:3px solid var(--ok)}
+  .toast.error{border-left:3px solid var(--bad)}
+  .toast.info{border-left:3px solid var(--accent)}
+  .toast.warning{border-left:3px solid var(--warn)}
+  .toast-icon{flex-shrink:0;width:20px;height:20px}
+  .toast-message{flex:1;font-size:.85rem;line-height:1.4}
+  .toast-close{background:none;border:none;color:var(--text-mute);cursor:pointer;padding:.25rem;line-height:1}
+
   .empty{text-align:center;padding:4rem 2rem;color:var(--text-dim)}
   .empty-field{
     background:rgba(245,158,11,.06);border:1px dashed rgba(245,158,11,.3);
@@ -813,6 +878,26 @@ function renderContainerDetail(data, rawJson) {
           <div class="kpi-label">Exit Code</div>
           <div class="kpi-value" style="font-size:1.2rem">${data.state.exitCode ?? '—'}</div>
         </div>
+      </div>
+
+      <!-- Action Bar -->
+      <div class="action-bar" id="actionBar">
+        <button class="action-btn start" id="btnStart" disabled title="Iniciar container">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Iniciar
+        </button>
+        <button class="action-btn stop" id="btnStop" disabled title="Parar container">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="12" height="16"/></svg>
+          Parar
+        </button>
+        <button class="action-btn restart" id="btnRestart" disabled title="Reiniciar container">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 23 20"/></svg>
+          Reiniciar
+        </button>
+        <button class="action-btn remove" id="btnRemove" disabled title="Remover container">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          Remover
+        </button>
       </div>
     </div>
 

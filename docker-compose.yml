@@ -15,8 +15,8 @@ services:
       INFO: 1
       NETWORKS: 1
       VOLUMES: 1
-      POST: 0
-      DELETE: 0
+      POST: 1
+      DELETE: 1
       LOG_LEVEL: warning
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro

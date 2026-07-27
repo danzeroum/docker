@@ -20,7 +20,7 @@ app = FastAPI(title="Docker Cockpit", docs_url=None, redoc_url=None)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -88,6 +88,45 @@ async def container_logs(container_id: str, tail: int = 500):
 async def container_stats(container_id: str):
     """Stats snapshot (stream=false) — CPU, memoria, rede."""
     return await _get(f"/containers/{container_id}/stats?stream=false")
+
+# ---------- container lifecycle (admin) ----------
+async def _post(path: str, params: dict | None = None, json_body: dict | None = None):
+    async with httpx.AsyncClient(base_url=SOCKET_PROXY, timeout=30) as client:
+        r = await client.post(path, params=params, json=json_body)
+        if r.status_code >= 400:
+            raise HTTPException(status_code=r.status_code, detail=r.text)
+        return r.json() if r.content else {"ok": True}
+
+async def _delete(path: str, params: dict | None = None):
+    async with httpx.AsyncClient(base_url=SOCKET_PROXY, timeout=30) as client:
+        r = await client.delete(path, params=params)
+        if r.status_code >= 400:
+            raise HTTPException(status_code=r.status_code, detail=r.text)
+        return {"ok": True, "status_code": r.status_code}
+
+@app.post("/api/containers/{container_id}/stop")
+async def stop_container(container_id: str, t: int = 10):
+    """Para o container (timeout em segundos, default 10)."""
+    return await _post(f"/containers/{container_id}/stop", params={"t": t})
+
+@app.post("/api/containers/{container_id}/start")
+async def start_container(container_id: str):
+    """Inicia o container."""
+    return await _post(f"/containers/{container_id}/start")
+
+@app.post("/api/containers/{container_id}/restart")
+async def restart_container(container_id: str, t: int = 10):
+    """Reinicia o container (timeout em segundos, default 10)."""
+    return await _post(f"/containers/{container_id}/restart", params={"t": t})
+
+@app.delete("/api/containers/{container_id}")
+async def remove_container(container_id: str, v: bool = False, force: bool = False):
+    """
+    Remove o container.
+    - v=true: remove volumes associados
+    - force=true: remove mesmo se estiver rodando (SIGKILL)
+    """
+    return await _delete(f"/containers/{container_id}", params={"v": v, "force": force})
 
 # ---------- images / info ----------
 @app.get("/api/images")

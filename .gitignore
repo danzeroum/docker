@@ -1,3 +1,5 @@
 .env
 certbot/conf/
 nginx/.htpasswd
+__pycache__/
+*.pyc
