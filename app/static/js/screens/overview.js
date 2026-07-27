@@ -66,15 +66,20 @@ function renderStacks(stacks) {
   }).join('');
 }
 
-function renderContainers(containers) {
+function renderContainers(containers, findingsMap) {
   if (!containers || !containers.length) return '<div class="empty">Nenhum container</div>';
   const depth = getState().depth || 'dado';
   return containers.map(c => {
     const lbl = label(c.state, c.health);
     const memStr = c.mem_limit ? fmtBytes(c.mem_limit) : 'sem limite';
-    let secLine = escapeHtml(c.image);
-    if (depth === 'informacao' || depth === 'conhecimento') {
-      secLine = '<span style="color:var(--text-mute);font-style:italic">Aguarda achados — F2</span>';
+    const finding = findingsMap ? findingsMap[c.name] : null;
+    let secLine;
+    if (depth === 'dado') {
+      secLine = escapeHtml(c.image);
+    } else if (depth === 'informacao') {
+      secLine = finding ? `<span style="color:var(--text-dim)">${escapeHtml(finding.interpretation_plain || finding.interpretation || '')}</span>` : '<span style="color:var(--text-mute);font-style:italic">Nenhum achado</span>';
+    } else if (depth === 'conhecimento') {
+      secLine = finding ? `<span style="color:var(--accent);font-style:italic">${escapeHtml(finding.recommendation || '')}</span>` : '<span style="color:var(--text-mute);font-style:italic">Nenhum achado</span>';
     }
     return `<div class="container-card" data-id="${escapeHtml(c.id)}" data-state="${escapeHtml(c.state)}">
       <div class="card-header">
@@ -139,8 +144,7 @@ export function renderOverview(container) {
     return 'Baixo';
   }
 
-  async function fetchRightFindings() {
-    const { data } = await apiGet('ov_findings', '/api/findings?status=open');
+  function renderRightFindings(data) {
     if (_disposed) return;
     const div = el('ovFindings');
     if (!div) return;
@@ -155,9 +159,12 @@ export function renderOverview(container) {
       const title = showPlain && f.title_plain ? f.title_plain : (f.title || f.id);
       const age = f.first_seen ? Math.round((Date.now() - new Date(f.first_seen).getTime()) / 1000) : 0;
       const ago = age < 60 ? `h\u00e1 ${age}s` : age < 3600 ? `h\u00e1 ${Math.floor(age / 60)}min` : `h\u00e1 ${Math.floor(age / 3600)}h`;
+      const duration = f.first_seen && f.last_seen ? Math.round((new Date(f.last_seen).getTime() - new Date(f.first_seen).getTime()) / 1000) : 0;
+      const durStr = duration > 60 ? `${Math.floor(duration / 60)}min` : duration > 0 ? `${duration}s` : '';
       return `<div class="atn-mini" data-id="${escapeHtml(f.id)}" style="border-left:3px solid ${color}">
         <div class="atn-mini-head">
           <span class="atn-mini-sev" style="background:${color}">${severityLabel(f.severity)}</span>
+          ${durStr ? `<span style="font-size:.6rem;color:var(--text-mute)">${durStr}</span>` : ''}
           <span class="atn-mini-ago">${ago}</span>
         </div>
         <div class="atn-mini-title">${escapeHtml(title)}</div>
@@ -195,9 +202,15 @@ export function renderOverview(container) {
     if (h) h.innerHTML = renderVitals(data.vitals);
     const k = el('ovKpis');
     if (k) k.innerHTML = renderKpis(data.counters);
+    const findingsRes = await apiGet('ov_findings', '/api/findings?status=open');
+    const findingsData = _disposed ? null : findingsRes.data;
+    const findingsMap = {};
+    if (findingsData) {
+      findingsData.forEach(f => { findingsMap[f.target] = f; });
+    }
     const g = el('ovGrid');
-    if (g) g.innerHTML = renderContainers(data.containers);
-    fetchRightFindings();
+    if (g) g.innerHTML = renderContainers(data.containers, findingsMap);
+    if (findingsData) renderRightFindings(findingsData);
 
     const sa = el('ovStatsAge');
     if (sa && data.stats_as_of) {

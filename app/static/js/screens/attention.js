@@ -69,13 +69,15 @@ export function renderAttention(container) {
       const interp = showPlain && f.interpretation_plain ? f.interpretation_plain : (f.interpretation || '');
       const age = f.first_seen ? Math.round((Date.now() - new Date(f.first_seen).getTime()) / 1000) : 0;
       const ago = age < 60 ? `h\u00e1 ${age}s` : age < 3600 ? `h\u00e1 ${Math.floor(age / 60)}min` : `h\u00e1 ${Math.floor(age / 3600)}h`;
+      const duration = f.first_seen && f.last_seen ? Math.round((new Date(f.last_seen).getTime() - new Date(f.first_seen).getTime()) / 1000) : 0;
+      const durStr = duration > 60 ? `${Math.floor(duration / 60)}min` : duration > 0 ? `${duration}s` : '';
       return `<div class="atn-card" data-id="${escapeHtml(f.id)}" style="border-left:3px solid ${color}">
         <div class="atn-head">
           <span class="atn-sev" style="background:${color};color:#fff">${severityLabel(f.severity)}</span>
           <span class="atn-score">${f.score}</span>
           <span class="atn-target">${escapeHtml(f.target)}</span>
+          ${durStr ? `<span class="atn-occs">${durStr}</span>` : ''}
           <span class="atn-ago">${ago}</span>
-          ${f.occurrences > 1 ? `<span class="atn-occs">${f.occurrences}x</span>` : ''}
         </div>
         <div class="atn-title">${escapeHtml(title)}</div>
         ${interp ? `<div class="atn-interp">${escapeHtml(interp)}</div>` : ''}

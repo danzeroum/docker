@@ -19,6 +19,8 @@ def evaluate(ctx):
         restart_count = state.get("RestartCount", 0)
         if restart_count < 1:
             continue
+        if state.get("OOMKilled") is True or state.get("ExitCode") == 137:
+            continue
         prev = _prev_restart.get(name, 0)
         if restart_count <= prev:
             continue
@@ -27,7 +29,6 @@ def evaluate(ctx):
         health = state.get("Health", {}).get("Status", "none")
         findings.append({
             "target": name,
-            "supersedes": [f"oom.{name}"],
             "title": f"{name} em ciclo de rein\u00edcio ({restart_count}x)",
             "title_plain": f"Container {name} reiniciando repetidamente",
             "interpretation": f"Reiniciou {restart_count} vezes (ant: {prev})",

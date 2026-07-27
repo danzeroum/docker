@@ -40,8 +40,15 @@ def evaluate(ctx):
                 if elapsed_h > FINISHED_RECENCY_HOURS:
                     continue
 
+        restart_count = state.get("RestartCount", 0)
         oom_text = "sim" if oom else "n\u00e3o"
         image = c.get("Config", {}).get("Image", "")
+        facts = [
+            {"key": "Exit code", "value": str(exit_code), "tone": "bad"},
+            {"key": "OOMKilled", "value": oom_text, "tone": "bad"},
+        ]
+        if restart_count > 0:
+            facts.append({"key": "Restarts", "value": str(restart_count), "tone": "bad"})
         findings.append({
             "target": name,
             "title": f"{name} morto pelo kernel — OOMKilled" if oom else f"{name} encerrado com exit {exit_code}",
@@ -51,10 +58,7 @@ def evaluate(ctx):
             "recommendation": "Aumentar o limite de mem\u00f3ria do container ou investigar vazamento",
             "evidence": f"Image: {image}",
             "impact": "Servi\u00e7o pode estar fora do ar",
-            "facts": [
-                {"key": "Exit code", "value": str(exit_code), "tone": "bad"},
-                {"key": "OOMKilled", "value": oom_text, "tone": "bad"},
-            ],
+            "facts": facts,
             "actions": [
                 {
                     "title": "Subir o limite de mem\u00f3ria e reiniciar",

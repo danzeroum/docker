@@ -74,6 +74,10 @@ function renderScreen(screen) {
 
 subscribe((s, changed) => {
   if (changed.includes('screen')) renderScreen(s.screen);
+  if (changed.includes('depth')) {
+    const container = document.getElementById('screenContainer');
+    if (container) renderScreen(s.screen);
+  }
   if (changed.includes('tema') || changed.includes('perfil')) {
     renderContainerList();
   }
@@ -467,6 +471,24 @@ document.getElementById('filters')?.addEventListener('click', (e) => {
 // --- Search ---
 document.getElementById('searchInput')?.addEventListener('input', (e) => {
   setState({ search: e.target.value });
+});
+
+// --- Depth toggle ---
+const DEPTH_CYCLE = ['dado', 'informacao', 'conhecimento'];
+function updateDepthLabel(d) {
+  const lbl = document.getElementById('depthLabel');
+  if (lbl) {
+    const names = { dado: 'DADO', informacao: 'INFO', conhecimento: 'CONH' };
+    lbl.textContent = names[d] || 'DADO';
+  }
+}
+updateDepthLabel(getState().depth || 'dado');
+document.getElementById('depthToggle')?.addEventListener('click', () => {
+  const current = getState().depth || 'dado';
+  const idx = DEPTH_CYCLE.indexOf(current);
+  const next = DEPTH_CYCLE[(idx + 1) % DEPTH_CYCLE.length];
+  setState({ depth: next });
+  updateDepthLabel(next);
 });
 
 // --- Theme toggle ---
