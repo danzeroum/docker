@@ -83,6 +83,20 @@ treinar plantonista.
 
 ---
 
+## Regras nascidas de casos reais
+
+**`healthcheck_never_passed`** — descoberta durante validação da F2 na VPS. Dois containers
+(`criptotrade-orchestrator` e `criptotrade-dashboard`) com `Health.Status: unhealthy` mas
+`FailingStreak × intervalo ≈ uptime` e nenhum `ExitCode: 0` no `Health.Log`. A sonda nunca
+acertou desde o deploy — é erro de configuração, não incidente. A regra:
+- severidade `medium` (não `high` como `unhealthy`)
+- SUPERSEDES `unhealthy.<alvo>`  (troca "serviço caído" por "sonda nunca passou")
+- condição: `FailingStreak × avg_interval / uptime > 0.7` (nunca passou)
+- desempate: se qualquer `Health.Log` tiver `ExitCode: 0`, não dispara (é regressão real)
+Nasce do caso real, não da especificação. (Carry: conserto dos Dockerfiles vira tarefa na F5.)
+
+---
+
 ## Pendências para fases seguintes
 
 **Autenticação entre containers na rede interna.** O ingress nginx protege `/api/*` contra

@@ -114,6 +114,8 @@ async def _run_cycle():
     ctx.host = host
     ctx.history = history_by_id
 
+    pending_supersedes = []
+
     for mod in _rules:
         rule_file = os.path.basename(mod.__file__) if hasattr(mod, "__file__") else ""
         rule_name = rule_file.replace(".py", "") if rule_file else mod.__name__
@@ -162,9 +164,11 @@ async def _run_cycle():
             supersedes = res.get("supersedes")
             if supersedes:
                 targets = supersedes if isinstance(supersedes, list) else [supersedes]
-                for sid in targets:
-                    if sid in history_by_id:
-                        await resolve_finding(sid)
+                pending_supersedes.extend(targets)
+
+    for sid in pending_supersedes:
+        if sid in history_by_id or sid in seen_ids:
+            await resolve_finding(sid)
 
     for h_id in history_by_id:
         if h_id not in seen_ids:

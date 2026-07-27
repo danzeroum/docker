@@ -166,3 +166,119 @@ def test_restart_loop_fire_sem_oom():
     assert result is not None
     assert len(result) == 1
     assert result[0]["target"] == "test_container"
+
+
+def _make_health_log(start, exit_code=1, output="curl failed"):
+    return {
+        "Start": start,
+        "End": start.replace("Z", "") + "Z",
+        "ExitCode": exit_code,
+        "Output": output,
+    }
+
+
+def test_healthcheck_never_passed_dispara():
+    from findings.rules import healthcheck_never_passed as hc_mod
+    importlib.reload(hc_mod)
+    from datetime import datetime, timezone, timedelta
+
+    now = datetime.now(timezone.utc)
+    uptime_h = 47
+    started = (now - timedelta(hours=uptime_h)).isoformat().replace("+00:00", "Z")
+    interval_s = 30
+    streak = int(uptime_h * 3600 / interval_s)
+    log_entries = []
+    for i in range(5):
+        ts = (now - timedelta(seconds=(5 - i) * interval_s)).isoformat().replace("+00:00", "Z")
+        log_entries.append(_make_health_log(ts))
+
+    ctx = FakeCtx()
+    ctx.containers = [{
+        "Name": "/test_hc",
+        "State": {
+            "Status": "running",
+            "Running": True,
+            "StartedAt": started,
+            "Health": {
+                "Status": "unhealthy",
+                "FailingStreak": streak,
+                "Log": log_entries,
+            },
+        },
+        "Config": {"Image": "test:latest"},
+    }]
+
+    result = hc_mod.evaluate(ctx)
+    assert result is not None
+    assert len(result) == 1
+    f = result[0]
+    assert f["target"] == "test_hc"
+    assert f.get("supersedes") == ["unhealthy.test_hc"]
+
+
+def test_healthcheck_never_passed_com_exit0_nao_dispara():
+    from findings.rules import healthcheck_never_passed as hc_mod
+    importlib.reload(hc_mod)
+    from datetime import datetime, timezone, timedelta
+
+    now = datetime.now(timezone.utc)
+    uptime_h = 47
+    started = (now - timedelta(hours=uptime_h)).isoformat().replace("+00:00", "Z")
+    interval_s = 30
+    streak = int(uptime_h * 3600 / interval_s)
+    log_entries = []
+    for i in range(5):
+        ts = (now - timedelta(seconds=(5 - i) * interval_s)).isoformat().replace("+00:00", "Z")
+        ec = 0 if i == 2 else 1
+        log_entries.append(_make_health_log(ts, exit_code=ec))
+
+    ctx = FakeCtx()
+    ctx.containers = [{
+        "Name": "/test_hc",
+        "State": {
+            "Status": "running",
+            "Running": True,
+            "StartedAt": started,
+            "Health": {
+                "Status": "unhealthy",
+                "FailingStreak": streak,
+                "Log": log_entries,
+            },
+        },
+        "Config": {"Image": "test:latest"},
+    }]
+
+    result = hc_mod.evaluate(ctx)
+    assert result is None
+
+
+def test_healthcheck_never_passed_streak_baixo_nao_dispara():
+    from findings.rules import healthcheck_never_passed as hc_mod
+    importlib.reload(hc_mod)
+    from datetime import datetime, timezone, timedelta
+
+    now = datetime.now(timezone.utc)
+    started = (now - timedelta(hours=47)).isoformat().replace("+00:00", "Z")
+    log_entries = []
+    for i in range(5):
+        ts = (now - timedelta(seconds=(5 - i) * 30)).isoformat().replace("+00:00", "Z")
+        log_entries.append(_make_health_log(ts))
+
+    ctx = FakeCtx()
+    ctx.containers = [{
+        "Name": "/test_hc",
+        "State": {
+            "Status": "running",
+            "Running": True,
+            "StartedAt": started,
+            "Health": {
+                "Status": "unhealthy",
+                "FailingStreak": 3,
+                "Log": log_entries,
+            },
+        },
+        "Config": {"Image": "test:latest"},
+    }]
+
+    result = hc_mod.evaluate(ctx)
+    assert result is None
