@@ -3,6 +3,7 @@ import { apiGet, apiPost, apiDelete, cancel, cancelAll } from './data.js';
 import { fmtBytes, fmtDuration, fmtDate, shortId, escapeHtml, jsonHighlight } from './fmt.js';
 import { showToast, showConfirmModal } from './notifications.js';
 import { initCommandPalette } from './commands.js';
+import { renderOverview } from './screens/overview.js';
 
 // --- Theme ---
 function applyTheme(tema) {
@@ -16,7 +17,7 @@ subscribe((s) => {
 // --- Hash router ---
 let _writingHash = false;
 
-function navigate(hash) {
+export function navigate(hash) {
   if (location.hash === hash) return;
   _writingHash = true;
   location.hash = hash;
@@ -52,8 +53,9 @@ function renderScreen(screen) {
   const container = document.getElementById('screenContainer');
   if (!container) return;
 
+  let dispose;
   switch (screen) {
-    case '#/overview': renderOverview(container); break;
+    case '#/overview': dispose = renderOverview(container); break;
     case '#/dossie': renderDossie(container); break;
     case '#/logs': renderLogs(container); break;
     case '#/plantao': renderPlaceholder(container, 'Plantão', '/api/findings', 'F1'); break;
@@ -64,8 +66,9 @@ function renderScreen(screen) {
     case '#/tarefas': renderPlaceholder(container, 'Tarefas', '/api/tasks', 'F5'); break;
     case '#/executivo': renderPlaceholder(container, 'Executivo', '/api/executive', 'F5'); break;
     case '#/backend': renderPlaceholder(container, 'Backend', '/api/backend', 'F6'); break;
-    default: renderOverview(container); break;
+    default: dispose = renderOverview(container); break;
   }
+  if (dispose) currentDispose = dispose;
 }
 
 subscribe((s, changed) => {
@@ -182,92 +185,7 @@ function renderContainerList() {
   });
 }
 
-// --- Screen: Overview ---
-function renderOverview(container) {
-  const state = getState();
-  const total = state.containers.length;
-  const running = state.containers.filter(c => c.State === 'running').length;
-  const exited = state.containers.filter(c => ['exited', 'created', 'dead'].includes(c.State)).length;
-  const unhealthy = state.containers.filter(c => c.State === 'unhealthy' || (c.Status && c.Status.includes('unhealthy'))).length;
 
-  container.innerHTML = `
-    <div class="content" id="overviewContent">
-      <div class="overview-hero">
-        <h2 style="margin:0 0 .5rem;font-size:1.5rem">Visão Geral do Host</h2>
-        <p style="color:var(--text-dim);margin:0">${total} containers detectados. Selecione um na lista para ver o dossiê.</p>
-      </div>
-      <div class="kpis" id="containerKpis">
-        <div class="kpi kpi-accent"><div class="kpi-label">Total</div><div class="kpi-value">${total}</div></div>
-        <div class="kpi kpi-ok"><div class="kpi-label">Rodando</div><div class="kpi-value">${running}</div></div>
-        <div class="kpi kpi-warn"><div class="kpi-label">Parados</div><div class="kpi-value">${exited}</div></div>
-        <div class="kpi kpi-bad"><div class="kpi-label">Unhealthy</div><div class="kpi-value">${unhealthy}</div></div>
-      </div>
-      <div class="kpis" id="systemKpis">
-        <div class="kpi" id="sysCpuCard"><div class="kpi-label">CPU</div><div class="kpi-value" id="sysCpu"><span class="skeleton" style="width:60px;height:1.8rem;display:inline-block"></span></div><div class="kpi-sub" id="sysCpuSub"><span class="skeleton" style="width:80px;height:.7rem;display:inline-block"></span></div></div>
-        <div class="kpi" id="sysMemCard"><div class="kpi-label">Memória</div><div class="kpi-value" id="sysMem"><span class="skeleton" style="width:60px;height:1.8rem;display:inline-block"></span></div><div class="kpi-sub" id="sysMemSub"><span class="skeleton" style="width:120px;height:.7rem;display:inline-block"></span></div></div>
-        <div class="kpi" id="sysSwapCard"><div class="kpi-label">Swap</div><div class="kpi-value" id="sysSwap"><span class="skeleton" style="width:60px;height:1.8rem;display:inline-block"></span></div><div class="kpi-sub" id="sysSwapSub"><span class="skeleton" style="width:100px;height:.7rem;display:inline-block"></span></div></div>
-        <div class="kpi" id="sysDiskCard"><div class="kpi-label">Disco</div><div class="kpi-value" id="sysDisk"><span class="skeleton" style="width:60px;height:1.8rem;display:inline-block"></span></div><div class="kpi-sub" id="sysDiskSub"><span class="skeleton" style="width:130px;height:.7rem;display:inline-block"></span></div></div>
-        <div class="kpi" id="sysLoadCard"><div class="kpi-label">Load Avg</div><div class="kpi-value" id="sysLoad"><span class="skeleton" style="width:80px;height:1.8rem;display:inline-block"></span></div><div class="kpi-sub" id="sysLoadSub"><span class="skeleton" style="width:80px;height:.7rem;display:inline-block"></span></div></div>
-        <div class="kpi" id="sysUptimeCard"><div class="kpi-label">Uptime</div><div class="kpi-value" id="sysUptime"><span class="skeleton" style="width:60px;height:1.8rem;display:inline-block"></span></div><div class="kpi-sub" id="sysUptimeSub"><span class="skeleton" style="width:40px;height:.7rem;display:inline-block"></span></div></div>
-      </div>
-      <div id="systemWarnings" style="margin-top:1rem"></div>
-    </div>
-  `;
-
-  function updateSystemKpis() {
-    const sys = getState().system;
-    if (!sys) return;
-
-    const cpuPct = sys.cpu?.percent != null ? sys.cpu.percent.toFixed(1) : '—';
-    document.getElementById('sysCpu').textContent = cpuPct + (cpuPct !== '—' ? '%' : '');
-    document.getElementById('sysCpuSub').textContent = `${sys.cpu?.count || '?'} cores`;
-    if (sys.cpu?.percent != null) {
-      const el = document.getElementById('sysCpuCard');
-      el?.classList.remove('kpi-ok', 'kpi-warn', 'kpi-bad');
-      el?.classList.add(sys.cpu.percent >= 85 ? 'kpi-bad' : sys.cpu.percent >= 60 ? 'kpi-warn' : 'kpi-ok');
-    }
-    if (sys.memory) {
-      document.getElementById('sysMem').textContent = sys.memory.percent.toFixed(1) + '%';
-      document.getElementById('sysMemSub').textContent = `${fmtBytes(sys.memory.used)} / ${fmtBytes(sys.memory.total)}`;
-      const el = document.getElementById('sysMemCard');
-      el?.classList.remove('kpi-ok', 'kpi-warn', 'kpi-bad');
-      el?.classList.add(sys.memory.percent >= 85 ? 'kpi-bad' : sys.memory.percent >= 70 ? 'kpi-warn' : 'kpi-ok');
-    }
-    if (sys.swap) {
-      document.getElementById('sysSwap').textContent = sys.swap.percent.toFixed(1) + '%';
-      document.getElementById('sysSwapSub').textContent = `${fmtBytes(sys.swap.used)} / ${fmtBytes(sys.swap.total)}`;
-    }
-    if (sys.disks && sys.disks.length) {
-      const root = sys.disks.find(d => d.mountpoint === '/') || sys.disks[0];
-      document.getElementById('sysDisk').textContent = root.percent.toFixed(1) + '%';
-      document.getElementById('sysDiskSub').textContent = `${fmtBytes(root.used)} / ${fmtBytes(root.total)} (${root.mountpoint})`;
-    }
-    if (sys.cpu?.load_1m != null) {
-      document.getElementById('sysLoad').textContent = [sys.cpu.load_1m, sys.cpu.load_5m, sys.cpu.load_15m].map(n => n.toFixed(2)).join(', ');
-      document.getElementById('sysLoadSub').textContent = `${sys.cpu.count} cores`;
-    }
-    if (sys.uptime_seconds != null) {
-      document.getElementById('sysUptime').textContent = fmtDuration(sys.uptime_seconds * 1000);
-    }
-    const warns = (sys.warnings || []).map(w => `<div>${escapeHtml(w.message || w)}</div>`).join('');
-    const warnEl = document.getElementById('systemWarnings');
-    if (warns) {
-      warnEl.innerHTML = `<div class="empty-field" style="background:var(--bad-soft);border-color:var(--bad);color:var(--bad)">${warns}</div>`;
-    } else {
-      warnEl.innerHTML = `<div class="empty-field" style="background:var(--ok-soft);border-color:var(--ok);color:var(--ok)">Sistema saudável — sem alertas</div>`;
-    }
-  }
-
-  updateSystemKpis();
-  const unsub = subscribe((s, changed) => {
-    if (changed.includes('system')) updateSystemKpis();
-  });
-
-  currentDispose = () => {
-    unsub();
-    cancel('containers_list');
-  };
-}
 
 // --- Screen: Dossiê ---
 function parseInspect(data) {

@@ -7,6 +7,7 @@ import httpx
 from routers._proxy import proxy_get, proxy_post, proxy_delete, SOCKET_PROXY, ENABLE_TERMINAL
 from masking import mask_inspect
 from cache import cached_or_fetch
+from stats_util import calc_cpu_percent
 
 router = APIRouter(prefix="/api/containers", tags=["containers"])
 
@@ -150,17 +151,7 @@ async def container_stats_ws(websocket: WebSocket, container_id: str):
                         if line.strip():
                             try:
                                 raw = json.loads(line)
-                                cpu_delta = raw.get("cpu_stats", {}).get("cpu_usage", {}).get("total_usage", 0)
-                                sys_delta = raw.get("cpu_stats", {}).get("system_cpu_usage", 0)
-                                precpu = raw.get("precpu_stats", {}).get("cpu_usage", {}).get("total_usage", 0)
-                                presys = raw.get("precpu_stats", {}).get("system_cpu_usage", 0)
-                                num_cpus = raw.get("cpu_stats", {}).get("online_cpus", 1)
-                                cpu_percent = 0.0
-                                if sys_delta and presys:
-                                    cpu_delta_val = cpu_delta - precpu
-                                    sys_delta_val = sys_delta - presys
-                                    if cpu_delta_val > 0 and sys_delta_val > 0:
-                                        cpu_percent = round((cpu_delta_val / sys_delta_val) * num_cpus * 100, 1)
+                                cpu_percent = calc_cpu_percent(raw)
                                 mem = raw.get("memory_stats", {})
                                 mem_usage = mem.get("usage", 0)
                                 mem_limit = mem.get("limit", 1)

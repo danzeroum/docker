@@ -4,8 +4,13 @@ import time
 import platform
 import os
 import psutil
+from stats_util import calc_cpu_percent
 
 _last_sample = None
+_container_stats = {}
+_container_stats_as_of = None
+_last_container_collection = 0.0
+_SEM_STATS = asyncio.Semaphore(4)
 
 
 def _sample():
@@ -93,16 +98,69 @@ def get_last_sample():
     return _last_sample
 
 
+def get_container_stats():
+    return _container_stats, _container_stats_as_of
+
+
 async def take_sample():
     global _last_sample
     _last_sample = await asyncio.to_thread(_sample)
     return _last_sample
 
 
-async def sampler_loop(interval: float = 5.0):
+async def _fetch_one_container(c):
+    from routers._proxy import proxy_get
+    c_id = c["Id"]
+    try:
+        async with _SEM_STATS:
+            stats_raw = await proxy_get(f"/containers/{c_id}/stats?stream=false")
+        if not isinstance(stats_raw, dict):
+            return c_id, None
+        cpu_pct = calc_cpu_percent(stats_raw)
+        ms = stats_raw.get("memory_stats", {})
+        mem_usage = ms.get("usage", 0)
+        async with _SEM_STATS:
+            insp = await proxy_get(f"/containers/{c_id}/json")
+        mem_limit = None
+        if isinstance(insp, dict):
+            ml = insp.get("HostConfig", {}).get("Memory", 0)
+            mem_limit = ml if ml and ml > 0 else None
+        return c_id, {
+            "cpu_pct": cpu_pct,
+            "mem_usage": mem_usage,
+            "mem_limit": mem_limit,
+        }
+    except Exception:
+        return c_id, None
+
+
+async def _fetch_all_container_stats():
+    global _container_stats, _container_stats_as_of
+    from routers._proxy import proxy_get
+    try:
+        containers_raw = await proxy_get("/containers/json?all=1")
+    except Exception:
+        return
+    tasks = [asyncio.create_task(_fetch_one_container(c)) for c in containers_raw]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    for c_id, data in results:
+        if isinstance(data, dict):
+            _container_stats[c_id] = {**data, "sampled_at": now}
+    _container_stats_as_of = now
+
+
+async def sampler_loop(interval: float = 5.0, container_interval: float = 10.0):
+    global _last_container_collection
     await take_sample()
+    await _fetch_all_container_stats()
+    _last_container_collection = time.monotonic()
     while True:
         try:
+            now = time.monotonic()
+            if now - _last_container_collection >= container_interval:
+                await _fetch_all_container_stats()
+                _last_container_collection = now
             await take_sample()
             await asyncio.sleep(interval)
         except asyncio.CancelledError:
