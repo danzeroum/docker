@@ -121,6 +121,12 @@ window.addEventListener('DOMContentLoaded', () => {
     const targetBtn = document.querySelector(`.tab-btn[data-target="${hash}"]`);
     if (targetBtn) targetBtn.classList.add('active');
   }
+  initCommandPalette();
   fetchContainers();
   setInterval(fetchContainers, 5000);
+
+  // Register service worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/static/sw.js').catch(() => {});
+  }
 });

@@ -1,0 +1,16 @@
+{
+  "name": "Cockpit Docker",
+  "short_name": "Cockpit",
+  "description": "Monitoramento e gerenciamento de containers Docker",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a1020",
+  "theme_color": "#0a1020",
+  "icons": [
+    {
+      "src": "/static/assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
