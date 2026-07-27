@@ -203,8 +203,125 @@ Catálogo mínimo de regras — 11 de ingress (listadas em `01-contrato-de-dados
 | `no_backup` | alto | nenhum container com rótulo/imagem de backup e nenhum job detectado |
 | `socket_write_enabled` | médio | `POST`/`DELETE` habilitados no socket-proxy |
 
-Cada regra é uma função pura `(estado) -> Finding | None`, testável isoladamente. Guarde
-`first_seen` em SQLite para que "há 26 min" seja verdade entre reinícios do app.
+Cada regra é uma função pura `(ctx) -> Finding | None`, testável isoladamente.
+
+---
+
+## Motor de achados — especificação fechada (F2)
+
+### Descoberta e contrato
+
+Auto-discovery por filesystem: `app/findings/rules/*.py`, cada módulo expondo `evaluate(ctx)`
+e metadados de módulo (`SEVERITY`, `SCOPE`, `MIN_INTERVAL`, `DEBOUNCE`). Sem lista
+registrada — acrescentar arquivo é acrescentar regra.
+
+`ctx` contém: `containers` (inspect), `host` (última amostra), `history` (achados ativos, só
+leitura), `metrics` (série), e a partir da F3 `ingress` e `certs`.
+
+### O motor é dono do ciclo de vida, não a regra
+
+`ctx.history` existe para consulta, mas **a regra não implementa anti-flapping nem
+histerese** — senão 13 regras produzem 13 comportamentos ligeiramente diferentes e o operador
+não consegue prever a fila. A regra declara, o motor aplica:
+
+```python
+DEBOUNCE = {"samples": 2}                 # dispara só na segunda leitura consecutiva
+DEBOUNCE = {"window_min": 30, "count": 3} # 3 ocorrências em 30 min
+MIN_INTERVAL = 60                          # segundos; default = intervalo do loop
+```
+
+Anti-flapping é do motor: achado que resolve e reaparece em menos de 30 min reaproveita a
+mesma linha, sem resetar `first_seen`.
+
+### Causalidade por aresta declarada, nunca por proximidade
+
+A regra que detecta o **efeito** declara a causa, porque só ela conhece o mecanismo. O motor
+resolve o alvo usando arestas que existem de verdade na configuração:
+
+| Aresta | Fonte | Disponível em |
+|---|---|---|
+| upstream do nginx → container | `/api/ingress` | F3 |
+| `depends_on` | labels do compose no inspect | F2 |
+| volume compartilhado | `Mounts[]` | F2 |
+
+**Não inferir causalidade de projeto ou rede em comum.** Nesta VPS, 12 dos 15 containers
+estão em `btv-prod-net` — co-participação de rede carrega informação zero. E dentro de um
+mesmo projeto (`criptotrade-app` e `criptotrade-frontend`) a proximidade não diz qual causa
+qual. Causalidade errada é pior que causalidade nenhuma: manda o operador começar pelo lugar
+errado com ar de certeza.
+
+Na F2 só existem duas arestas, então poucos achados terão `caused_by`. É o esperado: o modelo
+fica pronto e a F3 acende o grafo quando o mapa de upstreams chegar.
+
+Na fila, efeitos ficam recolhidos sob a causa ("+2 efeitos").
+
+### Textos
+
+`evidence`, `interpretation`, `recommendation` como templates no módulo da regra,
+interpolando os fatos daquele achado.
+
+As variantes `_plain` **não são o mesmo texto com outra formatação** — são outra frase para
+outro leitor. "criptotrade-app em ciclo de reinício (exit 137)" e "O painel de trading parou
+de operar" nomeiam coisas diferentes: uma cita container e código de saída, a outra cita
+serviço de negócio e efeito. Uma não é derivável da outra por escape de HTML.
+
+São **opcionais**: ausente, o frontend cai no texto técnico. Só precisam existir nas regras
+cujos achados chegam ao Resumo executivo.
+
+### Silenciamento
+
+`ack` com motivo por **select obrigatório** (`aceito_estrutural`, `monitorando`,
+`falso_positivo`) mais texto livre opcional. Texto livre sozinho, às 4h da manhã, vira `asdf`.
+
+Prazos: 4 h · 24 h · 7 d · 30 d.
+
+`falso_positivo` **conta por regra**, não por achado: regra com vários falsos positivos
+aparece na tela Backend & API como regra a revisar. Sem isso a opção é um ralo.
+
+### Ordem da fila
+
+`score = severidade(4|3|2|1) × 10 + urgência_do_horizonte(3|2|1) + alcance(nº de serviços, teto 3)`.
+Determinístico e nunca exibido — só a ordem aparece.
+
+### Execução
+
+Loop próprio (`findings_loop`), **separado do sampler**, no mesmo intervalo de 10 s, lendo o
+último snapshot via `get_last_sample()` / `get_container_stats()`. Sampler atrasado não
+atrasa as regras, e falha de um não derruba o outro. Cada regra respeita seu `MIN_INTERVAL`.
+
+### Persistência
+
+SQLite com `aiosqlite`, modo WAL, em `/data/cockpit.db` — **um banco só**, não
+`findings.db`. Ele hospeda também as séries da F4, as tarefas e a auditoria da F5; bancos
+separados significam nenhuma transação entre um achado e a tarefa que ele gera. Tabela
+`schema_version` e migrações desde o primeiro commit.
+
+O cache LRU da F0a continua sendo cache de resposta de API. A tabela de achados é estado, não
+cache — `/api/findings` lê do banco e pode ter cache de 2 s por cima.
+
+### Esquema persistido
+
+```sql
+CREATE TABLE findings (
+  id            TEXT PRIMARY KEY,      -- <regra>.<alvo>
+  rule          TEXT NOT NULL,
+  target        TEXT NOT NULL,
+  scope         TEXT NOT NULL,         -- container | host | ingress | cert
+  severity      TEXT NOT NULL,
+  score         INTEGER NOT NULL,
+  caused_by     TEXT,                  -- id de outro achado
+  status        TEXT NOT NULL,         -- open | acked | resolved
+  ack_reason    TEXT,                  -- aceito_estrutural | monitorando | falso_positivo
+  ack_note      TEXT,
+  ack_until     TEXT,
+  first_seen    TEXT NOT NULL,
+  last_seen     TEXT NOT NULL,
+  resolved_at   TEXT,
+  occurrences   INTEGER NOT NULL DEFAULT 1,
+  payload       TEXT NOT NULL          -- JSON com facts, chain, actions, textos
+);
+CREATE INDEX idx_findings_status ON findings(status, score DESC);
+```
 
 ### `GET /api/metrics/history`
 
