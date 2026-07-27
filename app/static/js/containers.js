@@ -153,33 +153,33 @@ function renderGlobalOverview() {
     <div class="kpis" id="systemKpis">
       <div class="kpi kpi-accent">
         <div class="kpi-label">CPU</div>
-        <div class="kpi-value" id="sysCpu">—</div>
-        <div class="kpi-sub" id="sysCpuSub">carregando...</div>
+        <div class="kpi-value" id="sysCpu"><span class="skeleton" style="width:60px;height:1.8rem;display:inline-block"></span></div>
+        <div class="kpi-sub" id="sysCpuSub"><span class="skeleton" style="width:80px;height:.7rem;display:inline-block"></span></div>
       </div>
       <div class="kpi kpi-ok">
         <div class="kpi-label">Memória</div>
-        <div class="kpi-value" id="sysMem">—</div>
-        <div class="kpi-sub" id="sysMemSub">carregando...</div>
+        <div class="kpi-value" id="sysMem"><span class="skeleton" style="width:60px;height:1.8rem;display:inline-block"></span></div>
+        <div class="kpi-sub" id="sysMemSub"><span class="skeleton" style="width:120px;height:.7rem;display:inline-block"></span></div>
       </div>
       <div class="kpi kpi-warn">
         <div class="kpi-label">Swap</div>
-        <div class="kpi-value" id="sysSwap">—</div>
-        <div class="kpi-sub" id="sysSwapSub">carregando...</div>
+        <div class="kpi-value" id="sysSwap"><span class="skeleton" style="width:60px;height:1.8rem;display:inline-block"></span></div>
+        <div class="kpi-sub" id="sysSwapSub"><span class="skeleton" style="width:100px;height:.7rem;display:inline-block"></span></div>
       </div>
       <div class="kpi kpi-accent">
         <div class="kpi-label">Disco</div>
-        <div class="kpi-value" id="sysDisk">—</div>
-        <div class="kpi-sub" id="sysDiskSub">carregando...</div>
+        <div class="kpi-value" id="sysDisk"><span class="skeleton" style="width:60px;height:1.8rem;display:inline-block"></span></div>
+        <div class="kpi-sub" id="sysDiskSub"><span class="skeleton" style="width:130px;height:.7rem;display:inline-block"></span></div>
       </div>
       <div class="kpi kpi-ok">
         <div class="kpi-label">Load Avg</div>
-        <div class="kpi-value" id="sysLoad">—</div>
-        <div class="kpi-sub" id="sysLoadSub">carregando...</div>
+        <div class="kpi-value" id="sysLoad"><span class="skeleton" style="width:80px;height:1.8rem;display:inline-block"></span></div>
+        <div class="kpi-sub" id="sysLoadSub"><span class="skeleton" style="width:80px;height:.7rem;display:inline-block"></span></div>
       </div>
       <div class="kpi kpi-accent">
         <div class="kpi-label">Uptime</div>
-        <div class="kpi-value" id="sysUptime">—</div>
-        <div class="kpi-sub" id="sysUptimeSub">carregando...</div>
+        <div class="kpi-value" id="sysUptime"><span class="skeleton" style="width:60px;height:1.8rem;display:inline-block"></span></div>
+        <div class="kpi-sub" id="sysUptimeSub"><span class="skeleton" style="width:40px;height:.7rem;display:inline-block"></span></div>
       </div>
     </div>
 

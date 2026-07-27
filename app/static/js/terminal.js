@@ -27,12 +27,22 @@ function renderTerminal(containerId) {
 function loadXterm(callback) {
   const link = document.createElement('link');
   link.rel = 'stylesheet';
-  link.href = 'https://cdn.jsdelivr.net/npm/xterm@5/css/xterm.min.css';
+  link.href = '/static/vendor/xterm.css';
   document.head.appendChild(link);
 
   const script = document.createElement('script');
   script.src = 'https://cdn.jsdelivr.net/npm/xterm@5/lib/xterm.min.js';
   script.onload = callback;
+  script.onerror = () => {
+    // Fallback: try loading from unpkg
+    const fallback = document.createElement('script');
+    fallback.src = 'https://unpkg.com/xterm@5/lib/xterm.min.js';
+    fallback.onload = callback;
+    fallback.onerror = () => {
+      document.getElementById('terminalStatus').textContent = 'Erro: não foi possível carregar xterm.js';
+    };
+    document.head.appendChild(fallback);
+  };
   document.head.appendChild(script);
 }
 

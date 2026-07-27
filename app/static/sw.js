@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cockpit-v1';
+const CACHE_NAME = 'cockpit-' + new Date().toISOString().split('T')[0].replace(/-/g, '');
 const STATIC_ASSETS = [
   '/static/index.html',
   '/static/css/base.css',
@@ -15,6 +15,7 @@ const STATIC_ASSETS = [
   '/static/js/commands.js',
   '/static/js/main.js',
   '/static/manifest.json',
+  '/static/assets/icon.svg',
 ];
 
 self.addEventListener('install', (event) => {

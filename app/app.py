@@ -1,17 +1,22 @@
 import os
 import json
 import time
+import base64
 import asyncio
 import httpx
 import platform
 import psutil
-from fastapi import FastAPI, HTTPException, Response, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Response, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 
 SOCKET_PROXY = os.getenv("SOCKET_PROXY", "http://docker-socket-proxy:2375")
 ENABLE_TERMINAL = os.getenv("ENABLE_TERMINAL", "").lower() in ("1", "true", "yes")
+BASIC_AUTH_USER = os.getenv("BASIC_AUTH_USER", "")
+BASIC_AUTH_PASS = os.getenv("BASIC_AUTH_PASS", "")
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "").split(",") if os.getenv("ALLOWED_ORIGINS") else []
 
 # Resolve o diretorio static relativo ao proprio app.py,
 # independente de onde o processo e iniciado (CI, Docker, local)
@@ -20,12 +25,35 @@ STATIC_DIR = os.path.join(BASE_DIR, "static")
 
 app = FastAPI(title="Docker Cockpit", docs_url=None, redoc_url=None)
 
+cors_origins = ALLOWED_ORIGINS if ALLOWED_ORIGINS else ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_origins,
     allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["*"],
 )
+
+# ---------- basic auth middleware ----------
+if BASIC_AUTH_USER and BASIC_AUTH_PASS:
+    class AuthMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request: Request, call_next):
+            auth_header = request.headers.get("Authorization", "")
+            if not auth_header.startswith("Basic "):
+                return Response(
+                    content="Unauthorized",
+                    status_code=401,
+                    headers={"WWW-Authenticate": "Basic"},
+                )
+            try:
+                decoded = base64.b64decode(auth_header[6:]).decode("utf-8")
+                user, password = decoded.split(":", 1)
+            except Exception:
+                return Response(content="Unauthorized", status_code=401)
+            if user != BASIC_AUTH_USER or password != BASIC_AUTH_PASS:
+                return Response(content="Unauthorized", status_code=401)
+            return await call_next(request)
+
+    app.add_middleware(AuthMiddleware)
 
 # ---------- health ----------
 @app.get("/health")
