@@ -26,7 +26,8 @@ async def lifespan(app: FastAPI):
     from sampler import take_sample
     await take_sample()
     interval = float(os.getenv("SAMPLER_INTERVAL", "5"))
-    task = asyncio.create_task(sampler_loop(interval))
+    container_interval = float(os.getenv("SAMPLER_CONTAINER_INTERVAL", "10"))
+    task = asyncio.create_task(sampler_loop(interval, container_interval))
     yield
     task.cancel()
     try:

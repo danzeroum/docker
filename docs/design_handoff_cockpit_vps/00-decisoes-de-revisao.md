@@ -81,6 +81,19 @@ treinar plantonista.
 
 ---
 
+---
+
+## Pendências para fases seguintes
+
+**Autenticação entre containers na rede interna.** O ingress nginx protege `/api/*` contra
+acesso externo, mas qualquer container em `btv-prod-net` — são doze — alcança
+`http://docker-cockpit:8000/api/containers/{id}/json` sem autenticação. No futuro, também
+`POST /stop`. O token de destravamento (F5) cobre operações de escrita; cabe avaliar se todas
+as rotas `/api/*` devem exigir um cabeçalho compartilhado injetado pelo ingress. (registrado
+em F0b, carry para F5)
+
+---
+
 ## Mudanças quebradas de contrato
 
 | Quando | O quê | Impacto |

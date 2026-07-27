@@ -3,8 +3,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter
 from routers._proxy import proxy_get
 from cache import cached_or_fetch
-from stats_util import calc_cpu_percent
-from sampler import get_last_sample
+from sampler import get_last_sample, get_container_stats
 
 router = APIRouter(prefix="/api", tags=["overview"])
 
@@ -37,18 +36,14 @@ def _container_health_state(inspect_data):
         return "healthy"
     return "unhealthy"
 
-async def _fetch_container_data(c_id, c_raw):
+async def _fetch_container_data(c_id, c_raw, all_stats):
     stack = c_raw.get("Labels", {}).get("com.docker.compose.project") or "sem stack"
     name = (c_raw.get("Names") or ["/"])[0].lstrip("/")
     state = c_raw.get("State", "unknown")
     image = c_raw.get("Image", "")
     raw_ports = c_raw.get("Ports") or []
     async with _SEM:
-        insp, stats_raw = await asyncio.gather(
-            proxy_get(f"/containers/{c_id}/json"),
-            proxy_get(f"/containers/{c_id}/stats?stream=false"),
-            return_exceptions=True,
-        )
+        insp = await proxy_get(f"/containers/{c_id}/json")
     health = "none"
     mem_limit = None
     if isinstance(insp, dict):
@@ -56,17 +51,12 @@ async def _fetch_container_data(c_id, c_raw):
         host_config = insp.get("HostConfig", {})
         ml = host_config.get("Memory", 0)
         mem_limit = ml if ml and ml > 0 else None
-    cpu_pct = 0.0
+    cs = all_stats.get(c_id, {})
+    cpu_pct = cs.get("cpu_pct", 0.0) or 0.0
+    mem_usage = cs.get("mem_usage", 0) or 0
     mem_pct = None
-    mem_usage = 0
-    if isinstance(stats_raw, dict):
-        cpu_pct = calc_cpu_percent(stats_raw)
-        ms = stats_raw.get("memory_stats", {})
-        mem_usage = ms.get("usage", 0)
-        if mem_limit is not None:
-            mem_pct = round((mem_usage / mem_limit) * 100, 1) if mem_limit else 0.0
-        else:
-            mem_pct = None
+    if mem_limit is not None and mem_usage:
+        mem_pct = round((mem_usage / mem_limit) * 100, 1)
     return {
         "id": c_id,
         "name": name,
@@ -89,7 +79,8 @@ async def _fetch_container_data(c_id, c_raw):
 async def get_overview():
     async def factory():
         containers_raw, _ = await cached_or_fetch("containers_list", ttl=2.0, factory=lambda: proxy_get("/containers/json?all=1"))
-        tasks = [asyncio.create_task(_fetch_container_data(c["Id"], c)) for c in containers_raw]
+        all_stats, stats_as_of = get_container_stats()
+        tasks = [asyncio.create_task(_fetch_container_data(c["Id"], c, all_stats)) for c in containers_raw]
         containers = await asyncio.gather(*tasks)
 
         sample = get_last_sample()
@@ -154,6 +145,7 @@ async def get_overview():
             "counters": counters,
             "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "cache_ttl_s": 5,
+            "stats_as_of": stats_as_of,
         }
 
     data, _ = await cached_or_fetch("overview", ttl=5.0, factory=factory, timeout=30.0)
@@ -164,38 +156,26 @@ async def get_overview():
 async def get_stats_all():
     async def factory():
         containers_raw, _ = await cached_or_fetch("containers_list", ttl=2.0, factory=lambda: proxy_get("/containers/json?all=1"))
-
-        async def _fetch_stats(c_id, c_raw):
-            async with _SEM:
-                stats_raw = await proxy_get(f"/containers/{c_id}/stats?stream=false")
-            if not isinstance(stats_raw, dict):
-                return {"id": c_id, "name": (c_raw.get("Names") or ["/"])[0].lstrip("/"), "cpu_pct": 0, "mem_pct": 0, "mem_usage": 0, "mem_limit": None}
-            ms = stats_raw.get("memory_stats", {})
-            mem_usage = ms.get("usage", 0)
-            insp = None
-            try:
-                insp = await asyncio.wait_for(asyncio.shield(proxy_get(f"/containers/{c_id}/json")), timeout=10)
-            except Exception:
-                pass
-            mem_limit = None
-            if isinstance(insp, dict):
-                ml = insp.get("HostConfig", {}).get("Memory", 0)
-                mem_limit = ml if ml and ml > 0 else None
-            mem_pct = None
-            if mem_limit is not None:
-                mem_pct = round((mem_usage / mem_limit) * 100, 1) if mem_limit else 0.0
-            return {
+        all_stats, _ = get_container_stats()
+        result = []
+        for c in containers_raw:
+            c_id = c["Id"]
+            name = (c.get("Names") or ["/"])[0].lstrip("/")
+            cs = all_stats.get(c_id, {})
+            result.append({
                 "id": c_id,
-                "name": (c_raw.get("Names") or ["/"])[0].lstrip("/"),
-                "stack": c_raw.get("Labels", {}).get("com.docker.compose.project") or "sem stack",
-                "cpu_pct": calc_cpu_percent(stats_raw),
-                "mem_pct": mem_pct,
-                "mem_usage": mem_usage,
-                "mem_limit": mem_limit,
-            }
-
-        tasks = [asyncio.create_task(_fetch_stats(c["Id"], c)) for c in containers_raw]
-        return await asyncio.gather(*tasks)
+                "name": name,
+                "stack": c.get("Labels", {}).get("com.docker.compose.project") or "sem stack",
+                "cpu_pct": cs.get("cpu_pct", 0.0) or 0.0,
+                "mem_pct": None,
+                "mem_usage": cs.get("mem_usage", 0) or 0,
+                "mem_limit": cs.get("mem_limit"),
+            })
+            ml = cs.get("mem_limit")
+            if ml is not None:
+                mu = cs.get("mem_usage", 0) or 0
+                result[-1]["mem_pct"] = round((mu / ml) * 100, 1) if ml else None
+        return result
 
     data, _ = await cached_or_fetch("stats_all", ttl=5.0, factory=factory, timeout=30.0)
     return data

@@ -5,6 +5,7 @@ import { navigate } from '../main.js';
 import { getState } from '../store.js';
 
 let _disposed = false;
+let _lastData = null;
 
 function el(id) { return document.getElementById(id); }
 
@@ -102,6 +103,7 @@ export function renderOverview(container) {
     <div class="ov-center" id="ovCenter">
       <div class="ov-host" id="ovHost"><div class="skeleton" style="height:60px"></div></div>
       <div class="ov-kpis" id="ovKpis"><div class="skeleton" style="height:80px"></div></div>
+      <div class="ov-age" id="ovStatsAge"></div>
       <div class="ov-grid" id="ovGrid"><div class="skeleton" style="height:400px"></div></div>
     </div>
     <div class="ov-right" id="ovRight">
@@ -112,11 +114,27 @@ export function renderOverview(container) {
 
   let pollTimer = null;
 
+  function showFallback(id) {
+    const div = el(id);
+    if (div && !div.querySelector('.stack-block,.container-card,.kpi,.vital')) {
+      div.innerHTML = '<div class="empty-field" style="margin-bottom:.5rem">Sem conex\u00e3o — painel indispon\u00edvel</div>';
+    }
+  }
+
   async function fetchOverview() {
     const { data, error } = await apiGet('ov_data', '/api/overview');
-    if (error) { showToast(error, 'error'); return; }
     if (_disposed) return;
+    if (error) {
+      if (!_lastData) {
+        showFallback('ovStacks');
+        showFallback('ovHost');
+        showFallback('ovGrid');
+      }
+      showToast(_lastData ? 'Rede inst\u00e1vel — dados podem estar desatualizados' : error, _lastData ? 'warning' : 'error');
+      return;
+    }
     if (!data) return;
+    _lastData = data;
 
     const s = el('ovStacks');
     if (s) s.innerHTML = renderStacks(data.stacks);
@@ -126,6 +144,12 @@ export function renderOverview(container) {
     if (k) k.innerHTML = renderKpis(data.counters);
     const g = el('ovGrid');
     if (g) g.innerHTML = renderContainers(data.containers);
+
+    const sa = el('ovStatsAge');
+    if (sa && data.stats_as_of) {
+      const age = Math.round((Date.now() - new Date(data.stats_as_of).getTime()) / 1000);
+      sa.textContent = `Stats: h\u00e1 ${age}s`;
+    }
 
     const diskKpi = el('ovDiskKpi');
     if (diskKpi && data.vitals && data.vitals.disk) {
