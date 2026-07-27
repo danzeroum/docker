@@ -101,6 +101,13 @@ def get_last_sample():
 def get_container_stats():
     return _container_stats, _container_stats_as_of
 
+def get_container_inspects():
+    return {
+        cid: data.get("inspect")
+        for cid, data in _container_stats.items()
+        if data.get("inspect")
+    }
+
 
 async def take_sample():
     global _last_sample
@@ -129,6 +136,7 @@ async def _fetch_one_container(c):
             "cpu_pct": cpu_pct,
             "mem_usage": mem_usage,
             "mem_limit": mem_limit,
+            "inspect": insp if isinstance(insp, dict) else None,
         }
     except Exception:
         return c_id, None
