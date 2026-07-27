@@ -7,7 +7,7 @@ servido pelo FastAPI. **Mantenha assim.** Não há bundler e o projeto não prec
 
 | Item | Situação hoje | O que fazer |
 |---|---|---|
-| **Navegação** | 10 abas na topbar + `scrollIntoView` por âncora | rail de 9 destinos; uma tela ativa por vez; sem scroll programático |
+| **Navegação** | 10 abas na topbar + `scrollIntoView` por âncora | rail de 11 destinos; uma tela ativa por vez; sem scroll programático |
 | **Estado** | 4 `let` globais em `state.js` | store único com `subscribe`, persistido em `localStorage` |
 | **Fetch** | `fetch` espalhado, sem tratamento de erro | `data.js`: uma função por recurso, com cache, retry e estado `loading/error/empty` |
 | **Erro** | um fetch que falha quebra a tela | cada painel renderiza seu próprio estado de erro sem derrubar os vizinhos |
@@ -59,8 +59,12 @@ Regras:
 - **URL é o estado compartilhável**: `#/ingress`, `#/dossie?c=criptotrade-app`,
   `#/incidente?f=oom.criptotrade-app`. Colar o link no chat do plantão tem que abrir a mesma tela.
 - `depth` volta a `null` quando o perfil muda (o perfil redefine o padrão).
+- **Persista exatamente três chaves**: `cockpit-perfil`, `cockpit-depth`, `cockpit-tema`.
+  `screen` e `selectedContainer` não persistem — a URL é a fonte da verdade e um valor salvo
+  briga com o hash no reload.
 - O token de destravamento vive em `sessionStorage` e expira sozinho; ao expirar, os botões
-  voltam para o estado travado sem recarregar a página.
+  voltam para o estado travado sem recarregar a página. **Nunca** em `localStorage`: lá ele
+  sobrevive a fechar o navegador e a sessão de 30 min vira ficção.
 - **Nunca** apagar chaves de `localStorage` que não sejam as três acima.
 
 ## 3 · Camada de dados
@@ -78,6 +82,29 @@ Regras:
 Toda chamada tem timeout de 10 s e devolve `{data, error, stale}`. Painel com erro mostra o
 último dado bom com a etiqueta "desatualizado há Xs" em vez de sumir.
 
+### Polling
+
+Um **único loop compartilhado** no `main.js`, não um `setInterval` por tela — e ele pausa em
+`visibilitychange` quando `document.hidden`. Sem isso, uma aba esquecida bate no daemon a cada
+5 s a noite inteira, e o cockpit vira a maior fonte de carga que ele mesmo mede.
+
+`dispose()` de cada tela aborta fetch em voo (`AbortController`) e fecha SSE/WS — sem isso, a
+resposta de uma tela morta chega e sobrescreve o DOM da tela nova.
+
+### Service worker
+
+O `sw.js` cacheia estáticos. Três regras:
+
+1. **Nome de cache estático e versionado** (`cockpit-v2`), nunca gerado em runtime — nome
+   dinâmico cria um cache novo a cada ativação e órfãos que ninguém apaga.
+2. **`activate` apaga tudo que não casa com a versão atual.**
+3. **Network-first para navegação.** Durante a fase que reescreve `index.html` e os módulos,
+   network-first para **tudo** (HTML, JS e CSS): servir HTML novo com JS velho do cache dá
+   erro incompreensível. Volte a cache-first só depois de estabilizar.
+
+Mais `skipWaiting()` + `clients.claim()` na release que troca o shell, para não depender de o
+usuário fechar todas as abas.
+
 ## 4 · Profundidade — como o frontend usa
 
 ```js
@@ -94,8 +121,17 @@ um bug de backend visível, não um buraco disfarçado com texto genérico.
 
 ## 5 · Temas
 
-Copie o bloco `[data-tema="..."]` do protótipo para `themes.css` e ponha `data-tema` no
-elemento raiz. Migração da chave antiga:
+**Os nomes de token do repositório mandam — não importe os nomes curtos do protótipo.** O
+`components.css` (12,8 KB) inteiro depende de `--surface`, `--text-dim`, `--accent`,
+`--border`; trocar os nomes obrigaria a reescrever o arquivo sem ganho nenhum. Mapeamento:
+
+`--sf`→`--surface` · `--sf2`→`--surface-2` · `--bg2`→`--bg-2` · `--tx`→`--text` ·
+`--txd`→`--text-dim` · `--txm`→`--text-mute` · `--ac`→`--accent` · `--bd1`→`--border` ·
+`--bd3`→`--border-strong`. Acrescente os que faltam: `--rail-1/2`, `--radius`,
+`--radius-card`, e os tints `--ok-t` / `--bad-t` / `--warn-t` / `--accent-t`.
+
+Os três blocos `html[data-tema="..."]` vão para `themes.css` e **substituem** o `:root{}` e o
+`html.light{}` do `base.css` — substituem, não convivem. Migração da chave antiga:
 
 ```js
 const antigo = localStorage.getItem('cockpit-theme');   // 'light' | 'dark'

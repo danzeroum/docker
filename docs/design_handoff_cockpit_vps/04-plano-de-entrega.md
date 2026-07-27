@@ -5,7 +5,10 @@ placeholder na interface.
 
 ---
 
-## F0 · Fundação (sem dado novo)
+> **Status:** a F0 foi executada em dois PRs — **F0a** (backend, PR #3) e **F0b** (frontend,
+> PR #4). As correções levantadas na revisão estão em `00-decisoes-de-revisao.md`.
+
+## F0 · Fundação (sem dado novo) — dividir em F0a backend e F0b frontend
 
 **Backend:** dividir `app.py` em routers; cache com TTL; máscara de segredos em
 `Config.Env`; apertar CORS; teto no `tail` de logs.
@@ -14,11 +17,14 @@ placeholder na interface.
 e profundidade, `themes.css` com os 3 temas, migração da chave `cockpit-theme`.
 
 **Aceite**
-- As 9 telas existem e navegam; as ainda não implementadas mostram estado vazio honesto
-  ("em construção — F3").
+- As 11 telas existem e navegam; as ainda não implementadas dizem o que esperam e de quem:
+  "Ingress & TLS — aguarda `GET /api/ingress`, previsto para F3". Fases corretas:
+  incidente F2 · ingress F3 · topologia F3 · capacidade F4 · tarefas F5 · executivo F5 ·
+  plantão F5 · backend F6.
 - Trocar tema e perfil persiste entre recargas.
 - `GET /api/containers/{id}/json` não devolve mais nenhum segredo em texto claro.
-- Suíte atual (24 testes) continua verde.
+- A suíte continua verde. Pegue a linha de base com `pytest --collect-only -q` antes de
+  começar — não confie em número escrito em documento.
 
 ---
 
