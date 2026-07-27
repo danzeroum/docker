@@ -44,6 +44,17 @@
 .filter-pill:hover{border-color:var(--border-strong);color:var(--text)}
 .filter-pill.active{background:var(--accent);border-color:var(--accent);color:#fff}
 
+.stack-header{
+  display:flex;align-items:center;gap:.5rem;padding:.5rem .8rem;margin-top:.5rem;margin-bottom:.25rem;
+  cursor:pointer;border-radius:6px;transition:background .15s;user-select:none;
+  font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-mute);font-weight:600
+}
+.stack-header:hover{background:var(--surface)}
+.stack-toggle{font-size:.55rem;width:12px;flex-shrink:0}
+.stack-name{flex:1}
+.stack-count{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--text-dim)}
+.stack-group{margin-bottom:.25rem}
+
 .list-item{
   padding:.65rem .8rem;border-radius:8px;cursor:pointer;margin-bottom:.2rem;
   border:1px solid transparent;transition:all .15s var(--ease-precise);

@@ -1,3 +1,7 @@
+function getStackName(c) {
+  return (c.Labels && c.Labels['com.docker.compose.project']) || null;
+}
+
 function renderContainerList() {
   const listEl = document.getElementById('containerList');
   let filtered = allContainers;
@@ -27,7 +31,7 @@ function renderContainerList() {
     return;
   }
 
-  listEl.innerHTML = filtered.map(c => {
+  function renderItem(c) {
     const id = c.Id;
     const name = (c.Names && c.Names[0] || '').replace(/^\//, '');
     const image = c.Image || '';
@@ -43,7 +47,50 @@ function renderContainerList() {
         </div>
       </div>
     `;
-  }).join('');
+  }
+
+  // Group by stack
+  const groups = {};
+  filtered.forEach(c => {
+    const stack = getStackName(c) || '__ungrouped__';
+    if (!groups[stack]) groups[stack] = [];
+    groups[stack].push(c);
+  });
+
+  const hasGroups = Object.keys(groups).length > 1 || !groups['__ungrouped__'];
+  let html = '';
+
+  Object.entries(groups).sort(([a], [b]) => {
+    if (a === '__ungrouped__') return 1;
+    if (b === '__ungrouped__') return -1;
+    return a.localeCompare(b);
+  }).forEach(([stack, containers]) => {
+    if (hasGroups && stack !== '__ungrouped__') {
+      const stackRunning = containers.filter(c => c.State === 'running').length;
+      html += `<div class="stack-header" data-stack="${escapeHtml(stack)}">
+        <span class="stack-toggle">▼</span>
+        <span class="stack-name">${escapeHtml(stack)}</span>
+        <span class="stack-count">${stackRunning}/${containers.length}</span>
+      </div>`;
+    }
+    html += `<div class="stack-group" data-stack="${escapeHtml(stack)}">`;
+    containers.forEach(c => { html += renderItem(c); });
+    html += '</div>';
+  });
+
+  listEl.innerHTML = html;
+
+  // Stack toggle
+  listEl.querySelectorAll('.stack-header').forEach(header => {
+    header.addEventListener('click', () => {
+      const group = header.nextElementSibling;
+      if (group && group.classList.contains('stack-group')) {
+        const isHidden = group.style.display === 'none';
+        group.style.display = isHidden ? '' : 'none';
+        header.querySelector('.stack-toggle').textContent = isHidden ? '▼' : '▶';
+      }
+    });
+  });
 
   listEl.querySelectorAll('.list-item').forEach(item => {
     item.addEventListener('click', () => {

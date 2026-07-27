@@ -91,6 +91,17 @@ document.getElementById('mainContent').addEventListener('click', (e) => {
   else if (id === 'btnRemove') handleContainerAction('remove');
 });
 
+/* Theme toggle */
+function applyTheme(light) {
+  document.documentElement.classList.toggle('light', light);
+  localStorage.setItem('cockpit-theme', light ? 'light' : 'dark');
+}
+const savedTheme = localStorage.getItem('cockpit-theme');
+if (savedTheme === 'light') document.documentElement.classList.add('light');
+document.getElementById('themeToggle').addEventListener('click', () => {
+  applyTheme(!document.documentElement.classList.contains('light'));
+});
+
 window.addEventListener('DOMContentLoaded', () => {
   const params = new URLSearchParams(window.location.search);
   const filterParam = params.get('filter');
