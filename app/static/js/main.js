@@ -4,6 +4,7 @@ import { fmtBytes, fmtDuration, fmtDate, shortId, escapeHtml, jsonHighlight } fr
 import { showToast, showConfirmModal } from './notifications.js';
 import { initCommandPalette } from './commands.js';
 import { renderOverview } from './screens/overview.js';
+import { renderAttention } from './screens/attention.js';
 
 // --- Theme ---
 function applyTheme(tema) {
@@ -59,7 +60,7 @@ function renderScreen(screen) {
     case '#/dossie': renderDossie(container); break;
     case '#/logs': renderLogs(container); break;
     case '#/plantao': renderPlaceholder(container, 'Plantão', '/api/findings', 'F1'); break;
-    case '#/incidente': renderPlaceholder(container, 'Incidente', '/api/findings', 'F2'); break;
+    case '#/incidente': dispose = renderAttention(container); break;
     case '#/ingress': renderPlaceholder(container, 'Ingress & TLS', '/api/ingress', 'F3'); break;
     case '#/topologia': renderPlaceholder(container, 'Topologia', '/api/topology', 'F3'); break;
     case '#/capacidade': renderPlaceholder(container, 'Capacidade', '/api/metrics/history', 'F4'); break;
@@ -73,6 +74,10 @@ function renderScreen(screen) {
 
 subscribe((s, changed) => {
   if (changed.includes('screen')) renderScreen(s.screen);
+  if (changed.includes('depth')) {
+    const container = document.getElementById('screenContainer');
+    if (container) renderScreen(s.screen);
+  }
   if (changed.includes('tema') || changed.includes('perfil')) {
     renderContainerList();
   }
@@ -89,6 +94,20 @@ function pollAll() {
   });
   apiGet('system', '/api/system').then(({ data }) => {
     if (data) setState({ system: data });
+  });
+  apiGet('findings_count', '/api/findings?status=open').then(({ data }) => {
+    const badge = document.getElementById('findingsBadge');
+    if (!badge) return;
+    if (data && data.length) {
+      badge.textContent = data.length;
+      const sevOrder = { critical: 4, high: 3, medium: 2, low: 1 };
+      const maxSev = data.reduce((a, f) => sevOrder[f.severity] > sevOrder[a] ? f.severity : a, 'low');
+      const sevColors = { critical: 'var(--bad)', high: 'var(--warn)', medium: 'var(--accent)', low: 'var(--text-mute)' };
+      badge.style.background = sevColors[maxSev] || 'var(--bad)';
+      badge.style.display = '';
+    } else {
+      badge.style.display = 'none';
+    }
   });
 }
 
@@ -452,6 +471,24 @@ document.getElementById('filters')?.addEventListener('click', (e) => {
 // --- Search ---
 document.getElementById('searchInput')?.addEventListener('input', (e) => {
   setState({ search: e.target.value });
+});
+
+// --- Depth toggle ---
+const DEPTH_CYCLE = ['dado', 'informacao', 'conhecimento'];
+function updateDepthLabel(d) {
+  const lbl = document.getElementById('depthLabel');
+  if (lbl) {
+    const names = { dado: 'DADO', informacao: 'INFO', conhecimento: 'CONH' };
+    lbl.textContent = names[d] || 'DADO';
+  }
+}
+updateDepthLabel(getState().depth || 'dado');
+document.getElementById('depthToggle')?.addEventListener('click', () => {
+  const current = getState().depth || 'dado';
+  const idx = DEPTH_CYCLE.indexOf(current);
+  const next = DEPTH_CYCLE[(idx + 1) % DEPTH_CYCLE.length];
+  setState({ depth: next });
+  updateDepthLabel(next);
 });
 
 // --- Theme toggle ---

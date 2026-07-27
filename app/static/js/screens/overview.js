@@ -1,11 +1,12 @@
 import { apiGet, cancel } from '../data.js';
-import { fmtBytes, fmtDate, shortId, escapeHtml } from '../fmt.js';
+import { escapeHtml } from '../fmt.js';
 import { showToast } from '../notifications.js';
 import { navigate } from '../main.js';
 import { getState } from '../store.js';
 
 let _disposed = false;
 let _lastData = null;
+let _findingsDispose = null;
 
 function el(id) { return document.getElementById(id); }
 
@@ -65,15 +66,20 @@ function renderStacks(stacks) {
   }).join('');
 }
 
-function renderContainers(containers) {
+function renderContainers(containers, findingsMap) {
   if (!containers || !containers.length) return '<div class="empty">Nenhum container</div>';
   const depth = getState().depth || 'dado';
   return containers.map(c => {
     const lbl = label(c.state, c.health);
     const memStr = c.mem_limit ? fmtBytes(c.mem_limit) : 'sem limite';
-    let secLine = escapeHtml(c.image);
-    if (depth === 'informacao' || depth === 'conhecimento') {
-      secLine = '<span style="color:var(--text-mute);font-style:italic">Aguarda achados — F2</span>';
+    const finding = findingsMap ? findingsMap[c.name] : null;
+    let secLine;
+    if (depth === 'dado') {
+      secLine = escapeHtml(c.image);
+    } else if (depth === 'informacao') {
+      secLine = finding ? `<span style="color:var(--text-dim)">${escapeHtml(finding.interpretation_plain || finding.interpretation || '')}</span>` : '<span style="color:var(--text-mute);font-style:italic">Nenhum achado</span>';
+    } else if (depth === 'conhecimento') {
+      secLine = finding ? `<span style="color:var(--accent);font-style:italic">${escapeHtml(finding.recommendation || '')}</span>` : '<span style="color:var(--text-mute);font-style:italic">Nenhum achado</span>';
     }
     return `<div class="container-card" data-id="${escapeHtml(c.id)}" data-state="${escapeHtml(c.state)}">
       <div class="card-header">
@@ -107,8 +113,11 @@ export function renderOverview(container) {
       <div class="ov-grid" id="ovGrid"><div class="skeleton" style="height:400px"></div></div>
     </div>
     <div class="ov-right" id="ovRight">
-      <h3 style="margin:0 0 1rem;font-size:.85rem;color:var(--text-mute);text-transform:uppercase">Precisa da sua atenção</h3>
-      <div class="empty-field" style="background:var(--neutral-soft);border-color:var(--border);color:var(--text-dim)">Aguarda <code>/api/findings</code> — previsto para F2.</div>
+      <h3 style="margin:0 0 1rem;font-size:.85rem;color:var(--text-mute);text-transform:uppercase;display:flex;justify-content:space-between;align-items:center">
+        <span>Precisa da sua aten\u00e7\u00e3o</span>
+        <a href="#/incidente" style="font-size:.7rem;color:var(--accent);text-decoration:none">ver todos</a>
+      </h3>
+      <div id="ovFindings"><div class="skeleton" style="height:200px"></div></div>
     </div>
   </div>`;
 
@@ -119,6 +128,57 @@ export function renderOverview(container) {
     if (div && !div.querySelector('.stack-block,.container-card,.kpi,.vital')) {
       div.innerHTML = '<div class="empty-field" style="margin-bottom:.5rem">Sem conex\u00e3o — painel indispon\u00edvel</div>';
     }
+  }
+
+  function severityColor(sev) {
+    if (sev === 'critical') return 'var(--bad)';
+    if (sev === 'high') return 'var(--warn)';
+    if (sev === 'medium') return 'var(--accent)';
+    return 'var(--text-dim)';
+  }
+
+  function severityLabel(sev) {
+    if (sev === 'critical') return 'Cr\u00edtico';
+    if (sev === 'high') return 'Alto';
+    if (sev === 'medium') return 'M\u00e9dio';
+    return 'Baixo';
+  }
+
+  function renderRightFindings(data) {
+    if (_disposed) return;
+    const div = el('ovFindings');
+    if (!div) return;
+    if (!data || !data.length) {
+      div.innerHTML = '<div class="empty-field" style="margin:.5rem 0">Nenhum achado ativo</div>';
+      return;
+    }
+    const depth = getState().depth || 'dado';
+    const items = data.slice(0, 8).map(f => {
+      const color = severityColor(f.severity);
+      const showPlain = depth === 'informacao' || depth === 'conhecimento';
+      const title = showPlain && f.title_plain ? f.title_plain : (f.title || f.id);
+      const age = f.first_seen ? Math.round((Date.now() - new Date(f.first_seen).getTime()) / 1000) : 0;
+      const ago = age < 60 ? `h\u00e1 ${age}s` : age < 3600 ? `h\u00e1 ${Math.floor(age / 60)}min` : `h\u00e1 ${Math.floor(age / 3600)}h`;
+      const duration = f.first_seen && f.last_seen ? Math.round((new Date(f.last_seen).getTime() - new Date(f.first_seen).getTime()) / 1000) : 0;
+      const durStr = duration > 60 ? `${Math.floor(duration / 60)}min` : duration > 0 ? `${duration}s` : '';
+      return `<div class="atn-mini" data-id="${escapeHtml(f.id)}" style="border-left:3px solid ${color}">
+        <div class="atn-mini-head">
+          <span class="atn-mini-sev" style="background:${color}">${severityLabel(f.severity)}</span>
+          ${durStr ? `<span style="font-size:.6rem;color:var(--text-mute)">${durStr}</span>` : ''}
+          <span class="atn-mini-ago">${ago}</span>
+        </div>
+        <div class="atn-mini-title">${escapeHtml(title)}</div>
+      </div>`;
+    }).join('');
+    div.innerHTML = items;
+    div.querySelectorAll('.atn-mini').forEach(card => {
+      card.addEventListener('click', () => {
+        import('../store.js').then(({ setState }) => {
+          setState({ selectedFinding: card.dataset.id });
+          navigate('#/incidente');
+        });
+      });
+    });
   }
 
   async function fetchOverview() {
@@ -142,8 +202,15 @@ export function renderOverview(container) {
     if (h) h.innerHTML = renderVitals(data.vitals);
     const k = el('ovKpis');
     if (k) k.innerHTML = renderKpis(data.counters);
+    const findingsRes = await apiGet('ov_findings', '/api/findings?status=open');
+    const findingsData = _disposed ? null : findingsRes.data;
+    const findingsMap = {};
+    if (findingsData) {
+      findingsData.forEach(f => { findingsMap[f.target] = f; });
+    }
     const g = el('ovGrid');
-    if (g) g.innerHTML = renderContainers(data.containers);
+    if (g) g.innerHTML = renderContainers(data.containers, findingsMap);
+    if (findingsData) renderRightFindings(findingsData);
 
     const sa = el('ovStatsAge');
     if (sa && data.stats_as_of) {

@@ -10,7 +10,10 @@ from routers._proxy import configure as configure_proxy
 from routers.containers import router as containers_router
 from routers.system import router as system_router
 from routers.overview import router as overview_router
+from routers.findings import router as findings_router
 from sampler import sampler_loop
+from findings.engine import findings_loop
+from db import init_db, close_db
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(APP_DIR, "static")
@@ -25,15 +28,24 @@ async def lifespan(app: FastAPI):
     configure_proxy(SOCKET_PROXY, ENABLE_TERMINAL)
     from sampler import take_sample
     await take_sample()
+    await init_db()
     interval = float(os.getenv("SAMPLER_INTERVAL", "5"))
     container_interval = float(os.getenv("SAMPLER_CONTAINER_INTERVAL", "10"))
-    task = asyncio.create_task(sampler_loop(interval, container_interval))
+    sampler_task = asyncio.create_task(sampler_loop(interval, container_interval))
+    findings_interval = float(os.getenv("FINDINGS_INTERVAL", "10"))
+    findings_task = asyncio.create_task(findings_loop(findings_interval))
     yield
-    task.cancel()
+    sampler_task.cancel()
+    findings_task.cancel()
     try:
-        await task
+        await sampler_task
     except asyncio.CancelledError:
         pass
+    try:
+        await findings_task
+    except asyncio.CancelledError:
+        pass
+    await close_db()
 
 
 app = FastAPI(title="Docker Cockpit", docs_url=None, redoc_url=None, lifespan=lifespan)
@@ -66,3 +78,4 @@ async def root():
 app.include_router(containers_router)
 app.include_router(system_router)
 app.include_router(overview_router)
+app.include_router(findings_router)
