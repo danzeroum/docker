@@ -115,6 +115,7 @@ async def _run_cycle():
     ctx.history = history_by_id
 
     pending_supersedes = []
+    rules_run = set()
 
     for mod in _rules:
         rule_file = os.path.basename(mod.__file__) if hasattr(mod, "__file__") else ""
@@ -124,6 +125,7 @@ async def _run_cycle():
         if now - last < min_int:
             continue
         _last_run[rule_name] = now
+        rules_run.add(rule_name)
 
         severity = getattr(mod, "SEVERITY", "medium")
         scope = getattr(mod, "SCOPE", "container")
@@ -172,6 +174,9 @@ async def _run_cycle():
 
     for h_id in history_by_id:
         if h_id not in seen_ids:
+            rule_of = h_id.split(".", 1)[0] if "." in h_id else ""
+            if rule_of and rule_of not in rules_run:
+                continue
             _reset_debounce(*h_id.split(".", 1)) if "." in h_id else None
             await resolve_finding(h_id)
 

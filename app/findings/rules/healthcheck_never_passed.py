@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 SEVERITY = "medium"
 SCOPE = "container"
-MIN_INTERVAL = 30
+MIN_INTERVAL = 10
 
 
 def _parse_ts(ts_str):
