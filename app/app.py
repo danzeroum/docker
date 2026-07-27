@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from routers._proxy import configure as configure_proxy
 from routers.containers import router as containers_router
 from routers.system import router as system_router
+from routers.overview import router as overview_router
 from sampler import sampler_loop
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -63,3 +64,4 @@ async def root():
 # ---------- routers ----------
 app.include_router(containers_router)
 app.include_router(system_router)
+app.include_router(overview_router)
