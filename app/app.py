@@ -1,10 +1,11 @@
 import os
+import json
 import time
+import asyncio
 import httpx
 import platform
 import psutil
-import asyncio
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -137,6 +138,69 @@ async def container_logs_stream(container_id: str, tail: int = 100):
 async def container_stats(container_id: str):
     """Stats snapshot (stream=false) — CPU, memoria, rede."""
     return await _get(f"/containers/{container_id}/stats?stream=false")
+
+# ---------- WebSocket stats ----------
+@app.websocket("/api/containers/{container_id}/stats/ws")
+async def container_stats_ws(websocket: WebSocket, container_id: str):
+    await websocket.accept()
+    try:
+        async with httpx.AsyncClient(base_url=SOCKET_PROXY, timeout=None) as client:
+            async with client.stream(
+                "GET", f"/containers/{container_id}/stats?stream=true"
+            ) as resp:
+                if resp.status_code >= 400:
+                    await websocket.send_json({"error": f"HTTP {resp.status_code}"})
+                    return
+                buf = b""
+                async for chunk in resp.aiter_bytes():
+                    buf += chunk
+                    while b"\n" in buf:
+                        line, buf = buf.split(b"\n", 1)
+                        if line.strip():
+                            try:
+                                raw = json.loads(line)
+                                # Extract key metrics
+                                cpu_delta = raw.get("cpu_stats", {}).get("cpu_usage", {}).get("total_usage", 0)
+                                sys_delta = raw.get("cpu_stats", {}).get("system_cpu_usage", 0)
+                                precpu = raw.get("precpu_stats", {}).get("cpu_usage", {}).get("total_usage", 0)
+                                presys = raw.get("precpu_stats", {}).get("system_cpu_usage", 0)
+                                num_cpus = raw.get("cpu_stats", {}).get("online_cpus", 1)
+
+                                cpu_percent = 0.0
+                                if sys_delta and presys:
+                                    cpu_delta_val = cpu_delta - precpu
+                                    sys_delta_val = sys_delta - presys
+                                    if cpu_delta_val > 0 and sys_delta_val > 0:
+                                        cpu_percent = round((cpu_delta_val / sys_delta_val) * num_cpus * 100, 1)
+
+                                mem = raw.get("memory_stats", {})
+                                mem_usage = mem.get("usage", 0)
+                                mem_limit = mem.get("limit", 1)
+                                mem_percent = round((mem_usage / mem_limit) * 100, 1) if mem_limit else 0
+
+                                net = raw.get("networks", {})
+                                net_rx = sum(n.get("rx_bytes", 0) for n in net.values())
+                                net_tx = sum(n.get("tx_bytes", 0) for n in net.values())
+
+                                await websocket.send_json({
+                                    "cpu_percent": cpu_percent,
+                                    "mem_percent": mem_percent,
+                                    "mem_usage": mem_usage,
+                                    "mem_limit": mem_limit,
+                                    "net_rx": net_rx,
+                                    "net_tx": net_tx,
+                                    "ts": raw.get("read", "")
+                                })
+                            except json.JSONDecodeError:
+                                pass
+                    await asyncio.sleep(0.1)
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        try:
+            await websocket.send_json({"error": str(e)})
+        except Exception:
+            pass
 
 # ---------- container lifecycle (admin) ----------
 async def _post(path: str, params: dict | None = None, json_body: dict | None = None):

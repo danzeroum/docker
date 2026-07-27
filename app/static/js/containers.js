@@ -98,6 +98,7 @@ function renderContainerList() {
       document.getElementById('tabNav').style.display = 'flex';
       renderContainerList();
       cleanupLogsStream();
+      cleanupStatsWs();
       fetchContainerDetail(selectedContainerId);
     });
   });
