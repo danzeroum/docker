@@ -77,6 +77,8 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
       renderLogsViewer(selectedContainerId);
     } else if (btn.dataset.target === 'stats') {
       renderStatsViewer(selectedContainerId);
+    } else if (btn.dataset.target === 'terminal') {
+      renderTerminal(selectedContainerId);
     } else {
       document.getElementById(btn.dataset.target)?.scrollIntoView({behavior:'smooth', block:'start'});
     }

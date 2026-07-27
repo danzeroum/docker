@@ -99,6 +99,7 @@ function renderContainerList() {
       renderContainerList();
       cleanupLogsStream();
       cleanupStatsWs();
+      cleanupTerminal();
       fetchContainerDetail(selectedContainerId);
     });
   });

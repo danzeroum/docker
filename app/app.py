@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 SOCKET_PROXY = os.getenv("SOCKET_PROXY", "http://docker-socket-proxy:2375")
+ENABLE_TERMINAL = os.getenv("ENABLE_TERMINAL", "").lower() in ("1", "true", "yes")
 
 # Resolve o diretorio static relativo ao proprio app.py,
 # independente de onde o processo e iniciado (CI, Docker, local)
@@ -335,3 +336,105 @@ async def system_info():
         "platform_version": platform.version(),
         "warnings": warnings
     }
+
+# ---------- terminal (docker exec via WebSocket) ----------
+@app.websocket("/api/containers/{container_id}/terminal")
+async def container_terminal(websocket: WebSocket, container_id: str):
+    if not ENABLE_TERMINAL:
+        await websocket.close(code=4003, reason="Terminal desabilitado")
+        return
+    await websocket.accept()
+    try:
+        # 1. Create exec instance
+        exec_body = {
+            "Cmd": ["/bin/sh"],
+            "AttachStdin": True,
+            "AttachStdout": True,
+            "AttachStderr": True,
+            "Tty": True,
+        }
+        async with httpx.AsyncClient(base_url=SOCKET_PROXY, timeout=10) as client:
+            r = await client.post(f"/containers/{container_id}/exec", json=exec_body)
+            if r.status_code >= 400:
+                await websocket.send_json({"type": "error", "message": f"Falha ao criar exec: {r.status_code}"})
+                return
+            exec_id = r.json().get("Id", "")
+            if not exec_id:
+                await websocket.send_json({"type": "error", "message": "Resposta sem exec ID"})
+                return
+            await websocket.send_json({"type": "started", "exec_id": exec_id})
+
+        # 2. Start exec and proxy stdin/stdout
+        stdin_queue = asyncio.Queue()
+        stop_event = asyncio.Event()
+
+        async def ws_to_stdin():
+            try:
+                while not stop_event.is_set():
+                    msg = await asyncio.wait_for(websocket.receive_text(), timeout=30)
+                    data = json.loads(msg)
+                    if data.get("type") == "stdin":
+                        stdin_bytes = data.get("data", "")
+                        if isinstance(stdin_bytes, str):
+                            stdin_bytes = stdin_bytes.encode("utf-8")
+                        await stdin_queue.put(stdin_bytes)
+                    elif data.get("type") == "resize":
+                        pass  # Docker exec resize not supported via socket proxy
+                    elif data.get("type") == "stop":
+                        stop_event.set()
+                        break
+            except (WebSocketDisconnect, asyncio.TimeoutError):
+                stop_event.set()
+
+        async def stdin_gen():
+            while not stop_event.is_set():
+                try:
+                    data = await asyncio.wait_for(stdin_queue.get(), timeout=1)
+                    yield data
+                except asyncio.TimeoutError:
+                    continue
+            yield b"\x04"  # EOT
+
+        async def stdout_to_ws():
+            try:
+                async with httpx.AsyncClient(base_url=SOCKET_PROXY, timeout=None) as client:
+                    async with client.stream(
+                        "POST",
+                        f"/exec/{exec_id}/start",
+                        json={"Detach": False, "Tty": True},
+                    ) as resp:
+                        if resp.status_code >= 400:
+                            await websocket.send_json({"type": "error", "message": f"Falha ao iniciar exec: {resp.status_code}"})
+                            return
+                        async for chunk in resp.aiter_bytes():
+                            if chunk:
+                                await websocket.send_json({"type": "stdout", "data": chunk.decode("utf-8", errors="replace")})
+                await websocket.send_json({"type": "exit", "code": 0})
+            except Exception as e:
+                await websocket.send_json({"type": "error", "message": str(e)})
+            finally:
+                stop_event.set()
+
+        async def stdin_sender():
+            try:
+                async with httpx.AsyncClient(base_url=SOCKET_PROXY, timeout=None) as client:
+                    await client.post(
+                        f"/exec/{exec_id}/start",
+                        content=stdin_gen(),
+                        headers={"Content-Type": "application/json"},
+                    )
+            except Exception:
+                pass
+
+        await asyncio.gather(
+            ws_to_stdin(),
+            stdout_to_ws(),
+            stdin_sender(),
+        )
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        try:
+            await websocket.send_json({"type": "error", "message": str(e)})
+        except Exception:
+            pass
