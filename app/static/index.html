@@ -882,19 +882,19 @@ function renderContainerDetail(data, rawJson) {
 
       <!-- Action Bar -->
       <div class="action-bar" id="actionBar">
-        <button class="action-btn start" id="btnStart" disabled title="Iniciar container">
+        <button class="action-btn start" id="btnStart" title="Iniciar container">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           Iniciar
         </button>
-        <button class="action-btn stop" id="btnStop" disabled title="Parar container">
+        <button class="action-btn stop" id="btnStop" title="Parar container">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="12" height="16"/></svg>
           Parar
         </button>
-        <button class="action-btn restart" id="btnRestart" disabled title="Reiniciar container">
+        <button class="action-btn restart" id="btnRestart" title="Reiniciar container">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 23 20"/></svg>
           Reiniciar
         </button>
-        <button class="action-btn remove" id="btnRemove" disabled title="Remover container">
+        <button class="action-btn remove" id="btnRemove" title="Remover container">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
           Remover
         </button>
@@ -961,6 +961,13 @@ function renderContainerDetail(data, rawJson) {
       </div>
     </div>
   `;
+
+  // Action buttons: enable/disable conforme estado
+  const running = data.state.running;
+  document.getElementById('btnStart').disabled = running;
+  document.getElementById('btnStop').disabled = !running;
+  document.getElementById('btnRestart').disabled = !running;
+  document.getElementById('btnRemove').disabled = false;
 }
 
 /* Pequenos helpers extras */
@@ -1022,6 +1029,194 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 });
 
 /* ==========================
+   Toast Notification
+   ========================== */
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  const icons = {
+    success: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+    error: '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>',
+    info: '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
+    warning: '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>'
+  };
+  const svg = icons[type] || icons.info;
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `
+    <svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${svg}</svg>
+    <div class="toast-message">${escapeHtml(message)}</div>
+    <button class="toast-close" onclick="this.parentElement.remove()">✕</button>
+  `;
+  container.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('show'));
+  setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 4000);
+}
+
+/* ==========================
+   Modal de Confirmação
+   ========================== */
+let modalResolve = null;
+
+function showConfirmModal(opts) {
+  const overlay = document.getElementById('confirmModal');
+  document.getElementById('modalTitle').textContent = opts.title || 'Confirmação';
+  document.getElementById('modalText').textContent = opts.message || 'Tem certeza?';
+
+  const inputWrap = document.getElementById('modalInputWrap');
+  const inputEl = document.getElementById('modalInput');
+  const nameEl = document.getElementById('modalConfirmName');
+  const checkboxWrap = document.getElementById('modalCheckboxWrap');
+  const checkboxLabel = document.getElementById('modalCheckboxLabel');
+  const checkbox = document.getElementById('modalCheckbox');
+  const confirmBtn = document.getElementById('modalConfirm');
+
+  inputWrap.style.display = 'none';
+  checkboxWrap.style.display = 'none';
+  inputEl.value = '';
+  checkbox.checked = false;
+
+  confirmBtn.className = 'modal-btn confirm';
+  if (opts.confirmClass) confirmBtn.classList.add(opts.confirmClass);
+  confirmBtn.textContent = opts.confirmText || 'Confirmar';
+
+  if (opts.confirmName) {
+    inputWrap.style.display = '';
+    nameEl.textContent = opts.confirmName;
+  }
+  if (opts.checkboxLabel) {
+    checkboxWrap.style.display = '';
+    checkboxLabel.textContent = opts.checkboxLabel;
+    checkbox.checked = !!opts.checkboxChecked;
+  }
+
+  overlay.classList.add('open');
+
+  return new Promise((resolve) => {
+    modalResolve = resolve;
+
+    const cleanup = () => {
+      overlay.classList.remove('open');
+      document.getElementById('modalCancel').removeEventListener('click', onCancel);
+      confirmBtn.removeEventListener('click', onConfirm);
+      inputEl.removeEventListener('keydown', onKeydown);
+    };
+
+    const onCancel = () => { cleanup(); resolve({ confirmed: false }); };
+    const onConfirm = () => {
+      if (opts.confirmName && inputEl.value !== opts.confirmName) {
+        inputEl.style.borderColor = 'var(--bad)';
+        inputEl.focus();
+        return;
+      }
+      inputEl.style.borderColor = '';
+      cleanup();
+      resolve({
+        confirmed: true,
+        name: inputEl.value,
+        checkbox: checkbox.checked
+      });
+    };
+    const onKeydown = (e) => {
+      if (e.key === 'Enter') onConfirm();
+      else if (e.key === 'Escape') onCancel();
+    };
+
+    document.getElementById('modalCancel').addEventListener('click', onCancel);
+    confirmBtn.addEventListener('click', onConfirm);
+    inputEl.addEventListener('keydown', onKeydown);
+  });
+}
+
+/* ==========================
+   Ações do Container (admin)
+   ========================== */
+function handleContainerAction(action) {
+  const id = selectedContainerId;
+  if (!id) return;
+
+  const labels = {
+    start: 'Iniciar', stop: 'Parar', restart: 'Reiniciar', remove: 'Remover'
+  };
+  const label = labels[action] || action;
+
+  if (action === 'remove') {
+    const container = allContainers.find(c => c.Id === id);
+    const name = container ? (container.Names?.[0] || '').replace(/^\//, '') : shortId(id);
+    showConfirmModal({
+      title: `Remover Container`,
+      message: `Tem certeza que deseja remover <strong>${escapeHtml(name)}</strong>?`,
+      confirmText: 'Remover',
+      confirmClass: '',
+      confirmName: name,
+      checkboxLabel: 'Remover volumes associados (-v)',
+      checkboxChecked: false
+    }).then(async (result) => {
+      if (!result.confirmed) return;
+      const params = new URLSearchParams();
+      if (result.checkbox) params.set('v', 'true');
+      params.set('force', 'true');
+      await executeAction(id, 'remove', `?${params.toString()}`, 'DELETE');
+    });
+    return;
+  }
+
+  const needConfirm = ['stop', 'restart'];
+  if (needConfirm.includes(action)) {
+    const container = allContainers.find(c => c.Id === id);
+    const name = container ? (container.Names?.[0] || '').replace(/^\//, '') : shortId(id);
+    showConfirmModal({
+      title: `${label} Container`,
+      message: `Deseja ${label.toLowerCase()} o container <strong>${escapeHtml(name)}</strong>?`,
+      confirmText: label,
+      confirmClass: action === 'stop' ? '' : (action === 'start' ? 'start' : 'restart')
+    }).then(async (result) => {
+      if (!result.confirmed) return;
+      await executeAction(id, action, '', 'POST');
+    });
+    return;
+  }
+
+  // start — sem confirmação
+  executeAction(id, 'start', '', 'POST');
+}
+
+async function executeAction(id, action, queryString, method) {
+  const btnId = `btn${action.charAt(0).toUpperCase() + action.slice(1)}`;
+  const btn = document.getElementById(btnId);
+  if (btn) btn.disabled = true;
+  const path = action === 'remove'
+    ? `/api/containers/${id}${queryString}`
+    : `/api/containers/${id}/${action}${queryString}`;
+  try {
+    const res = await fetch(path, { method });
+    if (!res.ok) {
+      let detail = '';
+      try { const j = await res.json(); detail = j.detail || ''; } catch {}
+      throw new Error(detail || `HTTP ${res.status}`);
+    }
+    showToast(`Container ${action} com sucesso!`, 'success');
+    fetchContainers();
+    if (selectedContainerId === id) fetchContainerDetail(id);
+  } catch (err) {
+    showToast(`Erro ao ${action}: ${err.message}`, 'error');
+    if (btn) btn.disabled = false;
+  }
+}
+
+/* ==========================
+   Event delegation — action buttons
+   ========================== */
+document.getElementById('mainContent').addEventListener('click', (e) => {
+  const btn = e.target.closest('.action-btn');
+  if (!btn) return;
+  const id = btn.id;
+  if (id === 'btnStart') handleContainerAction('start');
+  else if (id === 'btnStop') handleContainerAction('stop');
+  else if (id === 'btnRestart') handleContainerAction('restart');
+  else if (id === 'btnRemove') handleContainerAction('remove');
+});
+
+/* ==========================
    Init — polling da lista
    ========================== */
 window.addEventListener('DOMContentLoaded', () => {
@@ -1029,6 +1224,33 @@ window.addEventListener('DOMContentLoaded', () => {
   setInterval(fetchContainers, 5000);
 });
 </script>
+
+<!-- Modal de confirmação -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">Confirmação</div>
+    <div class="modal-text" id="modalText">Tem certeza?</div>
+    <div class="modal-input-wrap" id="modalInputWrap" style="display:none">
+      <label class="modal-checkbox" style="margin-bottom:.25rem;font-size:.8rem;color:var(--text-dim)">
+        Digite <strong id="modalConfirmName"></strong> para confirmar:
+      </label>
+      <input class="modal-input" id="modalInput" type="text" placeholder="digite o nome do container">
+    </div>
+    <div class="modal-checkbox" id="modalCheckboxWrap" style="display:none">
+      <label style="display:flex;align-items:center;gap:.5rem">
+        <input type="checkbox" id="modalCheckbox">
+        <span id="modalCheckboxLabel">Remover volumes associados</span>
+      </label>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn cancel" id="modalCancel">Cancelar</button>
+      <button class="modal-btn confirm" id="modalConfirm">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer"></div>
 
 </body>
 </html>
