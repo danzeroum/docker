@@ -4,6 +4,7 @@ import { fmtBytes, fmtDuration, fmtDate, shortId, escapeHtml, jsonHighlight } fr
 import { showToast, showConfirmModal } from './notifications.js';
 import { initCommandPalette } from './commands.js';
 import { renderOverview } from './screens/overview.js';
+import { renderAttention } from './screens/attention.js';
 
 // --- Theme ---
 function applyTheme(tema) {
@@ -59,7 +60,7 @@ function renderScreen(screen) {
     case '#/dossie': renderDossie(container); break;
     case '#/logs': renderLogs(container); break;
     case '#/plantao': renderPlaceholder(container, 'Plantão', '/api/findings', 'F1'); break;
-    case '#/incidente': renderPlaceholder(container, 'Incidente', '/api/findings', 'F2'); break;
+    case '#/incidente': dispose = renderAttention(container); break;
     case '#/ingress': renderPlaceholder(container, 'Ingress & TLS', '/api/ingress', 'F3'); break;
     case '#/topologia': renderPlaceholder(container, 'Topologia', '/api/topology', 'F3'); break;
     case '#/capacidade': renderPlaceholder(container, 'Capacidade', '/api/metrics/history', 'F4'); break;
@@ -89,6 +90,16 @@ function pollAll() {
   });
   apiGet('system', '/api/system').then(({ data }) => {
     if (data) setState({ system: data });
+  });
+  apiGet('findings_count', '/api/findings?status=open').then(({ data }) => {
+    const badge = document.getElementById('findingsBadge');
+    if (!badge) return;
+    if (data && data.length) {
+      badge.textContent = data.length;
+      badge.style.display = '';
+    } else {
+      badge.style.display = 'none';
+    }
   });
 }
 

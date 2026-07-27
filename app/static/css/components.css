@@ -332,3 +332,27 @@
 .card-exposure{font-weight:600}
 .exp-internet{color:var(--bad)}
 .exp-pendente{color:var(--warn)}
+
+/* Finding cards - right column mini */
+.atn-mini{border:1px solid var(--border);border-radius:8px;padding:.5rem .65rem;margin-bottom:.4rem;cursor:pointer;transition:all .15s;background:var(--surface)}
+.atn-mini:hover{border-color:var(--accent);transform:translateX(2px)}
+.atn-mini-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:.2rem}
+.atn-mini-sev{font-size:.55rem;font-weight:700;padding:.1rem .35rem;border-radius:3px;color:#fff;text-transform:uppercase}
+.atn-mini-ago{font-size:.6rem;color:var(--text-mute)}
+.atn-mini-title{font-size:.72rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+
+/* Finding cards - full attention screen */
+.atn-card{border:1px solid var(--border);border-radius:10px;padding:.85rem 1rem;margin-bottom:.6rem;cursor:pointer;transition:all .15s;background:var(--surface)}
+.atn-card:hover{border-color:var(--accent);transform:translateX(3px)}
+.atn-head{display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;flex-wrap:wrap}
+.atn-sev{font-size:.6rem;font-weight:700;padding:.15rem .45rem;border-radius:4px;color:#fff;text-transform:uppercase}
+.atn-score{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--text-mute)}
+.atn-target{font-size:.7rem;color:var(--text-dim);font-weight:500}
+.atn-ago{font-size:.65rem;color:var(--text-mute);margin-left:auto}
+.atn-occs{font-size:.6rem;background:var(--bg-2);padding:.1rem .35rem;border-radius:3px;color:var(--text-dim)}
+.atn-title{font-size:.85rem;font-weight:600;color:var(--text);margin-bottom:.2rem}
+.atn-interp{font-size:.75rem;color:var(--text-dim);margin-bottom:.15rem}
+.atn-reco{font-size:.72rem;color:var(--accent);font-style:italic}
+
+/* Rail badge */
+.rail-badge{font-size:.6rem;font-weight:700;padding:.1rem .35rem;border-radius:4px;background:var(--bad);color:#fff;margin-left:auto;min-width:18px;text-align:center}
