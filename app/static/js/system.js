@@ -1,18 +1,34 @@
+function thresholdClass(value, warnAt, critAt) {
+  if (value >= critAt) return 'kpi-bad';
+  if (value >= warnAt) return 'kpi-warn';
+  return 'kpi-ok';
+}
+
+function applyKpiThreshold(id, value, warnAt, critAt) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.remove('kpi-ok', 'kpi-warn', 'kpi-bad', 'kpi-accent');
+  el.classList.add(thresholdClass(value, warnAt, critAt));
+}
+
 function renderSystemInfo(sys) {
   const cpuPct = sys.cpu?.percent != null ? sys.cpu.percent.toFixed(1) : '—';
   document.getElementById('sysCpu').textContent = cpuPct + (cpuPct !== '—' ? '%' : '');
   document.getElementById('sysCpuSub').textContent = `${sys.cpu?.count || '?'} cores`;
+  if (sys.cpu?.percent != null) applyKpiThreshold('sysCpuCard', sys.cpu.percent, 60, 85);
 
   if (sys.memory) {
     const memPct = sys.memory.percent.toFixed(1);
     document.getElementById('sysMem').textContent = memPct + '%';
     document.getElementById('sysMemSub').textContent = `${fmtBytes(sys.memory.used)} / ${fmtBytes(sys.memory.total)}`;
+    applyKpiThreshold('sysMemCard', sys.memory.percent, 70, 85);
   }
 
   if (sys.swap) {
     const swapPct = sys.swap.percent.toFixed(1);
     document.getElementById('sysSwap').textContent = swapPct + '%';
     document.getElementById('sysSwapSub').textContent = `${fmtBytes(sys.swap.used)} / ${fmtBytes(sys.swap.total)}`;
+    applyKpiThreshold('sysSwapCard', sys.swap.percent, 60, 80);
   }
 
   if (sys.disks && sys.disks.length > 0) {
@@ -20,6 +36,7 @@ function renderSystemInfo(sys) {
     const diskPct = root.percent.toFixed(1);
     document.getElementById('sysDisk').textContent = diskPct + '%';
     document.getElementById('sysDiskSub').textContent = `${fmtBytes(root.used)} / ${fmtBytes(root.total)} (${root.mountpoint})`;
+    applyKpiThreshold('sysDiskCard', root.percent, 70, 90);
   }
 
   if (sys.cpu?.load_1m != null) {

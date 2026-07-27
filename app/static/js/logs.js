@@ -23,6 +23,17 @@ function renderLogsViewer(containerId) {
 
   const logsContainer = document.getElementById('logsContainer');
 
+  function highlightLogLine(text) {
+    const keywordColors = {
+      'ERROR': '#fca5a5', 'FATAL': '#fca5a5',
+      'WARN': '#fcd34d', 'WARNING': '#fcd34d',
+      'INFO': '#7dd3fc', 'DEBUG': '#a78bfa',
+    };
+    return text.replace(/\b(ERROR|FATAL|WARN(?:ING)?|INFO|DEBUG)\b/g, (m) =>
+      `<span style="color:${keywordColors[m] || 'inherit'};font-weight:600">${m}</span>`
+    );
+  }
+
   function appendLog(stream, text) {
     if (logsPaused) return;
     const filter = document.getElementById('logsFilter')?.value?.toLowerCase();
@@ -34,9 +45,11 @@ function renderLogsViewer(containerId) {
 
     const line = document.createElement('div');
     line.className = `log-line ${stream}`;
-    line.textContent = text;
     if (stream === 'stderr') {
       line.style.color = '#fca5a5';
+      line.innerHTML = highlightLogLine(text);
+    } else {
+      line.innerHTML = highlightLogLine(text);
     }
     logsContainer.appendChild(line);
 
@@ -95,7 +108,7 @@ function renderLogsViewer(containerId) {
   document.getElementById('logsFilter').addEventListener('input', () => {
     const filter = document.getElementById('logsFilter').value.toLowerCase();
     logsContainer.querySelectorAll('.log-line').forEach(line => {
-      line.style.display = filter && !line.textContent.toLowerCase().includes(filter) ? 'none' : '';
+      line.style.display = filter && !(line.textContent || '').toLowerCase().includes(filter) ? 'none' : '';
     });
   });
 }

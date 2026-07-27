@@ -101,7 +101,11 @@ function applyTheme(light) {
   localStorage.setItem('cockpit-theme', light ? 'light' : 'dark');
 }
 const savedTheme = localStorage.getItem('cockpit-theme');
-if (savedTheme === 'light') document.documentElement.classList.add('light');
+if (savedTheme === 'light') {
+  document.documentElement.classList.add('light');
+} else if (!savedTheme && window.matchMedia('(prefers-color-scheme: light)').matches) {
+  document.documentElement.classList.add('light');
+}
 document.getElementById('themeToggle').addEventListener('click', () => {
   applyTheme(!document.documentElement.classList.contains('light'));
 });
