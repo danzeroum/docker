@@ -1,5 +1,8 @@
 import os
+import time
 import httpx
+import platform
+import psutil
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -54,7 +57,7 @@ async def inspect_container(container_id: str):
 
 @app.get("/api/containers/{container_id}/json")
 async def inspect_container_json(container_id: str):
-    """Alias explcito — frontend chama /api/containers/{id}/json."""
+    """Alias explicito — frontend chama /api/containers/{id}/json."""
     return await _get(f"/containers/{container_id}/json")
 
 @app.get("/api/containers/{container_id}/logs")
@@ -94,3 +97,89 @@ async def list_images():
 @app.get("/api/info")
 async def docker_info():
     return await _get("/info")
+
+# ---------- system / host ----------
+@app.get("/api/system")
+async def system_info():
+    """Health geral do host/VPS (read-only)."""
+    # CPU
+    cpu_percent = psutil.cpu_percent(interval=0.1)
+    cpu_count = psutil.cpu_count(logical=True)
+    load_avg = os.getloadavg() if hasattr(os, 'getloadavg') else (0.0, 0.0, 0.0)
+
+    # Memoria
+    mem = psutil.virtual_memory()
+    swap = psutil.swap_memory()
+
+    # Disco (por mount)
+    disks = []
+    for part in psutil.disk_partitions(all=False):
+        try:
+            usage = psutil.disk_usage(part.mountpoint)
+            disks.append({
+                "device": part.device,
+                "mountpoint": part.mountpoint,
+                "fstype": part.fstype,
+                "total_gb": round(usage.total / (1024**3), 2),
+                "used_gb": round(usage.used / (1024**3), 2),
+                "free_gb": round(usage.free / (1024**3), 2),
+                "percent": round(usage.percent, 1)
+            })
+        except PermissionError:
+            continue
+
+    # Rede
+    net_io = psutil.net_io_counters()
+    net_if = psutil.net_if_addrs()
+
+    # Uptime
+    boot_time = psutil.boot_time()
+    uptime_seconds = time.time() - boot_time
+
+    # Warnings simples
+    warnings = []
+    if cpu_percent > 80:
+        warnings.append({"level": "warn", "message": f"CPU alta: {cpu_percent:.1f}%"})
+    if mem.percent > 85:
+        warnings.append({"level": "warn", "message": f"Memória alta: {mem.percent:.1f}%"})
+    if swap.percent > 80:
+        warnings.append({"level": "warn", "message": f"Swap alta: {swap.percent:.1f}%"})
+    for d in disks:
+        if d["percent"] > 90:
+            warnings.append({"level": "crit", "message": f"Disco cheio: {d['mountpoint']} ({d['percent']:.1f}%)"})
+    if load_avg[0] > cpu_count * 2:
+        warnings.append({"level": "warn", "message": f"Load average alto: {load_avg[0]:.2f} (CPUs: {cpu_count})"})
+
+    return {
+        "cpu": {
+            "percent": round(cpu_percent, 1),
+            "count": cpu_count,
+            "load_1m": round(load_avg[0], 2),
+            "load_5m": round(load_avg[1], 2),
+            "load_15m": round(load_avg[2], 2)
+        },
+        "memory": {
+            "total_gb": round(mem.total / (1024**3), 2),
+            "used_gb": round(mem.used / (1024**3), 2),
+            "free_gb": round(mem.available / (1024**3), 2),
+            "percent": round(mem.percent, 1)
+        },
+        "swap": {
+            "total_gb": round(swap.total / (1024**3), 2),
+            "used_gb": round(swap.used / (1024**3), 2),
+            "free_gb": round(swap.free / (1024**3), 2),
+            "percent": round(swap.percent, 1)
+        },
+        "disks": disks,
+        "network": {
+            "bytes_sent": net_io.bytes_sent,
+            "bytes_recv": net_io.bytes_recv,
+            "packets_sent": net_io.packets_sent,
+            "packets_recv": net_io.packets_recv,
+            "interfaces": {name: [addr.address for addr in addrs if addr.family == 2] for name, addrs in net_if.items()}
+        },
+        "uptime_seconds": round(uptime_seconds),
+        "platform": platform.system(),
+        "platform_version": platform.version(),
+        "warnings": warnings
+    }

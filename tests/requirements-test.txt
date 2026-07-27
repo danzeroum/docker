@@ -5,3 +5,4 @@ uvicorn[standard]==0.32.1
 pytest==8.3.5
 pytest-asyncio==0.24.0
 respx==0.21.1          # mock de httpx (intercepta chamadas ao socket-proxy)
+psutil==6.1.0

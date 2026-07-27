@@ -263,6 +263,10 @@
         <button class="tab-btn" data-target="volumes">Volumes</button>
         <button class="tab-btn" data-target="env">Env</button>
         <button class="tab-btn" data-target="json">JSON</button>
+        <a class="tab-btn" id="openLabBtn" href="#" target="_blank" style="background:var(--accent);color:#fff;border:none">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          Laboratório
+        </a>
       </div>
     </header>
 
@@ -401,6 +405,7 @@ function renderGlobalOverview() {
   document.getElementById('mainSubtitle').textContent = `${total} containers detectados`;
   document.getElementById('tabNav').style.display = 'none';
 
+  // Render container KPIs
   document.getElementById('mainContent').innerHTML = `
     <div class="overview-hero">
       <h2 style="margin:0 0 .5rem;font-size:1.5rem">Dashboard do Host</h2>
@@ -410,7 +415,7 @@ function renderGlobalOverview() {
       </p>
     </div>
 
-    <div class="kpis">
+    <div class="kpis" id="containerKpis">
       <div class="kpi kpi-accent" onclick="setFilter('all')">
         <div class="kpi-label">Total de Containers</div>
         <div class="kpi-value">${total}</div>
@@ -428,7 +433,145 @@ function renderGlobalOverview() {
         <div class="kpi-value">${unhealthy}</div>
       </div>
     </div>
+
+    <!-- System Health KPIs -->
+    <div class="kpis" id="systemKpis">
+      <div class="kpi kpi-accent">
+        <div class="kpi-label">CPU</div>
+        <div class="kpi-value" id="sysCpu">—</div>
+        <div class="kpi-sub" id="sysCpuSub">carregando...</div>
+      </div>
+      <div class="kpi kpi-ok">
+        <div class="kpi-label">Memória</div>
+        <div class="kpi-value" id="sysMem">—</div>
+        <div class="kpi-sub" id="sysMemSub">carregando...</div>
+      </div>
+      <div class="kpi kpi-warn">
+        <div class="kpi-label">Swap</div>
+        <div class="kpi-value" id="sysSwap">—</div>
+        <div class="kpi-sub" id="sysSwapSub">carregando...</div>
+      </div>
+      <div class="kpi kpi-accent">
+        <div class="kpi-label">Disco</div>
+        <div class="kpi-value" id="sysDisk">—</div>
+        <div class="kpi-sub" id="sysDiskSub">carregando...</div>
+      </div>
+      <div class="kpi kpi-ok">
+        <div class="kpi-label">Load Avg</div>
+        <div class="kpi-value" id="sysLoad">—</div>
+        <div class="kpi-sub" id="sysLoadSub">carregando...</div>
+      </div>
+      <div class="kpi kpi-accent">
+        <div class="kpi-label">Uptime</div>
+        <div class="kpi-value" id="sysUptime">—</div>
+        <div class="kpi-sub" id="sysUptimeSub">carregando...</div>
+      </div>
+    </div>
+
+    <div id="systemWarnings" style="margin-top:1rem"></div>
   `;
+
+  // Fetch system info
+  fetchSystemInfo();
+}
+
+/* ==========================
+   Fetch & Render: System Info
+   ========================== */
+async function fetchSystemInfo() {
+  try {
+    const res = await fetch('/api/system');
+    if (!res.ok) throw new Error('API Error');
+    const sys = await res.json();
+    renderSystemInfo(sys);
+  } catch (err) {
+    console.error('Erro ao buscar info do sistema:', err);
+    document.getElementById('sysCpu').textContent = '—';
+    document.getElementById('sysCpuSub').textContent = 'indisponível';
+    document.getElementById('sysMem').textContent = '—';
+    document.getElementById('sysMemSub').textContent = 'indisponível';
+    document.getElementById('sysSwap').textContent = '—';
+    document.getElementById('sysSwapSub').textContent = 'indisponível';
+    document.getElementById('sysDisk').textContent = '—';
+    document.getElementById('sysDiskSub').textContent = 'indisponível';
+    document.getElementById('sysLoad').textContent = '—';
+    document.getElementById('sysLoadSub').textContent = 'indisponível';
+    document.getElementById('sysUptime').textContent = '—';
+    document.getElementById('sysUptimeSub').textContent = 'indisponível';
+  }
+}
+
+function renderSystemInfo(sys) {
+  // CPU
+  const cpuPct = sys.cpu?.percent != null ? sys.cpu.percent.toFixed(1) : '—';
+  document.getElementById('sysCpu').textContent = cpuPct + (cpuPct !== '—' ? '%' : '');
+  document.getElementById('sysCpuSub').textContent = `${sys.cpu?.count || '?'} cores`;
+
+  // Memory
+  if (sys.memory) {
+    const memPct = sys.memory.percent.toFixed(1);
+    document.getElementById('sysMem').textContent = memPct + '%';
+    document.getElementById('sysMemSub').textContent = `${fmtBytes(sys.memory.used)} / ${fmtBytes(sys.memory.total)}`;
+  }
+
+  // Swap
+  if (sys.swap) {
+    const swapPct = sys.swap.percent.toFixed(1);
+    document.getElementById('sysSwap').textContent = swapPct + '%';
+    document.getElementById('sysSwapSub').textContent = `${fmtBytes(sys.swap.used)} / ${fmtBytes(sys.swap.total)}`;
+  }
+
+  // Disk (root mount)
+  if (sys.disks && sys.disks.length > 0) {
+    const root = sys.disks.find(d => d.mountpoint === '/') || sys.disks[0];
+    const diskPct = root.percent.toFixed(1);
+    document.getElementById('sysDisk').textContent = diskPct + '%';
+    document.getElementById('sysDiskSub').textContent = `${fmtBytes(root.used)} / ${fmtBytes(root.total)} (${root.mountpoint})`;
+  }
+
+  // Load average
+  if (sys.cpu?.load_1m != null) {
+    const load = [sys.cpu.load_1m, sys.cpu.load_5m, sys.cpu.load_15m];
+    document.getElementById('sysLoad').textContent = load.map(n => n.toFixed(2)).join(', ');
+    document.getElementById('sysLoadSub').textContent = `${sys.cpu?.count || '?'} cores`;
+  }
+
+  // Uptime
+  if (sys.uptime_seconds != null) {
+    document.getElementById('sysUptime').textContent = fmtDuration(sys.uptime_seconds * 1000);
+    document.getElementById('sysUptimeSub').textContent = 'host';
+  }
+
+  // Warnings
+  const warns = [];
+  if (sys.cpu?.percent != null && sys.cpu.percent > 85) warns.push(`<strong>CPU alta:</strong> ${sys.cpu.percent.toFixed(1)}%`);
+  if (sys.memory && sys.memory.percent > 85) warns.push(`<strong>Memória alta:</strong> ${sys.memory.percent.toFixed(1)}%`);
+  if (sys.swap && sys.swap.percent > 80) warns.push(`<strong>Swap alta:</strong> ${sys.swap.percent.toFixed(1)}%`);
+  if (sys.disks) {
+    sys.disks.forEach(d => { if (d.percent > 85) warns.push(`<strong>Disco cheio (${d.mountpoint}):</strong> ${d.percent.toFixed(1)}%`); });
+  }
+  if (sys.cpu?.load_1m && sys.cpu?.count && sys.cpu.load_1m > sys.cpu.count * 2) warns.push(`<strong>Load alto:</strong> ${sys.cpu.load_1m.toFixed(2)} (${sys.cpu.count} cores)`);
+
+  const warnEl = document.getElementById('systemWarnings');
+  if (warns.length) {
+    warnEl.innerHTML = `
+      <div class="empty-field" style="background:var(--bad-soft);border-color:var(--bad);color:var(--bad)">
+        ${warns.map(w => `<div>${w}</div>`).join('')}
+      </div>`;
+  } else {
+    warnEl.innerHTML = `<div class="empty-field" style="background:var(--ok-soft);border-color:var(--ok);color:var(--ok)">Sistema saudável — sem alertas</div>`;
+  }
+}
+
+/* ==========================
+   Helpers: fmtBytes
+   ========================== */
+function fmtBytes(bytes) {
+  if (bytes == null) return '—';
+  const units = ['B','KB','MB','GB','TB'];
+  let i = 0;
+  while (bytes >= 1024 && i < units.length - 1) { bytes /= 1024; i++; }
+  return `${bytes.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
 /* ==========================
@@ -440,6 +583,11 @@ async function fetchContainerDetail(id) {
     if (!res.ok) throw new Error('API Error');
     const data = await res.json();
     renderContainerDetail(parseInspect(data), data);
+    // Atualiza link do laboratório
+    const labBtn = document.getElementById('openLabBtn');
+    if (labBtn) {
+      labBtn.href = `/static/inspect-educativo.html?id=${encodeURIComponent(id)}`;
+    }
   } catch (err) {
     console.error(err);
     document.getElementById('mainContent').innerHTML =
