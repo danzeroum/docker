@@ -73,7 +73,11 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     window.location.hash = btn.dataset.target;
-    document.getElementById(btn.dataset.target)?.scrollIntoView({behavior:'smooth', block:'start'});
+    if (btn.dataset.target === 'logs') {
+      renderLogsViewer(selectedContainerId);
+    } else {
+      document.getElementById(btn.dataset.target)?.scrollIntoView({behavior:'smooth', block:'start'});
+    }
   });
 });
 

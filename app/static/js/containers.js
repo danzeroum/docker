@@ -50,6 +50,7 @@ function renderContainerList() {
       selectedContainerId = item.dataset.id;
       document.getElementById('tabNav').style.display = 'flex';
       renderContainerList();
+      cleanupLogsStream();
       fetchContainerDetail(selectedContainerId);
     });
   });

@@ -3,8 +3,9 @@ import time
 import httpx
 import platform
 import psutil
+import asyncio
 from fastapi import FastAPI, HTTPException, Response
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -83,6 +84,54 @@ async def container_logs(container_id: str, tail: int = 500):
             idx += 8 + frame_size
         text = "".join(lines) if lines else raw.decode("utf-8", errors="replace")
         return Response(content=text, media_type="text/plain")
+
+# ---------- logs streaming (SSE) ----------
+def _demux_frame(data: bytes):
+    """Itera sobre dados multiplexados do Docker, gerando (stream_id, text)."""
+    idx = 0
+    while idx + 8 <= len(data):
+        frame_size = int.from_bytes(data[idx + 4:idx + 8], "big")
+        payload = data[idx + 8:idx + 8 + frame_size]
+        stream_id = data[idx]  # 1=stdout, 2=stderr
+        yield stream_id, payload.decode("utf-8", errors="replace")
+        idx += 8 + frame_size
+
+async def _log_stream_proxy(container_id: str, tail: int):
+    """Faz proxy do stream de logs do Docker via httpx, gerando SSE."""
+    params = {"stdout": 1, "stderr": 1, "follow": 1, "tail": tail}
+    async with httpx.AsyncClient(base_url=SOCKET_PROXY, timeout=None) as client:
+        async with client.stream("GET", f"/containers/{container_id}/logs", params=params) as resp:
+            if resp.status_code >= 400:
+                yield f"event: error\ndata: {resp.status_code}\n\n"
+                return
+            buf = b""
+            async for chunk in resp.aiter_bytes():
+                buf += chunk
+                while True:
+                    if len(buf) < 8:
+                        break
+                    frame_size = int.from_bytes(buf[4:8], "big")
+                    if len(buf) < 8 + frame_size:
+                        break
+                    frame = buf[:8 + frame_size]
+                    buf = buf[8 + frame_size:]
+                    for sid, text in _demux_frame(frame):
+                        event_type = "stdout" if sid == 1 else "stderr"
+                        for line in text.split("\n"):
+                            if line:
+                                yield f"event: {event_type}\ndata: {line}\n\n"
+
+@app.get("/api/containers/{container_id}/logs/stream")
+async def container_logs_stream(container_id: str, tail: int = 100):
+    """Streaming SSE de logs do container (stdout/stderr em tempo real)."""
+    return StreamingResponse(
+        _log_stream_proxy(container_id, tail),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        }
+    )
 
 @app.get("/api/containers/{container_id}/stats")
 async def container_stats(container_id: str):
