@@ -57,14 +57,16 @@ async def _fetch_container_data(c_id, c_raw):
         ml = host_config.get("Memory", 0)
         mem_limit = ml if ml and ml > 0 else None
     cpu_pct = 0.0
-    mem_pct = 0.0
+    mem_pct = None
     mem_usage = 0
     if isinstance(stats_raw, dict):
         cpu_pct = calc_cpu_percent(stats_raw)
         ms = stats_raw.get("memory_stats", {})
         mem_usage = ms.get("usage", 0)
-        limit = ms.get("limit", 1)
-        mem_pct = round((mem_usage / limit) * 100, 1) if limit else 0.0
+        if mem_limit is not None:
+            mem_pct = round((mem_usage / mem_limit) * 100, 1) if mem_limit else 0.0
+        else:
+            mem_pct = None
     return {
         "id": c_id,
         "name": name,
@@ -170,7 +172,6 @@ async def get_stats_all():
                 return {"id": c_id, "name": (c_raw.get("Names") or ["/"])[0].lstrip("/"), "cpu_pct": 0, "mem_pct": 0, "mem_usage": 0, "mem_limit": None}
             ms = stats_raw.get("memory_stats", {})
             mem_usage = ms.get("usage", 0)
-            limit = ms.get("limit", 1)
             insp = None
             try:
                 insp = await asyncio.wait_for(asyncio.shield(proxy_get(f"/containers/{c_id}/json")), timeout=10)
@@ -180,12 +181,15 @@ async def get_stats_all():
             if isinstance(insp, dict):
                 ml = insp.get("HostConfig", {}).get("Memory", 0)
                 mem_limit = ml if ml and ml > 0 else None
+            mem_pct = None
+            if mem_limit is not None:
+                mem_pct = round((mem_usage / mem_limit) * 100, 1) if mem_limit else 0.0
             return {
                 "id": c_id,
                 "name": (c_raw.get("Names") or ["/"])[0].lstrip("/"),
                 "stack": c_raw.get("Labels", {}).get("com.docker.compose.project") or "sem stack",
                 "cpu_pct": calc_cpu_percent(stats_raw),
-                "mem_pct": round((mem_usage / limit) * 100, 1) if limit else 0,
+                "mem_pct": mem_pct,
                 "mem_usage": mem_usage,
                 "mem_limit": mem_limit,
             }

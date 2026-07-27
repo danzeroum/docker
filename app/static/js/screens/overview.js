@@ -82,7 +82,7 @@ function renderContainers(containers) {
       <div class="card-image" title="${escapeHtml(c.image)}">${secLine}</div>
       <div class="card-bars">
         <div class="bar-row"><span class="bar-label">CPU</span><div class="bar"><div class="bar-fill" style="width:${Math.min(c.cpu_pct, 100)}%"></div></div><span class="bar-value">${c.cpu_pct.toFixed(1)}%</span></div>
-        <div class="bar-row"><span class="bar-label">MEM</span><div class="bar"><div class="bar-fill" style="width:${Math.min(c.mem_pct, 100)}%"></div></div><span class="bar-value">${c.mem_pct.toFixed(1)}% · ${memStr}</span></div>
+        <div class="bar-row"><span class="bar-label">MEM</span>${c.mem_pct != null ? `<div class="bar"><div class="bar-fill" style="width:${Math.min(c.mem_pct, 100)}%"></div></div><span class="bar-value">${c.mem_pct.toFixed(1)}% · ${memStr}</span>` : `<div class="bar" style="opacity:.3"><div class="bar-fill" style="width:0%"></div></div><span class="bar-value" style="font-style:italic;color:var(--text-mute)">sem limite</span>`}</div>
       </div>
       <div class="card-footer">
         <span>${c.ports || 'sem portas'}</span>
