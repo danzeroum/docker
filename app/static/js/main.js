@@ -96,6 +96,10 @@ function pollAll() {
     if (!badge) return;
     if (data && data.length) {
       badge.textContent = data.length;
+      const sevOrder = { critical: 4, high: 3, medium: 2, low: 1 };
+      const maxSev = data.reduce((a, f) => sevOrder[f.severity] > sevOrder[a] ? f.severity : a, 'low');
+      const sevColors = { critical: 'var(--bad)', high: 'var(--warn)', medium: 'var(--accent)', low: 'var(--text-mute)' };
+      badge.style.background = sevColors[maxSev] || 'var(--bad)';
       badge.style.display = '';
     } else {
       badge.style.display = 'none';

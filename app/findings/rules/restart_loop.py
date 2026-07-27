@@ -27,6 +27,7 @@ def evaluate(ctx):
         health = state.get("Health", {}).get("Status", "none")
         findings.append({
             "target": name,
+            "supersedes": [f"oom.{name}"],
             "title": f"{name} em ciclo de rein\u00edcio ({restart_count}x)",
             "title_plain": f"Container {name} reiniciando repetidamente",
             "interpretation": f"Reiniciou {restart_count} vezes (ant: {prev})",

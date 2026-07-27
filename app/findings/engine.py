@@ -143,7 +143,7 @@ async def _run_cycle():
             if not _check_debounce(rule_name, target, mod, history_by_id.get(finding_id)):
                 continue
 
-            payload = {k: v for k, v in res.items() if k not in ("target", "caused_by", "score_override")}
+            payload = {k: v for k, v in res.items() if k not in ("target", "caused_by", "supersedes", "score_override")}
             score = res.get("score_override") or _calc_score(severity)
 
             finding = {
@@ -158,6 +158,13 @@ async def _run_cycle():
             }
 
             await upsert_finding(finding)
+
+            supersedes = res.get("supersedes")
+            if supersedes:
+                targets = supersedes if isinstance(supersedes, list) else [supersedes]
+                for sid in targets:
+                    if sid in history_by_id:
+                        await resolve_finding(sid)
 
     for h_id in history_by_id:
         if h_id not in seen_ids:
