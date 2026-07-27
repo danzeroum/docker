@@ -140,6 +140,7 @@ As fontes vêm do Google Fonts, como já acontece no `index.html` atual.
 | Arquivo | Conteúdo |
 |---|---|
 | `README.md` | este documento |
+| `00-decisoes-de-revisao.md` | **leia antes** — correções à primeira versão, decisões tomadas e mudanças quebradas de contrato |
 | `01-contrato-de-dados.md` | **o mais importante** — cada campo da UI e sua origem real |
 | `02-backend.md` | endpoints e módulos novos, com esquemas JSON |
 | `03-frontend.md` | arquitetura, estado, camada de dados, temas, acessibilidade |

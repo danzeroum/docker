@@ -17,7 +17,8 @@ domínios servidos por um único gateway nginx (/opt/btv/ingress).
 MATERIAL
 Na pasta design_handoff_cockpit_vps/:
 - README.md ................. visão geral, as 11 telas, os 27 design tokens, tipografia
-- 01-contrato-de-dados.md ... campo por campo da UI e a origem real de cada um  ← comece aqui
+- 00-decisoes-de-revisao.md . correções, decisões tomadas e estado das fases  ← leia antes
+- 01-contrato-de-dados.md ... campo por campo da UI e a origem real de cada um  ← depois este
 - 02-backend.md ............. endpoints e módulos novos, com esquemas JSON
 - 03-frontend.md ............ arquitetura, estado, camada de dados, temas, acessibilidade
 - 04-plano-de-entrega.md .... 6 fases com critério de aceite

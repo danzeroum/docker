@@ -10,12 +10,13 @@ Nenhum destes é opcional se o painel vai crescer para 15 containers e 13 domín
 | Item | Situação hoje | O que fazer |
 |---|---|---|
 | **Estrutura** | tudo em `app.py` | dividir em `routers/` (`containers`, `system`, `ingress`, `certs`, `findings`, `metrics`, `tasks`) + `services/` para a lógica |
-| **Cache** | zero; cada cliente bate no daemon a cada 5 s | cache em memória com TTL por recurso (containers 2 s, info 30 s, ingress 60 s, certs 1 h) |
+| **Cache** | zero; cada cliente bate no daemon a cada 5 s | cache em memória com TTL por recurso (containers 2 s, info 30 s, images 30 s, ingress 60 s, certs 1 h). **Single-flight obrigatório**: `asyncio.Lock` guardado dentro da própria entrada (`{value, expires, lock}`), senão 20 clientes no vencimento geram 20 fan-outs. Teto de chaves com evicção LRU. Nunca em mutação nem em stream de logs |
 | **Polling** | frontend chama `/api/containers` a cada 5 s | consumir `/events` do daemon e empurrar via SSE; polling vira reconciliação de 30 s |
 | **Persistência** | nenhuma | SQLite em volume nomeado: séries de métricas, tarefas, histórico de achados, auditoria |
 | **Segredos** | `Config.Env` devolvido em texto claro | máscara no servidor, sempre |
 | **Autorização** | só o basic auth do nginx; qualquer sessão pode `DELETE` | token de destravamento com TTL + log de auditoria |
-| **CORS** | `allow_origins=["*"]` quando `ALLOWED_ORIGINS` está vazio | default restrito ao próprio host |
+| **CORS** | `allow_origins=["*"]` quando `ALLOWED_ORIGINS` está vazio | `allow_origins = ALLOWED_ORIGINS or []`. O frontend é servido pelo próprio FastAPI, mesma origem — não precisa de CORS. **Não tente derivar a origem da requisição**: `CORSMiddleware` é configurado no startup, não existe `request` ali |
+| **psutil no event loop** | `/api/system` chama `psutil.cpu_percent(interval=0.1)` e `disk_usage()` de forma síncrona dentro de rota async — 100 ms de loop travado por requisição | sampler em background com `await asyncio.to_thread(...)`, e uma amostra tirada **antes** do `yield` do lifespan para que a primeira requisição após o deploy nunca veja estado vazio |
 | **Limites** | `tail` sem teto; sem rate limit em escrita | teto de 5 000 linhas; rate limit por sessão nas rotas de mutação |
 | **Testes** | 24 testes de API | fixtures com um `nginx.conf` real e um `inspect.json` real para o motor de achados |
 
@@ -64,8 +65,8 @@ Uma chamada que serve a tela inicial inteira. Evita 15 inspects e 15 stats do cl
 {
   "host": { "name": "srv1351082", "cpus": 4, "mem_total_gb": 8, "os": "Ubuntu 24.04",
             "docker": "27.1.1", "uptime_seconds": 3628800 },
-  "vitals": { "cpu_pct": 34, "mem_pct": 70, "mem_used_gb": 5.6, "swap_pct": 12,
-              "disk": { "mountpoint": "/", "pct": 73, "used_gb": 70, "total_gb": 96 },
+  "vitals": { "cpu_pct": 34, "mem_pct": 70, "mem_used": 6012954214, "swap_pct": 12,
+              "disk": { "mountpoint": "/", "pct": 73, "used": 75161927680, "total": 103079215104 },
               "net_rx_bps": 2100000, "net_tx_bps": 1300000 },
   "stacks": [
     { "id": "criptotrade", "running": 2, "total": 2, "worst": "ok",
@@ -86,6 +87,10 @@ Uma chamada que serve a tela inicial inteira. Evita 15 inspects e 15 stats do cl
 
 Implementação: `asyncio.gather` sobre inspect + stats dos containers, cache de 5 s
 compartilhado entre clientes. `exposure` vem do cruzamento com `/api/ingress`.
+
+> **Unidades:** todo valor de tamanho é **byte cru**; formatação é responsabilidade do
+> cliente. `/api/system` migrou de `used_gb`/`total_gb`/`free_gb` para `used`/`total`/`free`
+> na F0a — mudança quebrada de contrato, registrada em `00-decisoes-de-revisao.md`.
 
 ### `GET /api/stats/all`
 
