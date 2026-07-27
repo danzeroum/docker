@@ -1,0 +1,1716 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="crossorigin" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  html,body{margin:0;padding:0;background:#070c18;-webkit-font-smoothing:antialiased}
+  *{box-sizing:border-box}
+  a{color:var(--ac-t);text-decoration:none}
+  a:hover{color:#93c5fd}
+  ::selection{background:rgba(36,150,237,.35);color:#fff}
+  @keyframes pulseDot{0%{transform:scale(.8);opacity:.7}100%{transform:scale(2.1);opacity:0}}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+  ::-webkit-scrollbar{width:7px;height:7px}
+  ::-webkit-scrollbar-thumb{background:var(--bd3);border-radius:var(--r2)}
+  ::-webkit-scrollbar-track{background:transparent}
+
+  [data-tema="cockpit"]{--bg:#0a1020;--bg2:#0f1830;--sf:#141f3a;--sf2:#1a2747;--rail1:#0c1428;--rail2:#080e1c;
+    --tx:#e6edf7;--tx2:#c8d4e6;--txd:#9aa7bd;--txm:#475569;--txf:#5b6880;--nt:#334768;--ac:#2496ED;
+    --bd0:rgba(255,255,255,.05);--bd1:rgba(255,255,255,.08);--bd2:rgba(255,255,255,.12);--bd3:rgba(255,255,255,.16);
+    --ok-t:#86efac;--bad-t:#fca5a5;--wn-t:#fcd34d;--ac-t:#7dd3fc;--vi-t:#c4b5fd;--bezel:#1a2340;
+    --r2:5px;--r:7px;--rc2:9px;--rc:12px}
+  [data-tema="escritorio"]{--bg:#f4f6f8;--bg2:#eef1f5;--sf:#e5e9ef;--sf2:#d0d7de;--rail1:#e5e9ef;--rail2:#dfe4ea;
+    --tx:#1f2937;--tx2:#334155;--txd:#5b6b7f;--txm:#7c8899;--txf:#a3aebd;--nt:#cbd5e1;--ac:#2563eb;
+    --bd0:rgba(148,163,184,.2);--bd1:rgba(148,163,184,.38);--bd2:rgba(148,163,184,.55);--bd3:rgba(100,116,139,.6);
+    --ok-t:#0f8f63;--bad-t:#dc2626;--wn-t:#b45309;--ac-t:#2563eb;--vi-t:#7c3aed;--bezel:#cbd5e1;
+    --r2:4px;--r:4px;--rc2:8px;--rc:8px}
+  [data-tema="claro"]{--bg:#f1f5f9;--bg2:#e2e8f0;--sf:#ffffff;--sf2:#f8fafc;--rail1:#ffffff;--rail2:#f8fafc;
+    --tx:#0f172a;--tx2:#334155;--txd:#475569;--txm:#8592a5;--txf:#a3aebd;--nt:#cbd5e1;--ac:#2563eb;
+    --bd0:rgba(15,23,42,.06);--bd1:rgba(15,23,42,.11);--bd2:rgba(15,23,42,.16);--bd3:rgba(15,23,42,.22);
+    --ok-t:#15803d;--bad-t:#b91c1c;--wn-t:#b45309;--ac-t:#1d4ed8;--vi-t:#6d28d9;--bezel:#cbd5e1;
+    --r2:5px;--r:7px;--rc2:10px;--rc:12px}
+</style>
+</helmet>
+
+<div data-tema="{{ tema }}" style="width:1440px;height:900px;display:flex;background:var(--bg);color:var(--tx);font-family:Inter,system-ui,sans-serif;overflow:hidden;position:relative">
+
+  <aside style="width:214px;flex-shrink:0;background:linear-gradient(180deg,var(--rail1) 0%,var(--rail2) 100%);border-right:1px solid var(--bd1);display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 14px 12px;border-bottom:1px solid var(--bd1)">
+      <div style="width:28px;height:28px;border-radius:var(--r);background:linear-gradient(135deg,var(--ac),#0db7ed);display:grid;place-items:center;box-shadow:0 4px 14px rgba(36,150,237,.4);flex-shrink:0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
+      </div>
+      <div style="min-width:0">
+        <div style="font-weight:800;font-size:13px;letter-spacing:-.02em">Cockpit Docker</div>
+        <div style="font-size:9px;color:#64748b;letter-spacing:.16em;text-transform:uppercase;display:flex;align-items:center;gap:5px;margin-top:1px">
+          <span style="width:5px;height:5px;border-radius:50%;background:#22c55e;position:relative;display:inline-block"><span style="position:absolute;inset:-3px;border-radius:50%;background:#22c55e;opacity:.4;animation:pulseDot 2s ease-out infinite"></span></span>
+          ao vivo
+        </div>
+      </div>
+    </div>
+
+    <div style="padding:12px 12px 10px;border-bottom:1px solid var(--bd1)">
+      <div style="font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:#64748b;font-weight:700;margin-bottom:7px">Estou aqui como</div>
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <sc-for list="{{ perfisLista }}" as="p" hint-placeholder-count="5">
+          <div onClick="{{ p.onClick }}" style="{{ p.estilo }}">
+            <span style="{{ p.pontoEstilo }}"></span>
+            <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.curto }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex:1;min-height:0;overflow-y:auto;padding:10px 8px">
+      <div style="font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:#64748b;font-weight:700;margin:2px 0 7px 6px">Navegação</div>
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <sc-for list="{{ navItens }}" as="n" hint-placeholder-count="9">
+          <div onClick="{{ n.onClick }}" style="{{ n.estilo }}">
+            <span style="{{ n.barra }}"></span>
+            <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ n.label }}</span>
+            <span style="{{ n.badgeEstilo }}">{{ n.badge }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="padding:10px 12px 12px;border-top:1px solid var(--bd1)">
+      <div style="font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:#64748b;font-weight:700;margin-bottom:6px">Tema</div>
+      <div style="display:flex;gap:3px;margin-bottom:9px">
+        <sc-for list="{{ temaBtns }}" as="t" hint-placeholder-count="3">
+          <div onClick="{{ t.onClick }}" style="{{ t.estilo }}">{{ t.label }}</div>
+        </sc-for>
+      </div>
+      <div style="{{ travaEstilo }}">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;flex-shrink:0"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="{{ travaPath }}"></path></svg>
+          <span style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase">{{ travaTitulo }}</span>
+        </div>
+        <div style="font-size:10.5px;line-height:1.45;opacity:.85;margin-bottom:7px">{{ travaTexto }}</div>
+        <div onClick="{{ onTrava }}" style="{{ travaBtnEstilo }}">{{ travaBtn }}</div>
+      </div>
+    </div>
+  </aside>
+
+  <main style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <header style="height:60px;flex-shrink:0;border-bottom:1px solid var(--bd1);background:var(--bg);display:flex;align-items:center;gap:14px;padding:0 16px">
+      <div style="min-width:0;flex:1">
+        <div style="font-size:15px;font-weight:700;letter-spacing:-.015em;line-height:1.15">{{ tituloTela }}</div>
+        <div style="font-size:10.5px;color:#64748b;font-family:'JetBrains Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px">{{ subtituloTela }}</div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700">Profundidade</span>
+        <div style="display:flex;background:var(--sf);border:1px solid var(--bd1);border-radius:var(--r);padding:2px;gap:2px">
+          <sc-for list="{{ depthBtns }}" as="d" hint-placeholder-count="3">
+            <div onClick="{{ d.onClick }}" style="{{ d.estilo }}" title="{{ d.dica }}">{{ d.label }}</div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="width:1px;height:24px;background:var(--bd2)"></div>
+
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700">Cenário</span>
+        <div style="display:flex;background:var(--sf);border:1px solid var(--bd1);border-radius:var(--r);padding:2px;gap:2px">
+          <sc-for list="{{ cenarioBtns }}" as="c" hint-placeholder-count="3">
+            <div onClick="{{ c.onClick }}" style="{{ c.estilo }}">{{ c.label }}</div>
+          </sc-for>
+        </div>
+      </div>
+    </header>
+
+    <div style="flex:1;min-height:0;padding:14px 16px 16px;display:flex;flex-direction:column;gap:12px;overflow:hidden">
+
+      <!-- ===================== VISÃO GERAL ===================== -->
+      <sc-if value="{{ isOverview }}" hint-placeholder-val="{{ true }}">
+        <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:12px">
+
+          <div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border:1px dashed rgba(96,165,250,.4);border-radius:var(--rc2);background:rgba(36,150,237,.05);flex-shrink:0">
+            <span style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ac-t);font-weight:700">Explorando · como avisar de problema</span>
+            <div style="display:flex;gap:4px">
+              <sc-for list="{{ alertaBtns }}" as="a" hint-placeholder-count="3">
+                <div onClick="{{ a.onClick }}" style="{{ a.estilo }}">{{ a.label }}</div>
+              </sc-for>
+            </div>
+            <div style="flex:1;min-width:0;font-size:10.5px;color:var(--txd);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ alertaDescricao }}</div>
+          </div>
+
+          <sc-if value="{{ faixaVisivel }}" hint-placeholder-val="{{ false }}">
+            <div style="{{ faixaEstilo }}">
+              <div style="{{ faixaIconeEstilo }}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="width:17px;height:17px"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+              </div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13.5px;font-weight:700;letter-spacing:-.01em">{{ faixaTitulo }}</div>
+                <div style="font-size:11.5px;color:var(--txd);line-height:1.45;margin-top:2px">{{ faixaTexto }}</div>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+                <div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700">Próximo passo</div>
+                <div onClick="{{ faixaAcao }}" style="background:var(--ac);color:#fff;font-size:11.5px;font-weight:600;padding:7px 13px;border-radius:var(--r);cursor:pointer;white-space:nowrap">{{ faixaAcaoLabel }}</div>
+              </div>
+            </div>
+          </sc-if>
+
+          <div style="flex:1;min-height:0;display:grid;grid-template-columns:262px 1fr 300px;gap:12px">
+
+            <div style="background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);display:flex;flex-direction:column;min-height:0">
+              <div style="padding:11px 12px 9px;border-bottom:1px solid var(--bd1)">
+                <div style="font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700;margin-bottom:8px">Stacks · {{ totalStacks }} projetos</div>
+                <div style="display:flex;align-items:center;gap:7px;background:var(--bg2);border:1px solid var(--bd1);border-radius:var(--r);padding:6px 9px">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" style="width:12px;height:12px;flex-shrink:0"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg>
+                  <span style="font-size:11px;color:#64748b">Buscar · <span style="font-family:'JetBrains Mono',monospace">⌘K</span></span>
+                </div>
+              </div>
+              <div style="flex:1;min-height:0;overflow-y:auto;padding:8px">
+                <sc-for list="{{ stacksView }}" as="s" hint-placeholder-count="3">
+                  <div style="margin-bottom:10px">
+                    <div style="display:flex;align-items:center;gap:6px;padding:4px 5px 6px">
+                      <span style="{{ s.pontoEstilo }}"></span>
+                      <span style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txd);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.nome }}</span>
+                      <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:#64748b">{{ s.contagem }}</span>
+                    </div>
+                    <sc-for list="{{ s.itens }}" as="c" hint-placeholder-count="4">
+                      <div onClick="{{ c.onClick }}" style="{{ c.linhaEstilo }}">
+                        <span style="{{ c.pontoEstilo }}"></span>
+                        <div style="flex:1;min-width:0">
+                          <div style="font-size:11.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.nome }}</div>
+                          <div style="font-size:9.5px;color:#64748b;font-family:'JetBrains Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.subLinha }}</div>
+                        </div>
+                        <span style="{{ c.tagEstilo }}">{{ c.tag }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:12px;min-height:0">
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;flex-shrink:0">
+                <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
+                  <div onClick="{{ k.onClick }}" style="{{ k.estilo }}">
+                    <div style="font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:#64748b;font-weight:700">{{ k.label }}</div>
+                    <div style="display:flex;align-items:baseline;gap:5px;margin-top:3px">
+                      <span style="{{ k.valorEstilo }}">{{ k.valor }}</span>
+                      <span style="font-size:10px;color:#64748b;font-family:'JetBrains Mono',monospace">{{ k.unidade }}</span>
+                    </div>
+                    <div style="{{ k.legendaEstilo }}">{{ k.legenda }}</div>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="flex:1;min-height:0;background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:11px 12px;display:flex;flex-direction:column">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">
+                  <div style="font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700">Todos os containers · {{ totalContainers }}</div>
+                  <div style="font-size:10px;color:#64748b">{{ gradeDica }}</div>
+                </div>
+                <div style="flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:1fr;gap:8px">
+                  <sc-for list="{{ grade }}" as="g" hint-placeholder-count="12">
+                    <div onClick="{{ g.onClick }}" style="{{ g.estilo }}">
+                      <div style="display:flex;align-items:center;gap:6px">
+                        <span style="{{ g.pontoEstilo }}"></span>
+                        <span style="font-size:11.5px;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ g.nome }}</span>
+                        <span style="{{ g.selEstilo }}">{{ g.selo }}</span>
+                      </div>
+                      <div style="{{ g.linhaEstilo }}">{{ g.linha }}</div>
+                      <div style="display:flex;align-items:center;gap:5px;margin-top:auto">
+                        <div style="flex:1;height:3px;border-radius:2px;background:var(--bd1);overflow:hidden"><div style="{{ g.barraCpu }}"></div></div>
+                        <div style="flex:1;height:3px;border-radius:2px;background:var(--bd1);overflow:hidden"><div style="{{ g.barraMem }}"></div></div>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+
+              <div style="flex-shrink:0;background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:10px 12px">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                  <div style="font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700">Host · {{ hostNome }}</div>
+                  <div style="font-size:10px;color:var(--txd)">{{ hostResumo }}</div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">
+                  <sc-for list="{{ vitais }}" as="v" hint-placeholder-count="5">
+                    <div>
+                      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px">
+                        <span style="font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:#64748b;font-weight:700">{{ v.label }}</span>
+                        <span style="{{ v.valorEstilo }}">{{ v.valor }}</span>
+                      </div>
+                      <div style="height:4px;border-radius:3px;background:var(--bd1);overflow:hidden"><div style="{{ v.barra }}"></div></div>
+                      <div style="font-size:9.5px;color:#64748b;font-family:'JetBrains Mono',monospace;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.sub }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:12px;min-height:0">
+              <div style="flex:1;min-height:0;background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);display:flex;flex-direction:column">
+                <div style="padding:11px 12px 8px;display:flex;align-items:center;justify-content:space-between">
+                  <div style="font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700">{{ filaTitulo }}</div>
+                  <span style="{{ filaContagemEstilo }}">{{ filaContagem }}</span>
+                </div>
+                <div style="flex:1;min-height:0;overflow-y:auto;padding:0 10px 10px;display:flex;flex-direction:column;gap:8px">
+                  <sc-for list="{{ fila }}" as="f" hint-placeholder-count="3">
+                    <div style="{{ f.estilo }}">
+                      <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+                        <span style="{{ f.sevEstilo }}">{{ f.sev }}</span>
+                        <span style="font-size:9.5px;color:#64748b;font-family:'JetBrains Mono',monospace;margin-left:auto">{{ f.quando }}</span>
+                      </div>
+                      <div style="font-size:12px;font-weight:650;line-height:1.3;letter-spacing:-.01em">{{ f.titulo }}</div>
+                      <div style="{{ f.corpoEstilo }}">{{ f.corpo }}</div>
+                      <div onClick="{{ f.onAcao }}" style="{{ f.acaoEstilo }}">
+                        <span>{{ f.acaoLabel }}</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="width:11px;height:11px"><path d="m9 18 6-6-6-6"></path></svg>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+
+              <div style="flex-shrink:0;background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:11px 12px">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                  <div style="font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700">Tarefas de operação</div>
+                  <div onClick="{{ irTarefas }}" style="font-size:10px;color:var(--ac-t);cursor:pointer;font-weight:600">abrir board →</div>
+                </div>
+                <div style="display:flex;gap:7px">
+                  <sc-for list="{{ tarefasResumo }}" as="t" hint-placeholder-count="4">
+                    <div style="flex:1;background:var(--bg2);border:1px solid var(--bd1);border-radius:var(--r);padding:7px 8px">
+                      <div style="{{ t.valorEstilo }}">{{ t.valor }}</div>
+                      <div style="font-size:9px;color:#64748b;letter-spacing:.06em;text-transform:uppercase;font-weight:700;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.label }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="font-size:10.5px;color:var(--txd);line-height:1.45;margin-top:8px;border-top:1px solid var(--bd1);padding-top:8px">{{ tarefaDestaque }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===================== INCIDENTE ===================== -->
+      <sc-if value="{{ isIncidente }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-height:0;display:grid;grid-template-columns:1fr 350px;gap:12px">
+          <div style="display:flex;flex-direction:column;gap:12px;min-height:0">
+            <div style="{{ incHeroEstilo }}">
+              <div style="display:flex;align-items:flex-start;gap:12px">
+                <div style="{{ incSevEstilo }}">{{ incSev }}</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:19px;font-weight:750;letter-spacing:-.02em;line-height:1.2">{{ incTitulo }}</div>
+                  <div style="font-size:12.5px;color:var(--txd);line-height:1.5;margin-top:5px;max-width:660px">{{ incResumo }}</div>
+                </div>
+                <div style="text-align:right;flex-shrink:0">
+                  <div style="font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:#64748b;font-weight:700">Impacto</div>
+                  <div style="font-size:13px;font-weight:700;margin-top:3px;color:var(--bad-t)">{{ incImpacto }}</div>
+                  <div style="font-size:10px;color:#64748b;font-family:'JetBrains Mono',monospace;margin-top:2px">{{ incDesde }}</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="flex:1;min-height:0;background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:13px 14px;display:flex;flex-direction:column">
+              <div style="font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700;margin-bottom:11px">Cadeia de causa — do fato ao efeito</div>
+              <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column">
+                <sc-for list="{{ incCadeia }}" as="e" hint-placeholder-count="5">
+                  <div style="display:flex;gap:11px">
+                    <div style="width:58px;flex-shrink:0;text-align:right;font-family:'JetBrains Mono',monospace;font-size:10px;color:#64748b;padding-top:2px">{{ e.hora }}</div>
+                    <div style="width:14px;flex-shrink:0;display:flex;flex-direction:column;align-items:center">
+                      <span style="{{ e.pontoEstilo }}"></span>
+                      <span style="{{ e.linhaEstilo }}"></span>
+                    </div>
+                    <div style="flex:1;min-width:0;padding-bottom:11px">
+                      <div style="font-size:12.5px;font-weight:650;letter-spacing:-.005em">{{ e.titulo }}</div>
+                      <div style="font-size:11.5px;color:var(--txd);line-height:1.5;margin-top:2px">{{ e.texto }}</div>
+                      <div style="{{ e.evidenciaEstilo }}">{{ e.evidencia }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:12px;min-height:0">
+            <div style="background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:12px">
+              <div style="font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700;margin-bottom:9px">Evidências</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">
+                <sc-for list="{{ incEvidencias }}" as="v" hint-placeholder-count="6">
+                  <div style="background:var(--bg2);border:1px solid var(--bd1);border-radius:var(--r);padding:7px 9px">
+                    <div style="font-size:8.5px;letter-spacing:.11em;text-transform:uppercase;color:#64748b;font-weight:700">{{ v.k }}</div>
+                    <div style="{{ v.estilo }}">{{ v.v }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="flex:1;min-height:0;background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:12px;display:flex;flex-direction:column">
+              <div style="font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700;margin-bottom:9px">O que fazer agora</div>
+              <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:8px">
+                <sc-for list="{{ incAcoes }}" as="a" hint-placeholder-count="3">
+                  <div style="{{ a.estilo }}">
+                    <div style="display:flex;align-items:center;gap:7px">
+                      <span style="{{ a.ordemEstilo }}">{{ a.ordem }}</span>
+                      <span style="font-size:12px;font-weight:650;flex:1;min-width:0">{{ a.titulo }}</span>
+                    </div>
+                    <div style="font-size:11px;color:var(--txd);line-height:1.5;margin:5px 0 6px">{{ a.detalhe }}</div>
+                    <div style="{{ a.cmdEstilo }}">{{ a.cmd }}</div>
+                    <div style="display:flex;align-items:center;gap:7px;margin-top:7px">
+                      <div onClick="{{ a.onAplicar }}" style="{{ a.btnEstilo }}">{{ a.btnLabel }}</div>
+                      <span style="font-size:9.5px;color:#64748b">{{ a.risco }}</span>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <sc-if value="{{ mostraAprendizado }}" hint-placeholder-val="{{ false }}">
+              <div style="flex-shrink:0;background:rgba(36,150,237,.08);border:1px solid rgba(96,165,250,.3);border-radius:var(--rc);padding:11px 12px">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="var(--ac-t)" stroke-width="2" style="width:13px;height:13px"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+                  <span style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ac-t)">{{ aprendizadoTitulo }}</span>
+                </div>
+                <div style="font-size:11.5px;color:var(--tx2);line-height:1.55">{{ aprendizadoTexto }}</div>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===================== DOSSIÊ DO CONTAINER ===================== -->
+      <sc-if value="{{ isDetalhe }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:11px">
+          <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;flex-shrink:0">
+            <sc-for list="{{ chips }}" as="c" hint-placeholder-count="12">
+              <div onClick="{{ c.onClick }}" style="{{ c.estilo }}">
+                <span style="{{ c.pontoEstilo }}"></span>
+                <span>{{ c.nome }}</span>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="{{ dossieHeroEstilo }}">
+            <div style="display:flex;align-items:center;gap:13px">
+              <span style="{{ det.pontoGrande }}"></span>
+              <div style="flex:1;min-width:0">
+                <div style="display:flex;align-items:center;gap:9px">
+                  <span style="font-size:18px;font-weight:750;letter-spacing:-.02em">{{ det.nome }}</span>
+                  <span style="{{ det.statusPill }}">{{ det.statusTexto }}</span>
+                  <span style="{{ det.healthPill }}">{{ det.healthTexto }}</span>
+                </div>
+                <div style="font-size:11px;color:#64748b;font-family:'JetBrains Mono',monospace;margin-top:3px">{{ det.identidade }}</div>
+              </div>
+              <div style="display:flex;gap:6px;flex-shrink:0">
+                <sc-for list="{{ det.acoes }}" as="a" hint-placeholder-count="4">
+                  <div onClick="{{ a.onClick }}" style="{{ a.estilo }}">{{ a.label }}</div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="{{ det.leituraEstilo }}">{{ det.leituraTexto }}</div>
+          </div>
+
+          <div style="flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,1fr);gap:11px">
+            <sc-for list="{{ det.colunas }}" as="col" hint-placeholder-count="3">
+              <div style="display:flex;flex-direction:column;gap:11px;min-height:0;overflow-y:auto;padding-right:2px">
+                <sc-for list="{{ col.blocos }}" as="b" hint-placeholder-count="2">
+                  <div style="{{ b.estilo }}">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                      <div style="font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700">{{ b.titulo }}</div>
+                      <span style="{{ b.selEstilo }}">{{ b.selo }}</span>
+                    </div>
+                    <div style="{{ b.notaEstilo }}">{{ b.nota }}</div>
+                    <sc-for list="{{ b.linhas }}" as="l" hint-placeholder-count="4">
+                      <div style="display:flex;align-items:flex-start;gap:8px;padding:5px 0;border-bottom:1px solid var(--bd0)">
+                        <span style="font-size:10px;color:#64748b;width:76px;flex-shrink:0;letter-spacing:.02em;padding-top:1px">{{ l.k }}</span>
+                        <span style="{{ l.estilo }}">{{ l.v }}</span>
+                      </div>
+                    </sc-for>
+                    <sc-for list="{{ b.logs }}" as="lg" hint-placeholder-count="0">
+                      <div style="{{ lg.estilo }}"><span style="color:var(--txm)">{{ lg.hora }}</span> {{ lg.txt }}</div>
+                    </sc-for>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===================== LOGS & MÉTRICAS ===================== -->
+      <sc-if value="{{ isLogs }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-height:0;display:grid;grid-template-columns:1fr 330px;gap:12px">
+          <div style="background:var(--bg2);border:1px solid var(--bd1);border-radius:var(--rc);display:flex;flex-direction:column;min-height:0">
+            <div style="display:flex;align-items:center;gap:9px;padding:10px 12px;border-bottom:1px solid var(--bd1);flex-shrink:0">
+              <span style="width:7px;height:7px;border-radius:50%;background:#22c55e;animation:blink 1.6s infinite"></span>
+              <span style="font-size:12px;font-weight:650">{{ det.nome }}</span>
+              <span style="font-size:10px;color:#64748b;font-family:'JetBrains Mono',monospace">stdout + stderr · tail 500 · follow</span>
+              <div style="margin-left:auto;display:flex;gap:5px">
+                <sc-for list="{{ logFiltros }}" as="f" hint-placeholder-count="3">
+                  <div style="{{ f.estilo }}">{{ f.label }}</div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="flex:1;min-height:0;overflow-y:auto;padding:9px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.75">
+              <sc-for list="{{ logLinhas }}" as="l" hint-placeholder-count="16">
+                <div style="display:flex;gap:9px">
+                  <span style="color:var(--txm);flex-shrink:0">{{ l.hora }}</span>
+                  <span style="{{ l.tagEstilo }}">{{ l.tag }}</span>
+                  <span style="{{ l.estilo }}">{{ l.txt }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:12px;min-height:0">
+            <sc-for list="{{ metricas }}" as="m" hint-placeholder-count="3">
+              <div style="background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:12px">
+                <div style="display:flex;align-items:baseline;justify-content:space-between">
+                  <div style="font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700">{{ m.label }}</div>
+                  <div style="{{ m.valorEstilo }}">{{ m.valor }}</div>
+                </div>
+                <div style="display:flex;align-items:flex-end;gap:2px;height:52px;margin-top:9px">
+                  <sc-for list="{{ m.barras }}" as="b" hint-placeholder-count="24">
+                    <div style="{{ b.estilo }}"></div>
+                  </sc-for>
+                </div>
+                <div style="{{ m.notaEstilo }}">{{ m.nota }}</div>
+              </div>
+            </sc-for>
+            <div style="flex:1;min-height:0"></div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===================== TOPOLOGIA ===================== -->
+      <sc-if value="{{ isTopo }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-height:0;display:grid;grid-template-columns:1fr 320px;gap:12px">
+          <div style="background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:16px 18px;display:flex;flex-direction:column;min-height:0">
+            <div style="font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700;margin-bottom:4px">Caminho da requisição — navegador até o daemon</div>
+            <div style="font-size:11.5px;color:var(--txd);line-height:1.5;margin-bottom:14px;max-width:640px">{{ topoIntro }}</div>
+            <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:0">
+              <sc-for list="{{ topoNos }}" as="n" hint-placeholder-count="5">
+                <div>
+                  <div style="{{ n.estilo }}">
+                    <div style="{{ n.faixaEstilo }}"></div>
+                    <div style="flex:1;min-width:0">
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <span style="font-size:13px;font-weight:700;letter-spacing:-.01em">{{ n.nome }}</span>
+                        <span style="{{ n.pill }}">{{ n.pillTexto }}</span>
+                        <span style="font-size:10px;color:#64748b;font-family:'JetBrains Mono',monospace;margin-left:auto">{{ n.rede }}</span>
+                      </div>
+                      <div style="font-size:11px;color:var(--txd);line-height:1.5;margin-top:3px">{{ n.papel }}</div>
+                    </div>
+                    <div style="text-align:right;flex-shrink:0;width:96px">
+                      <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:var(--tx)">{{ n.metrica }}</div>
+                      <div style="font-size:9px;color:#64748b;letter-spacing:.1em;text-transform:uppercase;font-weight:700;margin-top:1px">{{ n.metricaLabel }}</div>
+                    </div>
+                  </div>
+                  <div style="{{ n.setaEstilo }}">
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#64748b">{{ n.transporte }}</span>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px;min-height:0">
+            <div style="background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:12px">
+              <div style="font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700;margin-bottom:9px">Superfície exposta</div>
+              <sc-for list="{{ exposicao }}" as="e" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--bd0)">
+                  <span style="{{ e.pontoEstilo }}"></span>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:11.5px;font-weight:600">{{ e.alvo }}</div>
+                    <div style="font-size:10px;color:#64748b;font-family:'JetBrains Mono',monospace">{{ e.detalhe }}</div>
+                  </div>
+                  <span style="{{ e.tagEstilo }}">{{ e.tag }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="flex:1;min-height:0;background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:12px;overflow-y:auto">
+              <div style="font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700;margin-bottom:9px">{{ topoLateralTitulo }}</div>
+              <sc-for list="{{ topoLateral }}" as="l" hint-placeholder-count="4">
+                <div style="margin-bottom:11px">
+                  <div style="font-size:11.5px;font-weight:650;margin-bottom:2px">{{ l.titulo }}</div>
+                  <div style="font-size:11px;color:var(--txd);line-height:1.55">{{ l.texto }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===================== BACKEND & API ===================== -->
+      <sc-if value="{{ isBackend }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-height:0;display:grid;grid-template-columns:1fr 340px;gap:12px">
+          <div style="display:flex;flex-direction:column;gap:12px;min-height:0">
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;flex-shrink:0">
+              <sc-for list="{{ backKpis }}" as="k" hint-placeholder-count="4">
+                <div style="background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:10px 11px">
+                  <div style="font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:#64748b;font-weight:700">{{ k.label }}</div>
+                  <div style="{{ k.valorEstilo }}">{{ k.valor }}</div>
+                  <div style="font-size:10px;color:var(--txd);margin-top:2px">{{ k.sub }}</div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="flex:1;min-height:0;background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:12px;display:flex;flex-direction:column">
+              <div style="font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700;margin-bottom:9px">Endpoints · FastAPI app:8000</div>
+              <div style="display:flex;gap:8px;padding:0 6px 7px;border-bottom:1px solid var(--bd1);font-size:8.5px;letter-spacing:.11em;text-transform:uppercase;color:#64748b;font-weight:700">
+                <span style="width:46px;flex-shrink:0">Método</span>
+                <span style="flex:1">Rota</span>
+                <span style="width:78px;text-align:right">Chamadas 24h</span>
+                <span style="width:56px;text-align:right">p95</span>
+                <span style="width:64px;text-align:right">Erro</span>
+              </div>
+              <div style="flex:1;min-height:0;overflow-y:auto">
+                <sc-for list="{{ endpoints }}" as="e" hint-placeholder-count="10">
+                  <div style="display:flex;gap:8px;align-items:center;padding:6px;border-bottom:1px solid var(--bd0)">
+                    <span style="{{ e.metodoEstilo }}">{{ e.metodo }}</span>
+                    <span style="flex:1;min-width:0;font-family:'JetBrains Mono',monospace;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ e.rota }}</span>
+                    <span style="width:78px;text-align:right;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txd)">{{ e.chamadas }}</span>
+                    <span style="{{ e.p95Estilo }}">{{ e.p95 }}</span>
+                    <span style="{{ e.erroEstilo }}">{{ e.erro }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px;min-height:0">
+            <div style="background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:12px">
+              <div style="font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700;margin-bottom:4px">Permissões do socket-proxy</div>
+              <div style="font-size:10.5px;color:var(--txd);line-height:1.45;margin-bottom:9px">{{ permsNota }}</div>
+              <div style="display:flex;flex-wrap:wrap;gap:5px">
+                <sc-for list="{{ permissoes }}" as="p" hint-placeholder-count="7">
+                  <span style="{{ p.estilo }}">{{ p.label }}</span>
+                </sc-for>
+              </div>
+            </div>
+            <div style="background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:12px">
+              <div style="font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700;margin-bottom:9px">Streams em tempo real</div>
+              <sc-for list="{{ streams }}" as="s" hint-placeholder-count="3">
+                <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd0)">
+                  <span style="{{ s.pontoEstilo }}"></span>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.rota }}</div>
+                    <div style="font-size:10px;color:#64748b">{{ s.desc }}</div>
+                  </div>
+                  <span style="font-size:10px;color:var(--txd);font-family:'JetBrains Mono',monospace">{{ s.conexoes }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="flex:1;min-height:0;background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:12px;overflow-y:auto">
+              <div style="font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700;margin-bottom:9px">Entrega · GitHub Actions</div>
+              <sc-for list="{{ ci }}" as="c" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd0)">
+                  <span style="{{ c.pontoEstilo }}"></span>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.titulo }}</div>
+                    <div style="font-size:9.5px;color:#64748b;font-family:'JetBrains Mono',monospace">{{ c.sub }}</div>
+                  </div>
+                  <span style="font-size:10px;color:#64748b;font-family:'JetBrains Mono',monospace">{{ c.quando }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===================== TAREFAS ===================== -->
+      <sc-if value="{{ isTarefas }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:11px">
+          <div style="display:flex;align-items:center;gap:10px;background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:9px 12px;flex-shrink:0">
+            <span style="font-size:11.5px;color:var(--txd);line-height:1.4;flex:1">{{ tarefasIntro }}</span>
+            <sc-for list="{{ tarefasFiltros }}" as="f" hint-placeholder-count="3">
+              <div style="{{ f.estilo }}">{{ f.label }}</div>
+            </sc-for>
+          </div>
+          <div style="flex:1;min-height:0;display:grid;grid-template-columns:repeat(4,1fr);gap:11px">
+            <sc-for list="{{ colunasTarefas }}" as="col" hint-placeholder-count="4">
+              <div style="background:var(--bg2);border:1px solid var(--bd1);border-radius:var(--rc);display:flex;flex-direction:column;min-height:0">
+                <div style="display:flex;align-items:center;gap:7px;padding:10px 11px 8px;border-bottom:1px solid var(--bd0)">
+                  <span style="{{ col.pontoEstilo }}"></span>
+                  <span style="font-size:10px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--txd);flex:1">{{ col.nome }}</span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#64748b">{{ col.contagem }}</span>
+                </div>
+                <div style="flex:1;min-height:0;overflow-y:auto;padding:9px;display:flex;flex-direction:column;gap:8px">
+                  <sc-for list="{{ col.cards }}" as="t" hint-placeholder-count="3">
+                    <div style="{{ t.estilo }}">
+                      <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+                        <span style="{{ t.origemEstilo }}">{{ t.origem }}</span>
+                        <span style="{{ t.prazoEstilo }}">{{ t.prazo }}</span>
+                      </div>
+                      <div style="font-size:12px;font-weight:600;line-height:1.35;letter-spacing:-.005em">{{ t.titulo }}</div>
+                      <div style="font-size:10.5px;color:var(--txd);line-height:1.45;margin-top:4px">{{ t.porque }}</div>
+                      <div style="display:flex;align-items:center;gap:6px;margin-top:8px;padding-top:7px;border-top:1px solid var(--bd0)">
+                        <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--ac-t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">{{ t.alvo }}</span>
+                        <span style="{{ t.donoEstilo }}">{{ t.dono }}</span>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===================== RESUMO EXECUTIVO ===================== -->
+      <sc-if value="{{ isGestor }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:12px">
+          <div style="{{ execHeroEstilo }}">
+            <div style="display:flex;align-items:center;gap:16px">
+              <div style="{{ execIconeEstilo }}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="width:26px;height:26px"><path d="{{ execIconePath }}"></path></svg>
+              </div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:26px;font-weight:800;letter-spacing:-.03em;line-height:1.1">{{ execTitulo }}</div>
+                <div style="font-size:13px;color:var(--txd);line-height:1.5;margin-top:5px;max-width:720px">{{ execTexto }}</div>
+              </div>
+              <div style="text-align:right;flex-shrink:0">
+                <div style="font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:#64748b;font-weight:700">Atualizado</div>
+                <div style="font-size:12px;color:var(--txd);font-family:'JetBrains Mono',monospace;margin-top:3px">agora · a cada 5s</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;flex-shrink:0">
+            <sc-for list="{{ execKpis }}" as="k" hint-placeholder-count="4">
+              <div style="background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:14px">
+                <div style="font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:#64748b;font-weight:700">{{ k.label }}</div>
+                <div style="{{ k.valorEstilo }}">{{ k.valor }}</div>
+                <div style="font-size:11px;color:var(--txd);line-height:1.45;margin-top:5px">{{ k.explica }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div style="background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:14px;display:flex;flex-direction:column;min-height:0">
+              <div style="font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700;margin-bottom:10px">Serviços que o cliente enxerga</div>
+              <div style="flex:1;min-height:0;overflow-y:auto">
+                <sc-for list="{{ execServicos }}" as="s" hint-placeholder-count="5">
+                  <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--bd0)">
+                    <span style="{{ s.pontoEstilo }}"></span>
+                    <div style="flex:1;min-width:0">
+                      <div style="font-size:12.5px;font-weight:600">{{ s.nome }}</div>
+                      <div style="font-size:11px;color:var(--txd)">{{ s.estado }}</div>
+                    </div>
+                    <div style="text-align:right">
+                      <div style="{{ s.valorEstilo }}">{{ s.valor }}</div>
+                      <div style="font-size:9px;color:#64748b;letter-spacing:.1em;text-transform:uppercase;font-weight:700">30 dias</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:14px;display:flex;flex-direction:column;min-height:0">
+              <div style="font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700;margin-bottom:10px">Riscos e decisões que dependem de você</div>
+              <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:9px">
+                <sc-for list="{{ execRiscos }}" as="r" hint-placeholder-count="3">
+                  <div style="{{ r.estilo }}">
+                    <div style="display:flex;align-items:center;gap:7px;margin-bottom:4px">
+                      <span style="{{ r.tagEstilo }}">{{ r.tag }}</span>
+                      <span style="font-size:10px;color:#64748b;margin-left:auto;font-family:'JetBrains Mono',monospace">{{ r.prazo }}</span>
+                    </div>
+                    <div style="font-size:12.5px;font-weight:650;line-height:1.3">{{ r.titulo }}</div>
+                    <div style="font-size:11px;color:var(--txd);line-height:1.5;margin-top:3px">{{ r.texto }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===================== PLANTÃO MOBILE ===================== -->
+      <sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-height:0;display:flex;gap:26px;align-items:center;justify-content:center;padding-bottom:6px">
+          <sc-for list="{{ telasMobile }}" as="m" hint-placeholder-count="3">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+              <div style="width:300px;height:640px;background:var(--bg);border:8px solid var(--bezel);border-radius:34px;box-shadow:0 24px 60px rgba(0,0,0,.5);display:flex;flex-direction:column;overflow:hidden">
+                <div style="height:26px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 16px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--txd)">
+                  <span>04:12</span>
+                  <span>plantão</span>
+                </div>
+                <div style="flex:1;min-height:0;display:flex;flex-direction:column">
+                  <div style="{{ m.cabecalhoEstilo }}">
+                    <div style="font-size:14px;font-weight:750;letter-spacing:-.015em">{{ m.titulo }}</div>
+                    <div style="font-size:10.5px;color:var(--txd);margin-top:2px;line-height:1.4">{{ m.sub }}</div>
+                  </div>
+                  <div style="flex:1;min-height:0;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px">
+                    <sc-for list="{{ m.cards }}" as="c" hint-placeholder-count="3">
+                      <div style="{{ c.estilo }}">
+                        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                          <span style="{{ c.tagEstilo }}">{{ c.tag }}</span>
+                          <span style="font-size:9.5px;color:#64748b;margin-left:auto;font-family:'JetBrains Mono',monospace">{{ c.quando }}</span>
+                        </div>
+                        <div style="font-size:12.5px;font-weight:650;line-height:1.3">{{ c.titulo }}</div>
+                        <div style="font-size:11px;color:var(--txd);line-height:1.45;margin-top:3px">{{ c.texto }}</div>
+                        <div style="{{ c.btnEstilo }}">{{ c.btn }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="{{ m.rodapeEstilo }}">{{ m.rodape }}</div>
+                </div>
+              </div>
+              <div style="font-size:10.5px;color:#64748b;letter-spacing:.1em;text-transform:uppercase;font-weight:700">{{ m.legenda }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <!-- ===================== INGRESS & TLS ===================== -->
+      <sc-if value="{{ isIngress }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:11px">
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;flex-shrink:0">
+            <sc-for list="{{ ingKpis }}" as="k" hint-placeholder-count="5">
+              <div style="background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:9px 11px">
+                <div style="font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:#64748b;font-weight:700">{{ k.label }}</div>
+                <div style="{{ k.valorEstilo }}">{{ k.valor }}</div>
+                <div style="font-size:10px;color:var(--txd);line-height:1.35;margin-top:4px">{{ k.sub }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="flex:1;min-height:0;display:grid;grid-template-columns:1fr 360px;gap:11px">
+            <div style="background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);display:flex;flex-direction:column;min-height:0">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 12px 9px;border-bottom:1px solid var(--bd1)">
+                <div style="font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700">Hosts declarados no nginx.conf</div>
+                <div style="font-size:10px;color:var(--txd)">porta 80 · porta 443 · autenticação · destino</div>
+              </div>
+              <div style="flex:1;min-height:0;overflow-y:auto">
+                <sc-for list="{{ hostsIngress }}" as="h" hint-placeholder-count="14">
+                  <div style="{{ h.estilo }}">
+                    <span style="{{ h.barra }}"></span>
+                    <div style="flex:1;min-width:0">
+                      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                        <span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:600">{{ h.host }}</span>
+                        <span style="{{ h.p80Estilo }}">:80 {{ h.p80 }}</span>
+                        <span style="{{ h.p443Estilo }}">:443 {{ h.p443 }}</span>
+                        <span style="{{ h.authEstilo }}">{{ h.auth }}</span>
+                      </div>
+                      <div style="font-size:10.5px;color:var(--txd);line-height:1.4;margin-top:3px">{{ h.nota }}</div>
+                    </div>
+                    <div style="width:212px;flex-shrink:0;text-align:right">
+                      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ h.up }}</div>
+                      <div style="font-size:9px;color:#64748b;letter-spacing:.09em;text-transform:uppercase;font-weight:700;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">cert {{ h.cert }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:11px;min-height:0">
+              <div style="flex:1;min-height:0;background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:11px 12px;display:flex;flex-direction:column">
+                <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px">
+                  <div style="font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700">Certificados</div>
+                  <div style="font-size:9px;color:#64748b;font-style:italic">validade simulada</div>
+                </div>
+                <div style="flex:1;min-height:0;overflow-y:auto">
+                  <sc-for list="{{ certificados }}" as="c" hint-placeholder-count="13">
+                    <div style="{{ c.estilo }}">
+                      <span style="{{ c.pontoEstilo }}"></span>
+                      <div style="flex:1;min-width:0">
+                        <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.nome }}</div>
+                        <div style="{{ c.obsEstilo }}">{{ c.obs }}</div>
+                      </div>
+                      <span style="{{ c.diasEstilo }}">{{ c.dias }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+
+              <div style="flex:1.25;min-height:0;background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:11px 12px;display:flex;flex-direction:column">
+                <div style="font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700;margin-bottom:8px">Achados de configuração</div>
+                <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:7px">
+                  <sc-for list="{{ achados }}" as="a" hint-placeholder-count="11">
+                    <div onClick="{{ a.onAcao }}" style="{{ a.estilo }}">
+                      <span style="{{ a.sevEstilo }}">{{ a.sev }}</span>
+                      <div style="font-size:11.5px;font-weight:600;line-height:1.35;margin-top:5px">{{ a.titulo }}</div>
+                      <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:#64748b;line-height:1.45;margin-top:3px;word-break:break-word">{{ a.evidencia }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="flex-shrink:0;font-size:9.5px;color:#64748b;line-height:1.4">{{ fonteIngress }}</div>
+        </div>
+      </sc-if>
+
+      <!-- ===================== CAPACIDADE ===================== -->
+      <sc-if value="{{ isCapacidade }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:11px">
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:11px;flex-shrink:0">
+            <sc-for list="{{ horizontes }}" as="h" hint-placeholder-count="3">
+              <div style="{{ h.estilo }}">
+                <div style="{{ h.tituloEstilo }}">{{ h.janela }}</div>
+                <div style="display:flex;flex-direction:column;gap:7px">
+                  <sc-for list="{{ h.itens }}" as="i" hint-placeholder-count="3">
+                    <div style="display:flex;align-items:flex-start;gap:8px">
+                      <span style="{{ i.pontoEstilo }}"></span>
+                      <span style="font-size:11px;color:var(--tx2);line-height:1.45;margin-top:-3px">{{ i.texto }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="flex:1;min-height:0;display:grid;grid-template-columns:1fr 372px;gap:11px">
+            <div style="display:flex;flex-direction:column;gap:11px;min-height:0">
+              <div style="flex:1;min-height:0;background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:12px 13px;display:flex;flex-direction:column">
+                <div style="font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700">{{ projTitulo }}</div>
+                <div style="flex:1;min-height:0;display:flex;align-items:flex-end;gap:3px;margin:12px 0 8px">
+                  <sc-for list="{{ projBarras }}" as="b" hint-placeholder-count="30">
+                    <div style="{{ b.estilo }}"></div>
+                  </sc-for>
+                </div>
+                <div style="font-size:11px;color:var(--tx2);line-height:1.5;border-top:1px solid var(--bd0);padding-top:8px">{{ projNota }}</div>
+              </div>
+              <div style="flex:1;min-height:0;background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:12px 13px;display:flex;flex-direction:column">
+                <div style="font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700;margin-bottom:9px">Memória por stack</div>
+                <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:6px">
+                  <sc-for list="{{ consumo }}" as="c" hint-placeholder-count="10">
+                    <div style="display:flex;align-items:center;gap:9px">
+                      <span style="width:112px;flex-shrink:0;font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.nome }}</span>
+                      <div style="flex:1;height:7px;border-radius:3px;background:var(--bd0);overflow:hidden"><div style="{{ c.barra }}"></div></div>
+                      <span style="width:60px;text-align:right;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--txd)">{{ c.valor }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="font-size:10.5px;color:#64748b;line-height:1.45;margin-top:8px;border-top:1px solid var(--bd0);padding-top:8px">{{ consumoNota }}</div>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:11px;min-height:0">
+              <div style="background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:12px 13px">
+                <div style="font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700;margin-bottom:10px">Evolução da VPS</div>
+                <sc-for list="{{ evolucao }}" as="e" hint-placeholder-count="4">
+                  <div style="padding:6px 0;border-bottom:1px solid var(--bd0)">
+                    <div style="font-size:11.5px;font-weight:650;line-height:1.3">{{ e.t }}</div>
+                    <div style="font-size:10.5px;color:var(--txd);line-height:1.45;margin-top:2px">{{ e.d }}</div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="flex:1;min-height:0;background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:12px 13px;display:flex;flex-direction:column">
+                <div style="font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700;margin-bottom:8px">Postura de segurança e operação</div>
+                <div style="flex:1;min-height:0;overflow-y:auto">
+                  <sc-for list="{{ postura }}" as="p" hint-placeholder-count="10">
+                    <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--bd0)">
+                      <span style="{{ p.pontoEstilo }}"></span>
+                      <span style="flex:1;min-width:0;font-size:11px">{{ p.item }}</span>
+                      <span style="{{ p.valorEstilo }}">{{ p.valor }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="flex-shrink:0;font-size:9.5px;color:#64748b;line-height:1.4">{{ fonteCapacidade }}</div>
+        </div>
+      </sc-if>
+
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900},&quot;tema&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;cockpit&quot;,&quot;escritorio&quot;,&quot;claro&quot;],&quot;default&quot;:&quot;cockpit&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Tema&quot;},&quot;perfil&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;sre&quot;,&quot;dev&quot;,&quot;estudante&quot;,&quot;gestor&quot;,&quot;auditor&quot;],&quot;default&quot;:&quot;sre&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Público&quot;},&quot;cenario&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;normal&quot;,&quot;incidente&quot;,&quot;disco&quot;],&quot;default&quot;:&quot;incidente&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Estado simulado&quot;}}">
+class Component extends DCLogic {
+  state = { screen: null, tema: null, perfil: null, depth: null, cenario: null, destravado: false, alerta: 'faixa', sel: 'criptotrade-app' };
+
+  perfis = {
+    sre:       { curto: 'Operador / SRE',   depth: 'informacao',   cor: 'var(--ac)' },
+    dev:       { curto: 'Desenvolvedor',    depth: 'dado',         cor: '#a78bfa' },
+    estudante: { curto: 'Aprendiz',         depth: 'conhecimento', cor: '#22c55e' },
+    gestor:    { curto: 'Gestor / cliente', depth: 'conhecimento', cor: '#f59e0b' },
+    auditor:   { curto: 'Auditoria',        depth: 'dado',         cor: '#f472b6' }
+  };
+
+  base = [
+    { id: 'btv-nginx-prod', stack: 'global-ingress', img: 'nginx (build ./nginx)', st: 'running', hl: 'healthy', cpu: 1.4, mem: 1.1, memAbs: '88 MB / 8 GB', up: '31d 08h', rs: 0, portas: '80, 443 (público)', rede: 'btv-prod-net', vols: '6 · certs, sites, .htpasswd (ro)', exposto: 'internet',
+      info: '13 hosts e 12 certificados em um só container', saber: 'ponto único de falha de toda a VPS' },
+    { id: 'docker-cockpit', stack: 'docker-cockpit', img: 'btv/docker-cockpit:1.4.2', st: 'running', hl: 'healthy', cpu: 0.4, mem: 2.1, memAbs: '168 MB / 8 GB', up: '12d 04h', rs: 0, portas: '8000/tcp (interna)', rede: 'internal · btv-prod-net', vols: '1 · ./app (bind, ro)', exposto: 'via ingress · basic auth',
+      info: 'lê o daemon através do socket-proxy', saber: 'read_timeout de 60s no ingress corta o stream' },
+    { id: 'docker-cockpit-proxy', stack: 'docker-cockpit', img: 'tecnativa/docker-socket-proxy', st: 'running', hl: 'healthy', cpu: 0.2, mem: 0.6, memAbs: '48 MB / 8 GB', up: '12d 04h', rs: 0, portas: '2375/tcp (interna)', rede: 'internal', vols: '1 · docker.sock (ro)', exposto: 'só rede internal',
+      info: 'intermedia todo acesso ao daemon', saber: 'POST e DELETE ligados — revisar' },
+    { id: 'prompte-frontend', stack: 'prompte', img: 'nginx:alpine', st: 'running', hl: 'healthy', cpu: 0.3, mem: 1.0, memAbs: '80 MB / 8 GB', up: '18d 06h', rs: 0, portas: '80/tcp (interna)', rede: 'btv-prod-net', vols: '1 · build estático', exposto: 'via ingress',
+      info: 'SPA estática servida por nginx', saber: 'sem limite de memória declarado' },
+    { id: 'btvchatcorp-frontend-1', stack: 'btvchatcorp', img: 'btv/chatcorp-frontend:1.1', st: 'running', hl: 'healthy', cpu: 0.6, mem: 3.2, memAbs: '256 MB / 8 GB', up: '9d 11h', rs: 0, portas: '80/tcp (interna)', rede: 'btv-prod-net', vols: '—', exposto: 'via ingress',
+      info: 'sufixo -1: subiu sem container_name', saber: 'nome muda se o compose recriar a stack' },
+    { id: 'central-inteligencia-juridica', stack: 'juridico', img: 'btv/cij:1.6', st: 'running', hl: 'healthy', cpu: 4.1, mem: 11, memAbs: '880 MB / 8 GB', up: '6d 02h', rs: 0, portas: '8000/tcp (interna)', rede: 'btv-prod-net', vols: '1 · dados', exposto: 'via ingress',
+      info: 'FastAPI com CSP própria escrita no ingress', saber: 'upload trava em 1 MB pelo nginx' },
+    { id: 'btv-governance', stack: 'governance', img: 'btv/governance:0.9', st: 'running', hl: 'healthy', cpu: 1.2, mem: 5.4, memAbs: '432 MB / 8 GB', up: '14d 03h', rs: 0, portas: '8000/tcp (interna)', rede: 'btv-prod-net', vols: '1 · dados', exposto: 'via demo · path /v1/',
+      info: 'API por trás do site demo', saber: 'exposta só no path /v1/, sem auth' },
+    { id: 'executagent-studio', stack: 'executagent', img: 'btv/executagent-studio:1.0', st: 'running', hl: 'healthy', cpu: 0.9, mem: 4.1, memAbs: '328 MB / 8 GB', up: '11d 20h', rs: 0, portas: '80/tcp (interna)', rede: 'btv-prod-net', vols: '—', exposto: 'internet · http e https',
+      info: 'atende também em HTTP puro', saber: 'porta 80 sem redirecionamento' },
+    { id: 'familia-web', stack: 'familia-web', img: 'node:20-alpine', st: 'running', hl: 'none', cpu: 1.7, mem: 6.8, memAbs: '544 MB / 8 GB', up: '7d 14h', rs: 0, portas: '3000/tcp (interna)', rede: 'btv-prod-net', vols: '1 · .next', exposto: 'internet · http e https',
+      info: 'Next.js sem healthcheck declarado', saber: 'porta 80 sem redirecionamento' },
+    { id: 'conciliaai-backend', stack: 'conciliaai', img: 'btv/conciliaai:1.2', st: 'running', hl: 'none', cpu: 2.4, mem: 8.2, memAbs: '656 MB / 8 GB', up: '5d 09h', rs: 0, portas: '8000/tcp (interna)', rede: 'btv-prod-net', vols: '1 · dados', exposto: 'via ingress',
+      info: 'host conciliaia → container conciliaai', saber: 'grafia diferente entre domínio e serviço' },
+    { id: 'criptotrade-app', stack: 'criptotrade', img: 'btv/criptotrade:2.8.0', st: 'running', hl: 'healthy', cpu: 8.1, mem: 41, memAbs: '412 MB / 512 MB', up: '2h 12m', rs: 0, portas: '8000/tcp (interna)', rede: 'btv-prod-net', vols: '1 · estado', exposto: 'via ingress · /api/',
+      info: 'consome perto do limite de 512 MB', saber: 'limite apertado desde a 2.8.0' },
+    { id: 'criptotrade-frontend', stack: 'criptotrade', img: 'nginx:alpine', st: 'running', hl: 'healthy', cpu: 0.3, mem: 1.1, memAbs: '88 MB / 8 GB', up: '9d 04h', rs: 0, portas: '80/tcp (interna)', rede: 'btv-prod-net', vols: '1 · build estático', exposto: 'via ingress',
+      info: 'painel de trading, destino padrão do domínio', saber: 'depende da API acima' },
+    { id: 'giva-api-1', stack: 'giva', img: 'giva/api:1.3', st: 'running', hl: 'healthy', cpu: 3.6, mem: 12, memAbs: '960 MB / 8 GB', up: '4d 07h', rs: 0, portas: '8000/tcp (interna)', rede: 'btv-prod-net', vols: '1 · uploads', exposto: 'via ingress · /api/',
+      info: 'aceita upload de até 50 MB', saber: 'maior gerador de log e de disco' },
+    { id: 'giva-frontend-1', stack: 'giva', img: 'giva/web:1.3', st: 'running', hl: 'healthy', cpu: 0.4, mem: 1.4, memAbs: '112 MB / 8 GB', up: '4d 07h', rs: 0, portas: '80/tcp (interna)', rede: 'btv-prod-net', vols: '1 · assets', exposto: 'via ingress',
+      info: 'assets com cache de 1 ano', saber: 'único host com headers de segurança' },
+    { id: 'btv-squad-dashboard', stack: 'squad', img: 'btv/squad-dashboard:0.7', st: 'running', hl: 'healthy', cpu: 2.1, mem: 7.6, memAbs: '608 MB / 8 GB', up: '3d 16h', rs: 0, portas: '7878/tcp (interna)', rede: 'btv-prod-net', vols: '1 · sessões', exposto: 'via ingress · basic auth',
+      info: 'SSE ao vivo, buffering desligado', saber: 'é a referência de streaming da VPS' }
+  ];
+
+  cenarios = {
+    normal: { rotulo: 'Normal', patch: {}, disco: { pct: 71, sub: '68 / 96 GB · /' }, severidade: 'ok' },
+    incidente: {
+      rotulo: 'API caindo',
+      patch: {
+        'criptotrade-app': { st: 'restarting', hl: 'unhealthy', cpu: 0, mem: 99, memAbs: '511 MB / 512 MB', up: 'reiniciando', rs: 14, info: 'morto pelo kernel 14 vezes em 26 min', saber: 'reiniciar não resolve — subir o limite' },
+        'criptotrade-frontend': { info: 'painel abre, mas /api/ devolve 502', saber: 'sintoma, não a causa' },
+        'btv-nginx-prod': { info: '502 em criptotrade/api desde 04:12', saber: 'o gateway está certo — o upstream é que morre' }
+      },
+      disco: { pct: 73, sub: '70 / 96 GB · /' }, severidade: 'crit'
+    },
+    disco: {
+      rotulo: 'Disco cheio',
+      patch: {
+        'giva-api-1': { hl: 'unhealthy', info: 'log json-file com 22 GB sem rotação', saber: 'a causa do disco cheio está aqui' },
+        'btv-nginx-prod': { info: 'sem espaço para gravar access.log', saber: 'para de registrar antes de parar de servir' },
+        'central-inteligencia-juridica': { info: 'a 6 GB de não conseguir gravar upload', saber: 'risco de perda de dados do cliente' }
+      },
+      disco: { pct: 94, sub: '90 / 96 GB · /' }, severidade: 'crit'
+    }
+  };
+
+  cor(c) {
+    if (c.st === 'restarting') return '#ef4444';
+    if (c.st === 'exited') return c.rs > 0 ? '#f59e0b' : '#64748b';
+    if (c.hl === 'unhealthy') return '#ef4444';
+    return '#22c55e';
+  }
+
+  temas = { cockpit: 'Cockpit', escritorio: 'Escritório', claro: 'Claro' };
+
+  get tema() { return this.state.tema ?? this.props.tema ?? 'cockpit'; }
+  get perfil() { return this.state.perfil ?? this.props.perfil ?? 'sre'; }
+  get depth() { return this.state.depth ?? this.perfis[this.perfil].depth; }
+  get cenario() { return this.state.cenario ?? this.props.cenario ?? 'incidente'; }
+  get screen() { return this.state.screen ?? (this.perfil === 'gestor' ? 'gestor' : (this.perfil === 'auditor' ? 'ingress' : 'overview')); }
+  get simples() { return this.perfil === 'gestor' || this.perfil === 'estudante'; }
+
+  containers() {
+    const patch = this.cenarios[this.cenario].patch;
+    return this.base.map(c => Object.assign({}, c, patch[c.id] || {}));
+  }
+
+  set(k, v) { this.setState({ [k]: v }); }
+
+  seg(ativo, cor) {
+    return 'padding:4px 9px;border-radius:var(--r2);font-size:10.5px;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .15s;' +
+      (ativo ? 'background:' + (cor || 'var(--ac)') + ';color:#fff' : 'background:transparent;color:var(--txd)');
+  }
+
+  ponto(cor, tam, glow) {
+    return 'width:' + tam + 'px;height:' + tam + 'px;border-radius:50%;flex-shrink:0;display:inline-block;background:' + cor +
+      (glow ? ';box-shadow:0 0 8px ' + cor : '');
+  }
+
+  barra(pct, cor) {
+    return 'height:100%;width:' + Math.min(100, pct) + '%;background:' + cor + ';border-radius:2px';
+  }
+
+  linhaDe(c) {
+    if (this.depth === 'dado') return 'cpu ' + c.cpu.toFixed(1) + '% · mem ' + c.memAbs + ' · ' + c.up;
+    if (this.depth === 'conhecimento') return c.saber;
+    return c.info;
+  }
+
+  fmtFila() {
+    const cen = this.cenario, ir = (s, sel) => () => this.setState(sel ? { screen: s, sel: sel } : { screen: s });
+    if (cen === 'incidente') return [
+      { sev: 'crítico', cor: '#ef4444', quando: 'há 26 min',
+        titulo: this.simples ? 'O painel de trading parou de operar' : 'criptotrade-app em ciclo de reinício (exit 137)',
+        corpo: this.simples ? 'O site abre, mas nenhuma ordem é processada desde as 04:12.' : 'OOMKilled 14×. Limite de 512 MB estourado após o deploy 2.8.0.',
+        acaoLabel: 'Ver causa-raiz', onAcao: ir('incidente') },
+      { sev: 'atenção', cor: '#f59e0b', quando: 'há 26 min',
+        titulo: this.simples ? 'O gateway responde erro para o painel' : 'btv-nginx-prod devolvendo 502 em /api/',
+        corpo: this.simples ? 'Consequência do item acima — some quando a API voltar.' : 'O resolver mantém o nginx de pé; o 502 vem do upstream morto.',
+        acaoLabel: 'Ver ingress', onAcao: ir('ingress') },
+      { sev: 'pendente', cor: '#64748b', quando: 'desde sempre',
+        titulo: this.simples ? 'O próprio cockpit perde conexão a cada minuto' : 'docker.danzeroum.com corta SSE em 60s',
+        corpo: this.simples ? 'O bloco do cockpit no gateway não está preparado para dados ao vivo.' : 'Falta proxy_buffering off e timeouts longos — o squad já faz certo.',
+        acaoLabel: 'Ver achado no ingress', onAcao: ir('ingress') }
+    ];
+    if (cen === 'disco') return [
+      { sev: 'crítico', cor: '#ef4444', quando: 'agora',
+        titulo: this.simples ? 'O servidor está quase sem espaço' : 'Disco / em 94% — 6 GB livres',
+        corpo: this.simples ? 'Se encher, o sistema para de gravar. Há uma limpeza que devolve 22 GB.' : 'Log json-file do giva-api-1 com 22 GB sem rotação.',
+        acaoLabel: 'Ver causa-raiz', onAcao: ir('incidente') },
+      { sev: 'crítico', cor: '#ef4444', quando: 'há 14 min',
+        titulo: this.simples ? 'Uploads de clientes começaram a falhar' : 'giva-api-1 unhealthy — falha de escrita',
+        corpo: this.simples ? 'O serviço que aceita arquivos de até 50 MB não consegue gravar.' : 'Healthcheck falha em PUT. Consequência direta do disco.',
+        acaoLabel: 'Ver container', onAcao: ir('detalhe', 'giva-api-1') },
+      { sev: 'pendente', cor: '#64748b', quando: 'estrutural',
+        titulo: this.simples ? 'Não existe cópia de segurança na VPS' : 'Nenhum serviço de backup entre os 15 containers',
+        corpo: this.simples ? 'Sem espaço e sem backup ao mesmo tempo é o pior cenário.' : 'Nada no ingress nem no compose faz dump de volumes.',
+        acaoLabel: 'Abrir tarefas', onAcao: ir('tarefas') }
+    ];
+    return [
+      { sev: 'atenção', cor: '#f59e0b', quando: 'estrutural',
+        titulo: this.simples ? 'Dois sites atendem sem criptografia' : 'executagent e familia-web servem em HTTP puro',
+        corpo: this.simples ? 'Quem digita o endereço sem https trafega em texto claro.' : 'Blocos :80 fazem proxy_pass em vez de return 301. HSTS não cobre a primeira visita.',
+        acaoLabel: 'Ver causa-raiz', onAcao: ir('incidente') },
+      { sev: 'atenção', cor: '#f59e0b', quando: 'estrutural',
+        titulo: this.simples ? 'A documentação da API de trading está pública' : '/docs e /openapi.json do criptotrade sem auth',
+        corpo: this.simples ? 'Qualquer pessoa vê o contrato completo da API.' : 'Dois location = expostos fora do bloco protegido.',
+        acaoLabel: 'Ver ingress', onAcao: ir('ingress') },
+      { sev: 'planejado', cor: '#60a5fa', quando: 'em 18 dias',
+        titulo: this.simples ? 'Três certificados vencem no mesmo período' : '3 certificados na janela de 18-19 dias',
+        corpo: this.simples ? 'docker, squad e giva vencem quase juntos.' : 'Renovação automática existe; falta confirmar o reload do nginx.',
+        acaoLabel: 'Ver certificados', onAcao: ir('ingress') }
+    ];
+  }
+
+  incidenteDados() {
+    const cen = this.cenario;
+    if (cen === 'disco') return {
+      sev: 'CRÍTICO', titulo: this.simples ? 'O servidor está a 6 GB de parar de gravar' : 'Disco raiz em 94% — escrita em risco',
+      resumo: this.simples
+        ? 'O espaço do servidor está acabando. A maior parte foi consumida por arquivos de registro que ninguém apaga automaticamente. Existe uma limpeza segura que devolve 22 GB.'
+        : '/var/lib/docker cresceu 22 GB em 9 dias por log json-file sem rotação no giva-api-1. O jurídico e o gateway já sentem o efeito.',
+      impacto: 'Escrita em risco', desde: 'crescendo há 9 dias',
+      cadeia: [
+        { hora: '9d atrás', tipo: 'info', titulo: 'giva-api-1 passou a aceitar upload de 50 MB', texto: 'client_max_body_size 50M só existe nesse host — e o log acompanhou o volume.', evidencia: 'nginx.conf · location ^~ /api/ · client_max_body_size 50M' },
+        { hora: '4d atrás', tipo: 'warn', titulo: 'Disco passou de 80%', texto: 'Nenhum alerta configurado nesse limite.', evidencia: '/dev/vda1 78 GB / 96 GB' },
+        { hora: '03:58', tipo: 'crit', titulo: 'giva-api-1 marcado unhealthy', texto: 'Gravação de arquivos passou a falhar por falta de espaço.', evidencia: 'health: 3 falhas seguidas' },
+        { hora: 'agora', tipo: 'crit', titulo: 'Gateway sem espaço para access.log', texto: 'O nginx continua servindo, mas para de registrar — a VPS fica cega no pior momento.', evidencia: 'livre 6.1 GB · crescimento 2.4 GB/dia' }
+      ],
+      evidencias: [
+        { k: 'Uso do disco', v: '94%', tom: 'bad' }, { k: 'Livre', v: '6.1 GB', tom: 'bad' },
+        { k: 'Log giva-api-1', v: '22 GB', tom: 'warn' }, { k: 'Uploads', v: '18 GB', tom: 'n' },
+        { k: 'Imagens docker', v: '24 GB', tom: 'n' }, { k: 'Crescimento', v: '2.4 GB/dia', tom: 'warn' }
+      ],
+      acoes: [
+        { titulo: 'Truncar o log do giva-api-1', detalhe: 'Devolve 22 GB imediatamente, sem reiniciar nada.', cmd: "truncate -s 0 $(docker inspect --format='{{.LogPath}}' giva-api-1)", risco: 'sem downtime · perde histórico local' },
+        { titulo: 'Definir rotação de log em todas as stacks', detalhe: 'max-size 50m e max-file 3 no compose de cada projeto. Impede a repetição nos 15 containers.', cmd: 'logging: { driver: json-file, options: { max-size: 50m, max-file: "3" } }', risco: 'exige recriar os containers' },
+        { titulo: 'Alertar em 80% de disco', detalhe: 'O backend já calcula warnings em /api/system — falta expor no cockpit.', cmd: 'GET /api/system → warnings[]', risco: 'mudança só de frontend' }
+      ],
+      aprendizado: { titulo: 'Por que o log cresce sozinho', texto: 'O driver json-file guarda tudo que o container escreve em stdout, sem limite por padrão. Docker não apaga nada: o arquivo cresce até o disco acabar. Rotação é configuração, não comportamento padrão.' }
+    };
+    if (cen === 'normal') return {
+      sev: 'ABERTO', titulo: this.simples ? 'Dois sites atendem sem criptografia' : 'executagent e familia-web servem a aplicação em HTTP puro',
+      resumo: this.simples
+        ? 'Quem digita o endereço sem "https" fala com o site em texto claro — inclusive senhas. Os outros dez sites da VPS redirecionam automaticamente; esses dois não.'
+        : 'Os blocos :80 desses dois hosts fazem proxy_pass direto em vez de return 301. O certificado existe e o HSTS está no bloco 443, mas nada disso protege a primeira requisição em claro.',
+      impacto: '2 de 12 hosts', desde: 'desde a criação do bloco',
+      cadeia: [
+        { hora: 'origem', tipo: 'info', titulo: 'Bloco :80 criado para o desafio ACME', texto: 'Padrão correto: location /.well-known/ + return 301 no resto.', evidencia: 'location /.well-known/acme-challenge/ { root /var/www/certbot; }' },
+        { hora: 'depois', tipo: 'warn', titulo: 'O location / recebeu proxy_pass em vez do 301', texto: 'Provavelmente para testar antes do certificado sair — e ficou.', evidencia: 'location / { set $upstream "http://executagent-studio:80"; proxy_pass $upstream; }' },
+        { hora: 'hoje', tipo: 'crit', titulo: 'HSTS não cobre a primeira visita', texto: 'O cabeçalho só é lido em respostas HTTPS. Quem chega por http:// nunca o vê.', evidencia: 'add_header Strict-Transport-Security · só no bloco 443' },
+        { hora: 'efeito', tipo: 'warn', titulo: 'Dois padrões diferentes no mesmo arquivo', texto: 'Dez hosts fazem redirect, dois não. A revisão fica dependente de memória.', evidencia: '10 blocos com return 301 · 2 com proxy_pass' }
+      ],
+      evidencias: [
+        { k: 'Hosts afetados', v: '2', tom: 'bad' }, { k: 'Com redirect', v: '10 / 12', tom: 'warn' },
+        { k: 'HSTS ativo', v: '12 / 13', tom: 'n' }, { k: 'Certificado', v: 'existe', tom: 'n' },
+        { k: 'Linhas a mudar', v: '2', tom: 'n' }, { k: 'Downtime', v: 'zero', tom: 'n' }
+      ],
+      acoes: [
+        { titulo: 'Trocar o location / dos dois blocos :80 por 301', detalhe: 'Mantém o location do ACME e alinha com os outros dez hosts.', cmd: 'location / { return 301 https://$host$request_uri; }', risco: 'reload do nginx · sem downtime' },
+        { titulo: 'Validar com curl antes e depois', detalhe: 'Confirma o 301 e o destino correto.', cmd: 'curl -I http://executagent.buildtovalue.cloud', risco: 'leitura apenas' },
+        { titulo: 'Padronizar o bloco :80 em um include', detalhe: 'Um único arquivo redirect.conf incluído por todos os hosts elimina a divergência.', cmd: 'include /etc/nginx/snippets/acme-redirect.conf;', risco: 'refatoração do nginx.conf' }
+      ],
+      aprendizado: { titulo: 'HSTS não protege a primeira visita', texto: 'Strict-Transport-Security só chega ao navegador dentro de uma resposta HTTPS. Antes disso, a primeira requisição em http:// vai em claro. Por isso o redirect 301 na porta 80 não é redundante com o HSTS — ele é o que torna o HSTS alcançável.' }
+    };
+    return {
+      sev: 'CRÍTICO', titulo: this.simples ? 'O painel de trading parou de operar' : 'criptotrade-app em ciclo de reinício — OOMKilled',
+      resumo: this.simples
+        ? 'O site do painel continua abrindo, mas nenhuma operação é processada desde as 04:12. O serviço que faz esse trabalho é encerrado pelo servidor assim que ultrapassa o limite de memória que recebeu.'
+        : 'Após o deploy 2.8.0 o consumo subiu 38% e passou a estourar o limite de 512 MB. O kernel encerra o processo (exit 137) e a política unless-stopped religa: 14 ciclos em 26 minutos. O nginx segue de pé e devolve 502 em /api/.',
+      impacto: '/api/ fora do ar', desde: 'desde 04:12 · 26 min',
+      cadeia: [
+        { hora: '02:04', tipo: 'info', titulo: 'Deploy do criptotrade-app 2.8.0', texto: 'Nova versão entrou sem alteração no limite de memória.', evidencia: 'image btv/criptotrade:2.8.0 · mem_limit 512m' },
+        { hora: '02:40', tipo: 'info', titulo: 'Consumo estabiliza 38% acima do normal', texto: 'Ainda dentro do limite — nenhum alarme dispara.', evidencia: 'pico 468 MB / 512 MB' },
+        { hora: '04:12', tipo: 'crit', titulo: 'Primeiro OOMKill', texto: 'Um lote maior de ordens empurra a memória além do teto e o kernel mata o processo.', evidencia: 'exit 137 · OOMKilled true' },
+        { hora: '04:12→', tipo: 'crit', titulo: 'unless-stopped religa em laço', texto: 'Cada reinício reprocessa o mesmo lote e morre de novo. 14 ciclos.', evidencia: 'RestartCount 14 · intervalo médio 1m52' },
+        { hora: 'agora', tipo: 'warn', titulo: 'Gateway devolve 502 no /api/', texto: 'O resolver 127.0.0.11 mantém o nginx de pé; o erro vem do upstream, não da configuração.', evidencia: 'location ^~ /api/ → criptotrade-app:8000 · 502' }
+      ],
+      evidencias: [
+        { k: 'Exit code', v: '137', tom: 'bad' }, { k: 'OOMKilled', v: 'true', tom: 'bad' },
+        { k: 'Reinícios', v: '14', tom: 'bad' }, { k: 'Limite mem', v: '512 MB', tom: 'warn' },
+        { k: 'Pico', v: '511 MB', tom: 'warn' }, { k: 'Respostas 502', v: '1 204', tom: 'warn' }
+      ],
+      acoes: [
+        { titulo: 'Subir o limite para 1 GB e reiniciar', detalhe: 'Resolve agora. O consumo medido da 2.8.0 estabiliza em ~700 MB.', cmd: 'mem_limit: 1g  →  docker compose up -d criptotrade-app', risco: 'reinício de ~8s · /api/ volta em seguida' },
+        { titulo: 'Rollback para 2.7.4', detalhe: 'Alternativa se 1 GB não estiver disponível no host.', cmd: 'docker compose up -d --no-deps criptotrade-app:2.7.4', risco: 'perde as correções da 2.8.0' },
+        { titulo: 'Alertar em OOMKilled', detalhe: 'O inspect já traz o campo; hoje nada observa isso nos 15 containers.', cmd: 'State.OOMKilled === true → alerta', risco: 'mudança só de frontend' }
+      ],
+      aprendizado: { titulo: 'O que é exit 137', texto: '137 = 128 + 9, ou seja, o processo recebeu SIGKILL. Quando vem junto de OOMKilled: true, quem matou foi o kernel por estouro do limite de memória do container — não foi a aplicação que quebrou. Reiniciar sem mudar o limite repete o ciclo.' }
+    };
+  }
+
+  renderVals() {
+    const S = this.screen, P = this.perfil, D = this.depth, cs = this.containers(), cen = this.cenarios[this.cenario];
+    const ir = (s, sel) => () => this.setState(sel ? { screen: s, sel: sel } : { screen: s });
+    const sel = cs.find(c => c.id === this.state.sel) || cs[10];
+    const destravado = this.state.destravado;
+
+    const temaBtns = Object.keys(this.temas).map(k => {
+      const on = k === this.tema;
+      return { label: this.temas[k], onClick: () => this.set('tema', k),
+        estilo: 'flex:1;text-align:center;padding:4px 0;border-radius:var(--r2);font-size:9.5px;font-weight:650;cursor:pointer;white-space:nowrap;border:1px solid ' + (on ? 'transparent' : 'var(--bd1)') + ';background:' + (on ? 'var(--ac)' : 'transparent') + ';color:' + (on ? '#fff' : 'var(--txd)') };
+    });
+
+    const perfisLista = Object.keys(this.perfis).map(k => {
+      const p = this.perfis[k], on = k === P;
+      return { curto: p.curto, onClick: () => this.setState({ perfil: k, depth: null, screen: null }),
+        estilo: 'display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:var(--r);cursor:pointer;font-size:11.5px;font-weight:' + (on ? '650' : '500') + ';color:' + (on ? 'var(--tx)' : 'var(--txd)') + ';background:' + (on ? 'var(--bd0)' : 'transparent') + ';border:1px solid ' + (on ? 'var(--bd2)' : 'transparent'),
+        pontoEstilo: this.ponto(p.cor, on ? 7 : 5, on) };
+    });
+
+    const nav = [
+      { id: 'overview', label: 'Visão geral', badge: '' },
+      { id: 'incidente', label: 'Atenção agora', badge: cen.severidade === 'crit' ? '1' : '' },
+      { id: 'detalhe', label: 'Containers', badge: '15' },
+      { id: 'logs', label: 'Logs & métricas', badge: '' },
+      { id: 'ingress', label: 'Ingress & TLS', badge: '4' },
+      { id: 'topologia', label: 'Topologia', badge: '' },
+      { id: 'backend', label: 'Backend & API', badge: '' },
+      { id: 'capacidade', label: 'Capacidade', badge: '' },
+      { id: 'tarefas', label: 'Tarefas', badge: '10' },
+      { id: 'gestor', label: 'Resumo executivo', badge: '' },
+      { id: 'mobile', label: 'Plantão mobile', badge: '' }
+    ];
+    const relev = { sre: ['overview','incidente','detalhe','logs','capacidade','mobile'], dev: ['overview','detalhe','logs','backend','incidente','ingress'], estudante: ['overview','topologia','incidente','detalhe','ingress'], gestor: ['gestor','overview','incidente','capacidade','tarefas'], auditor: ['ingress','overview','topologia','backend','capacidade','detalhe'] };
+    const navItens = nav.map(n => {
+      const on = n.id === S, rel = relev[P].includes(n.id);
+      return { label: n.label, badge: n.badge, onClick: ir(n.id),
+        estilo: 'display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--r);cursor:pointer;font-size:12px;font-weight:' + (on ? '650' : '500') + ';color:' + (on ? 'var(--tx)' : (rel ? 'var(--txd)' : 'var(--txf)')) + ';background:' + (on ? 'rgba(36,150,237,.16)' : 'transparent'),
+        barra: 'width:2px;height:14px;border-radius:2px;flex-shrink:0;background:' + (on ? 'var(--ac)' : (rel ? 'var(--bd3)' : 'transparent')),
+        badgeEstilo: n.badge ? 'font-family:\'JetBrains Mono\',monospace;font-size:9.5px;padding:1px 5px;border-radius:var(--r2);background:' + (n.badge === '1' && n.id === 'incidente' ? 'rgba(239,68,68,.2);color:var(--bad-t)' : 'var(--bd1);color:#64748b') : 'display:none' };
+    });
+
+    const depthDefs = [
+      { k: 'dado', label: 'Dado', dica: 'Números crus, como o Docker devolve' },
+      { k: 'informacao', label: 'Informação', dica: 'O número comparado ao esperado' },
+      { k: 'conhecimento', label: 'Conhecimento', dica: 'O que isso exige de você' }
+    ];
+    const depthBtns = depthDefs.map(d => ({ label: d.label, dica: d.dica, onClick: () => this.set('depth', d.k), estilo: this.seg(D === d.k, 'var(--ac)') }));
+    const cenarioBtns = Object.keys(this.cenarios).map(k => ({ label: this.cenarios[k].rotulo, onClick: () => this.set('cenario', k), estilo: this.seg(this.cenario === k, this.cenarios[k].severidade === 'crit' ? '#ef4444' : 'var(--nt)') }));
+    const alertaDefs = { faixa: 'Faixa no topo: impossível ignorar, empurra o resto para baixo.', fila: 'Fila priorizada à direita: o layout não se mexe, a ordem carrega a urgência.', discreto: 'Só marcação nos cartões: silencioso, exige varredura visual.' };
+    const alertaBtns = [ { k: 'faixa', label: 'A · Faixa' }, { k: 'fila', label: 'B · Fila' }, { k: 'discreto', label: 'C · Discreto' } ]
+      .map(a => ({ label: a.label, onClick: () => this.set('alerta', a.k), estilo: this.seg(this.state.alerta === a.k, 'var(--ac)') }));
+
+    const rodando = cs.filter(c => c.st === 'running').length;
+    const parados = cs.filter(c => c.st === 'exited').length;
+    const doentes = cs.filter(c => c.hl === 'unhealthy' || c.st === 'restarting').length;
+    const critico = cen.severidade === 'crit';
+    const primeiroDoente = (cs.filter(c => c.hl === 'unhealthy' || c.st === 'restarting')[0] || {}).id;
+
+    const kpiTxt = (dado, info, saber) => D === 'dado' ? dado : (D === 'conhecimento' ? saber : info);
+    const kpis = [
+      { label: 'Containers', valor: String(cs.length), unidade: 'total', legenda: kpiTxt('15 objetos · 12 stacks', '12 projetos independentes na mesma VPS', 'nenhum órfão fora de compose'), cor: 'var(--ac-t)', onClick: ir('detalhe') },
+      { label: 'Rodando', valor: String(rodando), unidade: 'de 15', legenda: kpiTxt(rodando + ' running', rodando + ' no ar, ' + parados + ' parados por projeto', parados > 0 ? 'os parados são esperados' : 'tudo no ar'), cor: 'var(--ok-t)', onClick: ir('detalhe') },
+      { label: 'Precisam de você', valor: String(doentes), unidade: doentes === 1 ? 'serviço' : 'serviços', legenda: kpiTxt(doentes + ' unhealthy/restarting', doentes ? 'um deles derruba o processamento' : 'nenhum sinal ruim', doentes ? 'comece por ' + primeiroDoente : 'nenhuma ação aberta'), cor: doentes ? 'var(--bad-t)' : 'var(--ok-t)', onClick: ir('incidente') },
+      { label: 'Disco do host', valor: cen.disco.pct + '%', unidade: 'usado', legenda: kpiTxt(cen.disco.sub, cen.disco.pct > 85 ? 'acima do limite seguro de 85%' : 'dentro do limite de 85%', cen.disco.pct > 85 ? 'limpar log do giva-api-1 libera 22 GB' : 'sem ação por ora'), cor: cen.disco.pct > 85 ? 'var(--bad-t)' : 'var(--ac-t)', onClick: ir('incidente') }
+    ].map(k => ({ label: k.label, valor: k.valor, unidade: k.unidade, legenda: k.legenda, onClick: k.onClick,
+      estilo: 'background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:9px 11px;cursor:pointer',
+      valorEstilo: 'font-family:\'JetBrains Mono\',monospace;font-size:22px;font-weight:600;letter-spacing:-.02em;line-height:1;color:' + k.cor,
+      legendaEstilo: 'font-size:10px;color:' + (D === 'conhecimento' ? 'var(--tx2)' : '#64748b') + ';line-height:1.35;margin-top:5px;min-height:41px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical' }));
+
+    const stackNomes = cs.map(c => c.stack).filter((v, i, a) => a.indexOf(v) === i);
+    const stacksView = stackNomes.map(sn => {
+      const itens = cs.filter(c => c.stack === sn);
+      const pior = itens.some(c => c.st === 'restarting' || c.hl === 'unhealthy') ? '#ef4444' : (itens.some(c => c.st === 'exited' && c.rs > 0) ? '#f59e0b' : '#22c55e');
+      return { nome: sn, contagem: itens.filter(c => c.st === 'running').length + '/' + itens.length, pontoEstilo: this.ponto(pior, 6, false),
+        itens: itens.map(c => {
+          const on = c.id === sel.id && (S === 'detalhe' || S === 'logs');
+          return { nome: c.id, subLinha: this.depth === 'dado' ? c.img : c.info, tag: c.st === 'running' ? (c.hl === 'unhealthy' ? 'sick' : 'up') : (c.st === 'restarting' ? 'loop' : 'off'),
+            onClick: ir('detalhe', c.id),
+            linhaEstilo: 'display:flex;align-items:center;gap:7px;padding:5px 7px;border-radius:var(--r);cursor:pointer;margin-bottom:1px;background:' + (on ? 'var(--sf2)' : 'transparent') + ';border:1px solid ' + (on ? 'var(--bd3)' : 'transparent'),
+            pontoEstilo: this.ponto(this.cor(c), 7, c.st === 'restarting'),
+            tagEstilo: 'font-family:\'JetBrains Mono\',monospace;font-size:9px;padding:1px 4px;border-radius:var(--r2);flex-shrink:0;background:' + this.cor(c) + '22;color:' + this.cor(c) };
+        }) };
+    });
+
+    const grade = cs.map(c => {
+      const alvo = (this.state.alerta === 'discreto') && (c.st === 'restarting' || c.hl === 'unhealthy');
+      return { nome: c.id, linha: this.linhaDe(c), selo: c.st === 'restarting' ? '14× restart' : (c.hl === 'unhealthy' ? 'unhealthy' : (c.st === 'exited' ? (c.rs > 0 ? 'exit 1' : 'exit 0') : '')),
+        onClick: ir('detalhe', c.id),
+        estilo: 'background:' + (alvo ? 'rgba(239,68,68,.09)' : 'var(--bg2)') + ';border:1px solid ' + (alvo ? 'rgba(239,68,68,.45)' : 'var(--bd1)') + ';border-radius:var(--rc2);padding:8px 9px;cursor:pointer;display:flex;flex-direction:column;gap:4px;min-height:0',
+        pontoEstilo: this.ponto(this.cor(c), 7, c.st === 'restarting' || c.hl === 'unhealthy'),
+        selEstilo: 'font-family:\'JetBrains Mono\',monospace;font-size:8.5px;padding:1px 4px;border-radius:var(--r2);flex-shrink:0;background:' + this.cor(c) + '1f;color:' + this.cor(c),
+        linhaEstilo: 'font-size:10px;color:' + (D === 'conhecimento' ? 'var(--tx2)' : '#64748b') + ';line-height:1.35;' + (D === 'dado' ? 'font-family:\'JetBrains Mono\',monospace;' : '') + 'overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical',
+        barraCpu: this.barra(c.cpu * 4, c.cpu > 10 ? '#f59e0b' : 'var(--ac)'),
+        barraMem: this.barra(c.mem, c.mem > 80 ? '#ef4444' : '#22c55e') };
+    });
+
+    const vitalDefs = [
+      { label: 'CPU', pct: 34, valor: '34%', sub: '4 cores · load 0.84' },
+      { label: 'Memória', pct: 70, valor: '70%', sub: '5.6 / 8 GB' },
+      { label: 'Disco /', pct: cen.disco.pct, valor: cen.disco.pct + '%', sub: cen.disco.sub },
+      { label: 'Swap', pct: 12, valor: '12%', sub: '0.2 / 2 GB' },
+      { label: 'Rede', pct: 22, valor: '3.4', sub: 'MB/s · ↓2.1 ↑1.3' }
+    ];
+    const vitais = vitalDefs.map(v => {
+      const c = v.pct > 85 ? '#ef4444' : (v.pct > 70 ? '#f59e0b' : '#22c55e');
+      return { label: v.label, valor: v.valor, sub: v.sub, barra: this.barra(v.pct, c),
+        valorEstilo: 'font-family:\'JetBrains Mono\',monospace;font-size:13px;font-weight:600;color:' + c };
+    });
+
+    const fila = this.fmtFila().map(f => ({ sev: f.sev, quando: f.quando, titulo: f.titulo, corpo: f.corpo, acaoLabel: f.acaoLabel, onAcao: f.onAcao,
+      estilo: 'background:' + (f.cor === '#ef4444' ? 'rgba(239,68,68,.08)' : 'var(--bg2)') + ';border:1px solid ' + (f.cor === '#ef4444' ? 'rgba(239,68,68,.35)' : 'var(--bd1)') + ';border-left:3px solid ' + f.cor + ';border-radius:var(--rc2);padding:9px 10px',
+      sevEstilo: 'font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;font-weight:800;padding:2px 6px;border-radius:var(--r2);background:' + f.cor + '22;color:' + f.cor,
+      corpoEstilo: 'font-size:10.5px;color:var(--txd);line-height:1.45;margin-top:4px',
+      acaoEstilo: 'display:inline-flex;align-items:center;gap:4px;margin-top:8px;font-size:10.5px;font-weight:650;color:var(--ac-t);cursor:pointer' }));
+
+    const inc = this.incidenteDados();
+    const tomCor = { crit: '#ef4444', warn: '#f59e0b', info: '#60a5fa' };
+    const evTom = { bad: 'var(--bad-t)', warn: 'var(--wn-t)', n: 'var(--tx)' };
+
+    const tarefas = [
+      { col: 'A fazer', titulo: 'Trocar proxy_pass por 301 nos blocos :80', porque: 'executagent e familia-web atendem em texto claro.', alvo: 'ingress/nginx/nginx.conf', dono: 'DZ', prazo: 'esta semana', origem: 'do diagnóstico', urgente: true },
+      { col: 'A fazer', titulo: 'Proteger /docs e /openapi.json do criptotrade', porque: 'Contrato completo da API exposto sem auth.', alvo: 'criptotrade.buildtovalue.cloud', dono: 'DZ', prazo: '48h', origem: 'do diagnóstico', urgente: true },
+      { col: 'A fazer', titulo: 'Definir rotação de log nas 12 stacks', porque: 'Um único container pode consumir 22 GB em 9 dias.', alvo: 'compose de cada projeto', dono: 'DZ', prazo: 'sprint atual', origem: 'do diagnóstico', urgente: false },
+      { col: 'A fazer', titulo: 'Criar serviço de backup dos volumes', porque: 'Nenhum dos 15 containers faz cópia.', alvo: 'nova stack', dono: 'DZ', prazo: '7 dias', origem: 'do diagnóstico', urgente: true },
+      { col: 'Em andamento', titulo: 'Subir limite de memória do criptotrade-app', porque: 'Corrige o incidente aberto de OOMKill.', alvo: 'criptotrade-app', dono: 'DZ', prazo: 'agora', origem: 'do incidente', urgente: true },
+      { col: 'Em andamento', titulo: 'Copiar config de streaming do squad para o cockpit', porque: 'read_timeout 60s corta SSE e WebSocket.', alvo: 'docker.danzeroum.com', dono: 'DZ', prazo: 'hoje', origem: 'do diagnóstico', urgente: false },
+      { col: 'Bloqueado', titulo: 'Fechar POST e DELETE no socket-proxy', porque: 'Depende de decidir se o cockpit continua podendo agir.', alvo: 'docker/docker-compose.yml', dono: 'revisão', prazo: 'aguardando', origem: 'da auditoria', urgente: false },
+      { col: 'Bloqueado', titulo: 'Ligar HTTP/2 nos 13 hosts', porque: 'Precisa de janela para reload e teste dos certificados.', alvo: 'nginx.conf', dono: 'revisão', prazo: 'aguardando', origem: 'do diagnóstico', urgente: false },
+      { col: 'Feito', titulo: 'Padronizar HSTS em 12 de 13 hosts', porque: 'Só o host de texto fixo ficou sem.', alvo: 'nginx.conf', dono: 'DZ', prazo: 'ok', origem: 'manual', urgente: false },
+      { col: 'Feito', titulo: 'Publicar CI verde na main', porque: 'pytest + build passam a cada push.', alvo: '.github/workflows/ci.yml', dono: 'DZ', prazo: 'ok', origem: 'manual', urgente: false }
+    ];
+    const colDefs = [ { n: 'A fazer', c: '#64748b' }, { n: 'Em andamento', c: 'var(--ac)' }, { n: 'Bloqueado', c: '#f59e0b' }, { n: 'Feito', c: '#22c55e' } ];
+    const colunasTarefas = colDefs.map(cd => {
+      const cards = tarefas.filter(t => t.col === cd.n);
+      return { nome: cd.n, contagem: String(cards.length), pontoEstilo: this.ponto(cd.c, 7, false),
+        cards: cards.map(t => ({ titulo: t.titulo, porque: t.porque, alvo: t.alvo, dono: t.dono, prazo: t.prazo, origem: t.origem,
+          estilo: 'background:var(--sf);border:1px solid ' + (t.urgente ? 'rgba(239,68,68,.3)' : 'var(--bd1)') + ';border-radius:var(--rc2);padding:9px 10px',
+          origemEstilo: 'font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:800;padding:2px 5px;border-radius:var(--r2);background:' + (t.origem === 'manual' ? 'var(--bd1);color:#64748b' : 'rgba(36,150,237,.16);color:var(--ac-t)'),
+          prazoEstilo: 'font-size:9.5px;font-family:\'JetBrains Mono\',monospace;color:' + (t.urgente ? 'var(--bad-t)' : '#64748b'),
+          donoEstilo: 'font-size:9px;font-weight:700;padding:2px 6px;border-radius:var(--r2);background:var(--bd1);color:var(--txd)' })) };
+    });
+
+    const endpointsDef = [
+      { m: 'GET', r: '/api/containers', ch: '17 280', p95: '38 ms', e: '0%' },
+      { m: 'GET', r: '/api/containers/{id}/json', ch: '4 120', p95: '52 ms', e: '0%' },
+      { m: 'GET', r: '/api/containers/{id}/logs', ch: '861', p95: '340 ms', e: '0.2%' },
+      { m: 'GET', r: '/api/containers/{id}/stats', ch: '2 044', p95: '1.2 s', e: '1.4%' },
+      { m: 'GET', r: '/api/system', ch: '17 280', p95: '112 ms', e: '0%' },
+      { m: 'GET', r: '/api/info', ch: '288', p95: '24 ms', e: '0%' },
+      { m: 'GET', r: '/api/images', ch: '144', p95: '46 ms', e: '0%' },
+      { m: 'POST', r: '/api/containers/{id}/restart', ch: '14', p95: '2.1 s', e: '0%' },
+      { m: 'POST', r: '/api/containers/{id}/stop', ch: '3', p95: '1.4 s', e: '0%' },
+      { m: 'DELETE', r: '/api/containers/{id}', ch: '0', p95: '—', e: '—' },
+      { m: 'GET', r: '/health', ch: '8 640', p95: '4 ms', e: '0%' }
+    ];
+    const endpoints = endpointsDef.map(e => {
+      const lento = e.p95.indexOf('s') > 0 && e.p95.indexOf('ms') < 0;
+      const mcor = e.m === 'GET' ? '#60a5fa' : (e.m === 'POST' ? '#f59e0b' : '#ef4444');
+      return { metodo: e.m, rota: e.r, chamadas: e.ch, p95: e.p95, erro: e.e,
+        metodoEstilo: 'width:46px;flex-shrink:0;font-family:\'JetBrains Mono\',monospace;font-size:9px;font-weight:700;padding:2px 4px;border-radius:var(--r2);text-align:center;background:' + mcor + '1f;color:' + mcor,
+        p95Estilo: 'width:56px;text-align:right;font-family:\'JetBrains Mono\',monospace;font-size:11px;color:' + (lento ? 'var(--wn-t)' : 'var(--txd)'),
+        erroEstilo: 'width:64px;text-align:right;font-family:\'JetBrains Mono\',monospace;font-size:11px;color:' + (e.e !== '0%' && e.e !== '—' ? 'var(--bad-t)' : '#64748b') };
+    });
+
+    const permDefs = [ { l: 'CONTAINERS', r: 0 }, { l: 'IMAGES', r: 0 }, { l: 'INFO', r: 0 }, { l: 'NETWORKS', r: 0 }, { l: 'VOLUMES', r: 0 }, { l: 'POST', r: 1 }, { l: 'DELETE', r: 2 }, { l: 'EXEC', r: 2 } ];
+    const permissoes = permDefs.map(p => ({ label: p.l + (p.r === 2 ? ' · risco alto' : (p.r === 1 ? ' · escrita' : '')),
+      estilo: 'font-family:\'JetBrains Mono\',monospace;font-size:9.5px;padding:3px 7px;border-radius:var(--r2);background:' + (p.r === 2 ? 'rgba(239,68,68,.14);color:var(--bad-t);border:1px solid rgba(239,68,68,.3)' : (p.r === 1 ? 'rgba(245,158,11,.14);color:var(--wn-t);border:1px solid rgba(245,158,11,.3)' : 'rgba(34,197,94,.1);color:var(--ok-t);border:1px solid rgba(34,197,94,.22)')) }));
+
+    const logsBase = {
+      'criptotrade-app': [
+        { h: '04:38:02', t: 'stderr', x: 'trader: consuming order book (workers=8)' },
+        { h: '04:38:19', t: 'stdout', x: 'batch 4412 · 240 jobs · memory 384 MB' },
+        { h: '04:39:41', t: 'stdout', x: 'batch 4413 · 240 jobs · memory 468 MB' },
+        { h: '04:39:58', t: 'stderr', x: 'warning: heap perto do limite (498 MB / 512 MB)' },
+        { h: '04:40:03', t: 'stderr', x: 'Killed' },
+        { h: '04:40:04', t: 'sys', x: 'container exited with code 137 (OOMKilled)' },
+        { h: '04:40:05', t: 'sys', x: 'restart policy unless-stopped → starting (attempt 14)' },
+        { h: '04:40:07', t: 'stdout', x: 'criptotrade 2.8.0 booting · pid 1' },
+        { h: '04:40:08', t: 'stdout', x: 'reconnecting exchange feed · pending 2431 ordens' },
+        { h: '04:40:09', t: 'stdout', x: 'batch 4413 · retry · 240 jobs' },
+        { h: '04:41:52', t: 'stderr', x: 'Killed' },
+        { h: '04:41:53', t: 'sys', x: 'container exited with code 137 (OOMKilled)' }
+      ]
+    };
+    const logLinhas = (logsBase[sel.id] || [
+      { h: '04:40:01', t: 'stdout', x: sel.id + ' · heartbeat ok' },
+      { h: '04:40:11', t: 'stdout', x: sel.id + ' · 0 erros no último minuto' },
+      { h: '04:40:21', t: 'stdout', x: sel.id + ' · healthcheck 200 em 12 ms' },
+      { h: '04:40:31', t: 'stdout', x: sel.id + ' · heartbeat ok' }
+    ]).map(l => ({ hora: l.h, tag: l.t, txt: l.x,
+      tagEstilo: 'flex-shrink:0;width:44px;font-size:9.5px;font-weight:700;color:' + (l.t === 'stderr' ? 'var(--bad-t)' : (l.t === 'sys' ? 'var(--wn-t)' : 'var(--ac-t)')),
+      estilo: 'color:' + (l.t === 'stderr' ? 'var(--bad-t)' : (l.t === 'sys' ? 'var(--wn-t)' : 'var(--tx2)')) + ';word-break:break-word' }));
+
+    const serie = (arr, cor, teto) => arr.map(v => ({ estilo: 'flex:1;border-radius:1px;background:' + (v >= teto ? '#ef4444' : cor) + ';height:' + Math.max(4, v) + '%' }));
+    const cpuSerie = [22,28,31,26,34,42,38,44,51,48,62,58,71,66,74,81,68,59,44,12,4,2,8,14];
+    const memSerie = [61,64,68,71,74,78,82,86,90,94,97,99,3,18,34,52,68,84,96,99,4,22,48,80];
+    const metricas = [
+      { label: 'CPU do container', valor: sel.cpu.toFixed(1) + '%', nota: this.simples ? 'Uso de processamento nos últimos 12 minutos.' : 'janela 12 min · amostra a cada 30s', barras: serie(cpuSerie, 'var(--ac)', 95), cor: 'var(--ac-t)' },
+      { label: 'Memória', valor: sel.memAbs, nota: this.simples ? 'Cada queda a zero é um reinício forçado.' : 'serrote = OOMKill seguido de restart', barras: serie(memSerie, '#22c55e', 96), cor: sel.mem > 80 ? 'var(--bad-t)' : 'var(--ok-t)' },
+      { label: 'Rede', valor: '1.8 MB/s', nota: this.simples ? 'Tráfego de entrada e saída.' : 'rx 1.1 MB/s · tx 0.7 MB/s', barras: serie([12,18,22,16,28,32,24,30,26,34,20,16,22,28,18,24,30,26,14,10,18,22,26,20], '#a78bfa', 200), cor: 'var(--vi-t)' }
+    ].map(m => ({ label: m.label, valor: m.valor, nota: m.nota, barras: m.barras,
+      valorEstilo: 'font-family:\'JetBrains Mono\',monospace;font-size:14px;font-weight:600;color:' + m.cor,
+      notaEstilo: 'font-size:10px;color:#64748b;margin-top:7px;line-height:1.4' }));
+
+    const blocoBase = 'background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:11px 12px';
+    const linhaVal = 'font-family:\'JetBrains Mono\',monospace;font-size:10.5px;color:var(--tx);flex:1;min-width:0;word-break:break-word;text-align:right';
+    const notaOn = 'font-size:10.5px;color:var(--tx2);line-height:1.5;background:rgba(36,150,237,.09);border:1px solid rgba(96,165,250,.22);border-radius:var(--r);padding:6px 8px;margin-bottom:8px';
+    const notaOff = 'display:none';
+    const explica = D !== 'dado';
+    const detColunas = [
+      { blocos: [
+        { titulo: 'Estado e ciclo de vida', selo: sel.st, selCor: this.cor(sel), nota: sel.st === 'restarting' ? 'Sobe, roda por ~1m50 e é encerrado pelo sistema. Isso se repete desde as 04:12.' : 'Rodando de forma contínua, sem reinícios recentes.',
+          linhas: [ { k: 'Status', v: sel.st }, { k: 'Health', v: sel.hl }, { k: 'Reinícios', v: String(sel.rs) }, { k: 'No ar há', v: sel.up }, { k: 'Exit code', v: sel.st === 'restarting' ? '137 · OOMKilled' : '—' }, { k: 'Política', v: 'unless-stopped' } ] },
+        { titulo: 'Consumo', selo: sel.mem > 80 ? 'no limite' : 'normal', selCor: sel.mem > 80 ? '#ef4444' : '#22c55e', nota: 'A barra de memória mede contra o limite do container, não contra a RAM do host.',
+          linhas: [ { k: 'CPU', v: sel.cpu.toFixed(1) + '%' }, { k: 'Memória', v: sel.memAbs }, { k: 'Limite', v: sel.mem > 80 ? '512 MB (apertado)' : 'sem limite explícito' } ] }
+      ] },
+      { blocos: [
+        { titulo: 'Rede e portas', selo: sel.exposto, selCor: sel.exposto === 'internet' ? '#f59e0b' : '#64748b', nota: 'Porta interna significa alcançável só por containers na mesma rede — não pela internet.',
+          linhas: [ { k: 'Portas', v: sel.portas }, { k: 'Redes', v: sel.rede }, { k: 'Exposição', v: sel.exposto }, { k: 'IP interno', v: '172.19.0.7' } ] },
+        { titulo: 'Volumes e dados', selo: 'persistência', selCor: '#64748b', nota: 'Tudo que não está em volume desaparece quando o container é recriado.',
+          linhas: [ { k: 'Montagens', v: sel.vols }, { k: 'Driver de log', v: 'json-file · sem rotação' }, { k: 'Working dir', v: '/app' } ] }
+      ] },
+      { blocos: [
+        { titulo: 'Configuração', selo: this.perfil === 'auditor' ? 'auditoria' : 'config', selCor: this.perfil === 'auditor' ? '#f472b6' : '#64748b', nota: 'Segredos aparecem mascarados; o valor real nunca chega ao navegador.',
+          linhas: [ { k: 'Imagem', v: sel.img }, { k: 'Digest', v: 'sha256:9f2c…41ab' }, { k: 'Comando', v: 'uvicorn app:app --host 0.0.0.0' }, { k: 'DATABASE_URL', v: 'postgres://***:***@db' }, { k: 'UPSTREAM_NO_INGRESS', v: sel.exposto }, { k: 'Usuário', v: sel.id === 'docker-cockpit-proxy' ? 'root · socket ro' : 'app (uid 1000)' } ] },
+        { titulo: 'Últimas linhas', selo: 'ao vivo', selCor: '#22c55e', nota: '',
+          logs: (logsBase[sel.id] || [{ h: '04:40:21', t: 'stdout', x: 'healthcheck 200 em 12 ms' }, { h: '04:40:31', t: 'stdout', x: 'heartbeat ok' }]).slice(-5) }
+      ] }
+    ].map(col => ({ blocos: col.blocos.map(b => ({ titulo: b.titulo, selo: b.selo, nota: b.nota, estilo: blocoBase,
+      selEstilo: 'font-family:\'JetBrains Mono\',monospace;font-size:9px;padding:2px 6px;border-radius:var(--r2);background:' + b.selCor + '1f;color:' + b.selCor,
+      notaEstilo: (explica && b.nota) ? notaOn : notaOff,
+      linhas: (b.linhas || []).map(l => ({ k: l.k, v: l.v, estilo: linhaVal })),
+      logs: (b.logs || []).map(l => ({ hora: l.h, txt: l.x, estilo: 'font-family:\'JetBrains Mono\',monospace;font-size:9.5px;line-height:1.7;color:' + (l.t === 'stdout' ? 'var(--tx2)' : (l.t === 'sys' ? 'var(--wn-t)' : 'var(--bad-t)')) })) })) }));
+
+    const acaoBtn = (label, cor, on) => ({ label: label, onClick: () => this.setState({ destravado: true }),
+      estilo: 'padding:6px 11px;border-radius:var(--r);font-size:11px;font-weight:600;cursor:' + (on ? 'pointer' : 'not-allowed') + ';background:' + (on ? cor : 'var(--bd0)') + ';color:' + (on ? '#fff' : 'var(--txf)') + ';border:1px solid ' + (on ? cor : 'var(--bd1)') });
+
+    const telasMobile = [
+      { titulo: critico ? '1 incidente aberto' : 'Tudo sob controle', sub: critico ? 'Toque para ver a causa antes de agir.' : 'Nenhuma ação urgente no plantão.', legenda: 'fila de plantão', rodape: 'atualizado agora · a cada 5s', tomCab: critico ? '#ef4444' : '#22c55e',
+        cards: this.fmtFila().map(f => ({ tag: f.sev, tagCor: f.cor, quando: f.quando, titulo: f.titulo, texto: f.corpo, btn: f.acaoLabel, btnPrim: f.cor === '#ef4444' })) },
+      { titulo: 'criptotrade-app', sub: 'OOMKilled 14× · limite 512 MB · /api/ em 502', legenda: 'antes de agir', rodape: 'modo leitura · destravar para agir', tomCab: '#ef4444',
+        cards: [
+          { tag: 'causa', tagCor: '#ef4444', quando: '04:12', titulo: 'O limite de memória é a causa', texto: 'Reiniciar sem alterar o limite repete o ciclo em ~2 min.', btn: 'Ver cadeia completa', btnPrim: false },
+          { tag: 'ação', tagCor: '#22c55e', quando: 'recomendado', titulo: 'Subir limite para 1 GB', texto: 'Reinício de ~8s. O /api/ para de devolver 502 logo em seguida.', btn: destravado ? 'Aplicar agora' : 'Destravar para aplicar', btnPrim: true },
+          { tag: 'alternativa', tagCor: '#64748b', quando: 'se faltar RAM', titulo: 'Rollback para 2.7.4', texto: 'Perde as correções da versão nova.', btn: 'Ver detalhes', btnPrim: false }
+        ] }
+    ].map(m => ({ titulo: m.titulo, sub: m.sub, legenda: m.legenda, rodape: m.rodape,
+      cabecalhoEstilo: 'padding:12px 13px 11px;border-bottom:1px solid var(--bd1);background:' + m.tomCab + '14;border-left:3px solid ' + m.tomCab,
+      rodapeEstilo: 'flex-shrink:0;padding:9px 13px;border-top:1px solid var(--bd1);font-size:10px;color:#64748b;font-family:\'JetBrains Mono\',monospace',
+      cards: m.cards.map(c => ({ tag: c.tag, quando: c.quando, titulo: c.titulo, texto: c.texto, btn: c.btn,
+        estilo: 'background:var(--sf);border:1px solid var(--bd1);border-left:3px solid ' + c.tagCor + ';border-radius:var(--rc2);padding:9px 10px',
+        tagEstilo: 'font-size:8.5px;letter-spacing:.11em;text-transform:uppercase;font-weight:800;padding:2px 5px;border-radius:var(--r2);background:' + c.tagCor + '22;color:' + c.tagCor,
+        btnEstilo: 'margin-top:8px;text-align:center;padding:8px;border-radius:var(--r);font-size:11.5px;font-weight:650;background:' + (c.btnPrim ? (destravado ? 'var(--ac)' : 'rgba(36,150,237,.16)') : 'var(--bd0)') + ';color:' + (c.btnPrim && destravado ? '#fff' : (c.btnPrim ? '#60a5fa' : 'var(--txd)')) })) }));
+
+    const chip = (cor, txt) => 'font-family:\'JetBrains Mono\',monospace;font-size:9px;font-weight:700;padding:2px 5px;border-radius:var(--r2);white-space:nowrap;flex-shrink:0;background:' + cor + '1f;color:' + cor;
+    const RC = { ok: '#22c55e', aviso: '#f59e0b', alto: '#f59e0b', 'crítico': '#ef4444', info: '#64748b' };
+
+    const hostsDef = [
+      { h: 'prompte.buildtovalue.cloud', p80: '301', p443: 'ssl', cert: 'prompte', auth: '', up: 'prompte-frontend:80', r: 'ok', nota: 'padrão correto: ACME, redirect e HSTS' },
+      { h: 'chatcorp.buildtovalue.cloud', p80: '301', p443: 'ssl', cert: 'chatcorp', auth: '', up: 'btvchatcorp-frontend-1:80', r: 'ok', nota: 'filtro de bots mais completo do arquivo' },
+      { h: 'juridico.buildtovalue.cloud', p80: '301', p443: 'ssl', cert: 'juridico', auth: '', up: 'central-inteligencia-juridica:8000', r: 'aviso', nota: 'CSP própria por rota; upload preso em 1 MB pelo padrão global' },
+      { h: 'docs.buildtovalue.cloud', p80: '301', p443: 'ssl', cert: 'docs', auth: '', up: 'estático · /usr/share/nginx/docs', r: 'aviso', nota: 'bloco 443 sem o filtro de bots que os outros têm' },
+      { h: 'demo.buildtovalue.cloud', p80: '301', p443: 'ssl', cert: 'demo', auth: '', up: 'estático + btv-governance:8000 em /v1/', r: 'aviso', nota: 'API interna alcançável pelo path /v1/, sem auth' },
+      { h: 'executagent.buildtovalue.cloud', p80: 'proxy', p443: 'ssl', cert: 'executagent', auth: '', up: 'executagent-studio:80', r: 'crítico', nota: 'porta 80 faz proxy_pass em vez de 301 — aplicação em texto claro' },
+      { h: 'familia-web.buildtovalue.cloud', p80: 'proxy', p443: 'ssl', cert: 'familia-web', auth: '', up: 'familia-web:3000', r: 'crítico', nota: 'porta 80 faz proxy_pass em vez de 301 — aplicação em texto claro' },
+      { h: 'conciliaia.buildtovalue.cloud', p80: '301', p443: 'ssl', cert: 'conciliaia', auth: '', up: 'conciliaai-backend:8000', r: 'ok', nota: 'domínio conciliaia aponta para container conciliaai — grafias diferentes' },
+      { h: 'criptotrade.buildtovalue.cloud', p80: '301', p443: 'ssl', cert: 'criptotrade', auth: '', up: 'criptotrade-app:8000 + criptotrade-frontend:80', r: 'alto', nota: '/docs e /openapi.json publicados fora de qualquer proteção' },
+      { h: 'giva.executagent.com', p80: '301', p443: 'ssl', cert: 'giva.executagent.com', auth: '', up: 'giva-api-1:8000 + giva-frontend-1:80', r: 'ok', nota: 'único host com nosniff, SAMEORIGIN, cache imutável e 50 MB de upload' },
+      { h: 'squad.buildtovalue.cloud', p80: '301', p443: 'ssl', cert: 'squad', auth: 'basic', up: 'btv-squad-dashboard:7878', r: 'ok', nota: 'streaming feito certo: proxy_buffering off e timeout de 3600s' },
+      { h: 'docker.danzeroum.com', p80: '301', p443: 'ssl', cert: 'docker.danzeroum.com', auth: 'basic', up: 'docker-cockpit:8000', r: 'alto', nota: 'SSE de logs e WebSocket de stats cortados por proxy_read_timeout 60s' },
+      { h: 'btv.buildtovalue.cloud', p80: '200', p443: '—', cert: '—', auth: '', up: 'texto fixo do gateway', r: 'info', nota: 'sem TLS; é este bloco que faz o healthcheck do container passar' },
+      { h: '_ (default_server)', p80: '444', p443: '444', cert: 'prompte (emprestado)', auth: '', up: '—', r: 'aviso', nota: 'o 443 padrão usa o certificado do prompte para recusar hosts desconhecidos' }
+    ];
+    const hostsIngress = hostsDef.map(x => ({ host: x.h, nota: x.nota, up: x.up, cert: x.cert,
+      p80: x.p80, p443: x.p443, auth: x.auth || 'sem auth',
+      estilo: 'display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-bottom:1px solid var(--bd0);background:' + (x.r === 'crítico' ? 'rgba(239,68,68,.07)' : 'transparent'),
+      barra: 'width:3px;align-self:stretch;border-radius:2px;flex-shrink:0;background:' + RC[x.r],
+      p80Estilo: chip(x.p80 === 'proxy' ? '#ef4444' : '#64748b', ''),
+      p443Estilo: chip(x.p443 === 'ssl' ? '#22c55e' : '#64748b', ''),
+      authEstilo: chip(x.auth ? '#2496ED' : '#64748b', '') }));
+
+    const certDef = [
+      { n: 'prompte.buildtovalue.cloud', d: 47, s: 'aviso', o: 'também é o certificado do default_server 443' },
+      { n: 'chatcorp.buildtovalue.cloud', d: 47, s: 'ok', o: '' },
+      { n: 'juridico.buildtovalue.cloud', d: 52, s: 'ok', o: '' },
+      { n: 'docs.buildtovalue.cloud', d: 52, s: 'ok', o: '' },
+      { n: 'demo.buildtovalue.cloud', d: 52, s: 'ok', o: '' },
+      { n: 'executagent.buildtovalue.cloud', d: 31, s: 'aviso', o: 'não protege nada na porta 80' },
+      { n: 'familia-web.buildtovalue.cloud', d: 31, s: 'aviso', o: 'não protege nada na porta 80' },
+      { n: 'conciliaia.buildtovalue.cloud', d: 24, s: 'ok', o: '' },
+      { n: 'criptotrade.buildtovalue.cloud', d: 24, s: 'ok', o: '' },
+      { n: 'giva.executagent.com', d: 19, s: 'renovar', o: 'domínio fora de buildtovalue.cloud' },
+      { n: 'squad.buildtovalue.cloud', d: 18, s: 'renovar', o: '' },
+      { n: 'docker.danzeroum.com', d: 18, s: 'renovar', o: '' },
+      { n: 'btv.buildtovalue.cloud', d: null, s: 'erro', o: 'host servido sem certificado e sem bloco 443' }
+    ];
+    const certCor = { ok: '#22c55e', renovar: '#f59e0b', aviso: '#f59e0b', erro: '#ef4444' };
+    const certificados = certDef.map(c => ({ nome: c.n, obs: c.o, dias: c.d == null ? 'ausente' : c.d + 'd',
+      estilo: 'display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd0)',
+      pontoEstilo: this.ponto(certCor[c.s], 7, false),
+      diasEstilo: 'font-family:\'JetBrains Mono\',monospace;font-size:11px;font-weight:600;flex-shrink:0;color:' + (c.s === 'ok' ? 'var(--txd)' : (c.s === 'erro' ? 'var(--bad-t)' : 'var(--wn-t)')),
+      obsEstilo: c.o ? 'font-size:9.5px;color:#64748b;line-height:1.35' : 'display:none' }));
+
+    const achadoDef = [
+      { s: 'crítico', t: 'Dois hosts servem a aplicação em HTTP puro', e: 'executagent e familia-web · location / { proxy_pass } no bloco :80', a: 'incidente' },
+      { s: 'alto', t: 'Documentação da API de trading exposta', e: 'criptotrade · location = /docs e = /openapi.json sem auth', a: 'ingress' },
+      { s: 'alto', t: 'Cockpit corta o próprio streaming', e: 'docker.danzeroum.com · proxy_read_timeout 60s, sem buffering off', a: 'backend' },
+      { s: 'alto', t: 'Certificado do prompte serve de default_server', e: 'listen 443 default_server usa fullchain do prompte', a: 'ingress' },
+      { s: 'médio', t: 'Filtro de bots casa qualquer URI com "env"', e: 'location ~* (...|env) em 10 blocos · só giva usa \\.env', a: 'ingress' },
+      { s: 'médio', t: 'Connection "upgrade" aplicado a todas as requisições', e: 'proxy_set_header no nível http, sem map $http_upgrade', a: 'ingress' },
+      { s: 'médio', t: 'Upload limitado a 1 MB em 12 de 13 hosts', e: 'client_max_body_size só definido no giva (50M)', a: 'ingress' },
+      { s: 'médio', t: 'Nenhum host usa HTTP/2', e: 'listen 443 ssl · falta a diretiva http2 nos 13 blocos', a: 'capacidade' },
+      { s: 'baixo', t: 'Dois volumes montados sem rota que os sirva', e: '/opt/portfolio e /opt/btv/educacional montados, nenhum server block usa', a: 'ingress' },
+      { s: 'baixo', t: 'Healthcheck depende do bloco localhost', e: 'wget localhost:80/ só passa por causa do server_name ... localhost', a: 'ingress' },
+      { s: 'baixo', t: 'Lixo de shell no diretório do ingress', e: '4 backups .bak_* e arquivos chamados Authorization:, POST, Content-Type:', a: 'tarefas' }
+    ];
+    const sevCor = { 'crítico': '#ef4444', alto: '#f59e0b', 'médio': '#60a5fa', baixo: '#64748b' };
+    const achados = achadoDef.map(x => ({ titulo: x.t, evidencia: x.e, sev: x.s, onAcao: ir(x.a),
+      estilo: 'padding:8px 9px;border-radius:var(--rc2);border:1px solid var(--bd1);border-left:3px solid ' + sevCor[x.s] + ';background:' + (x.s === 'crítico' ? 'rgba(239,68,68,.07)' : 'var(--bg2)'),
+      sevEstilo: 'font-size:8.5px;letter-spacing:.11em;text-transform:uppercase;font-weight:800;padding:2px 5px;border-radius:var(--r2);background:' + sevCor[x.s] + '22;color:' + sevCor[x.s] }));
+
+    const ingKpis = [
+      { l: 'Hosts servidos', v: '13', s: '12 com TLS · 1 só em texto', c: 'var(--ac-t)' },
+      { l: 'Certificados', v: '12', s: '3 vencem em até 19 dias', c: 'var(--wn-t)' },
+      { l: 'Em HTTP puro', v: '2', s: 'executagent · familia-web', c: 'var(--bad-t)' },
+      { l: 'Sem filtro de bots', v: '4', s: 'docs, demo e os dois 443 abertos', c: 'var(--wn-t)' },
+      { l: 'Achados', v: '11', s: '1 crítico · 3 altos · 4 médios', c: 'var(--bad-t)' }
+    ].map(k => ({ label: k.l, valor: k.v, sub: k.s, valorEstilo: 'font-family:\'JetBrains Mono\',monospace;font-size:22px;font-weight:600;letter-spacing:-.02em;line-height:1;margin-top:4px;color:' + k.c }));
+
+    const dAtual = cen.disco.pct, taxa = 1.2;
+    const diasAte90 = Math.max(0, Math.ceil((90 - dAtual) / taxa));
+    const projecao = [];
+    for (let i = 0; i < 20; i++) { const v = Math.max(20, Math.round(dAtual - (19 - i) * taxa)); projecao.push({ v: v, fut: false }); }
+    for (let i = 1; i <= 10; i++) { const v = Math.min(100, Math.round(dAtual + i * taxa)); projecao.push({ v: v, fut: true }); }
+    const projBarras = projecao.map(p => ({ estilo: 'flex:1;border-radius:1px;height:' + p.v + '%;background:' + (p.v >= 90 ? '#ef4444' : (p.fut ? '#f59e0b' : '#2496ED')) + ';opacity:' + (p.fut ? '.45' : '1') }));
+
+    const consumoDef = [
+      { n: 'giva', mb: 1072 }, { n: 'juridico', mb: 880 }, { n: 'conciliaai', mb: 656 }, { n: 'squad', mb: 608 },
+      { n: 'familia-web', mb: 544 }, { n: 'criptotrade', mb: 500 }, { n: 'governance', mb: 432 }, { n: 'executagent', mb: 328 },
+      { n: 'btvchatcorp', mb: 256 }, { n: 'docker-cockpit', mb: 216 }
+    ];
+    const consumo = consumoDef.map(c => ({ nome: c.n, valor: c.mb + ' MB',
+      barra: 'height:100%;width:' + Math.round(c.mb / 1072 * 100) + '%;border-radius:2px;background:' + (c.mb > 800 ? '#f59e0b' : '#2496ED') }));
+
+    const horizDef = [
+      { j: 'Próximas 24 horas', cor: this.cenario === 'normal' ? '#22c55e' : '#ef4444', itens: [
+        this.cenario === 'disco' ? 'Disco chega a 100% em cerca de 19 horas no ritmo de 2,4 GB/dia' : (this.cenario === 'incidente' ? 'criptotrade-app volta a morrer a cada 1m52 enquanto o limite for 512 MB' : 'Nenhum limite de CPU, memória ou disco estoura nas próximas 24 horas'),
+        'Nenhuma cópia de segurança será feita — não existe serviço de backup na VPS',
+        'Cockpit continua perdendo o stream a cada 60 segundos' ] },
+      { j: '7 dias', cor: '#f59e0b', itens: [
+        'Disco projetado em ' + Math.min(100, Math.round(dAtual + 7 * taxa)) + '% (hoje ' + dAtual + '%, ritmo de 1,2 ponto por dia)',
+        'giva-api-1 adiciona cerca de 8 GB de log na semana, sem rotação configurada',
+        'Dois hosts seguem aceitando conexão em texto claro na porta 80' ] },
+      { j: '30 dias', cor: '#60a5fa', itens: [
+        'Três certificados vencem quase juntos: docker (18d), squad (18d) e giva (19d)',
+        'Memória projetada em 78% se mais dois serviços subirem no ritmo atual',
+        'nginx.conf passa de 290 linhas com 16 domínios — revisão manual fica inviável' ] }
+    ];
+    const horizontes = horizDef.map(h => ({ janela: h.j, itens: h.itens.map(t => ({ texto: t, pontoEstilo: this.ponto(h.cor, 5, false) })),
+      estilo: 'background:var(--sf);border:1px solid var(--bd1);border-top:3px solid ' + h.cor + ';border-radius:var(--rc);padding:12px 13px;display:flex;flex-direction:column',
+      tituloEstilo: 'font-size:10px;letter-spacing:.14em;text-transform:uppercase;font-weight:800;margin-bottom:9px;color:' + h.cor }));
+
+    const evolucao = [
+      { t: 'maio · 6 domínios, 8 containers', d: 'ingress, docs, demo, prompte e as duas primeiras APIs' },
+      { t: 'junho · 9 domínios, 11 containers', d: 'entram chatcorp, jurídico e conciliaia' },
+      { t: 'julho · 13 domínios, 15 containers', d: 'entram criptotrade, giva, squad e o próprio cockpit' },
+      { t: 'ritmo: +2,3 domínios por mês', d: 'cada domínio novo custa 1 certificado, ~12 linhas de nginx.conf e 1,4 container' }
+    ];
+    const posturaDef = [
+      { i: 'TLS 1.2 / 1.3 apenas', v: '13/13', ok: true }, { i: 'HSTS ativo', v: '12/13', ok: true },
+      { i: 'Redirect 80 → 443', v: '10/12', ok: false }, { i: 'Basic auth em painel interno', v: '2/2', ok: true },
+      { i: 'Filtro de bots', v: '9/13', ok: false }, { i: 'Headers nosniff e frame', v: '1/13', ok: false },
+      { i: 'HTTP/2', v: '0/13', ok: false }, { i: 'Limite de upload explícito', v: '1/13', ok: false },
+      { i: 'Compressão gzip', v: '0/13', ok: false }, { i: 'Serviço de backup', v: '0', ok: false }
+    ];
+    const postura = posturaDef.map(p => ({ item: p.i, valor: p.v, pontoEstilo: this.ponto(p.ok ? '#22c55e' : '#f59e0b', 6, false),
+      valorEstilo: 'font-family:\'JetBrains Mono\',monospace;font-size:11px;font-weight:600;color:' + (p.ok ? 'var(--ok-t)' : 'var(--wn-t)') }));
+
+    const titulos = {
+      overview: ['Visão geral', 'srv1351082 · 15 containers · 12 stacks · 13 domínios · leitura a cada 5s'],
+      ingress: ['Ingress & TLS', 'nginx.conf · 13 hosts · 12 certificados · 11 achados de configuração'],
+      capacidade: ['Capacidade e antecipação', 'para onde a VPS caminha em 24 horas, 7 e 30 dias'],
+      incidente: ['Atenção agora', 'diagnóstico assistido · cenário: ' + cen.rotulo.toLowerCase()],
+      detalhe: ['Dossiê do container', sel.id + ' · ' + sel.img],
+      logs: ['Logs & métricas', sel.id + ' · SSE /logs/stream + WS /stats/ws'],
+      topologia: ['Topologia', 'navegador → ingress → cockpit → socket-proxy → daemon'],
+      backend: ['Backend & API', 'FastAPI app:8000 · httpx → docker-cockpit-proxy:2375'],
+      tarefas: ['Tarefas de operação', '10 itens · 6 criados pelo diagnóstico do nginx.conf e do daemon'],
+      gestor: ['Resumo executivo', 'sem jargão · o que está no ar e o que decide o próximo passo'],
+      mobile: ['Plantão mobile', '390 × 844 · o que dá para resolver do celular às 4h']
+    };
+
+    return {
+      tema: this.tema, temaBtns,
+      hostsIngress, certificados, achados, ingKpis, horizontes, projBarras, consumo, evolucao, postura,
+      projTitulo: 'Uso do disco · 20 dias medidos + 10 projetados',
+      projNota: dAtual >= 90 ? 'Já acima de 90% — a projeção só diz quanto tempo resta: cerca de ' + Math.max(1, Math.ceil((100 - dAtual) / taxa)) + ' dias até 100%.' : 'No ritmo de 1,2 ponto por dia, chega a 90% em ' + diasAte90 + ' dias. A barra clara é projeção linear, não medição.',
+      consumoNota: '5,6 GB de 8 GB comprometidos. As duas primeiras stacks respondem por 35% da memória da VPS.',
+      fonteIngress: 'lido de /opt/btv/ingress/nginx/nginx.conf e docker-compose.yml · validade dos certificados é simulada: ligar a fonte real com certbot certificates',
+      fonteCapacidade: 'projeções lineares sobre a série de 20 dias · não substituem previsão com sazonalidade',
+      perfisLista, navItens, depthBtns, cenarioBtns, alertaBtns,
+      alertaDescricao: alertaDefs[this.state.alerta],
+      tituloTela: titulos[S][0], subtituloTela: titulos[S][1],
+      isOverview: S === 'overview', isIncidente: S === 'incidente', isDetalhe: S === 'detalhe',
+      isLogs: S === 'logs', isTopo: S === 'topologia', isBackend: S === 'backend',
+      isTarefas: S === 'tarefas', isGestor: S === 'gestor', isMobile: S === 'mobile',
+      isIngress: S === 'ingress', isCapacidade: S === 'capacidade',
+
+      travaEstilo: 'border-radius:var(--rc2);padding:9px 10px;border:1px solid ' + (destravado ? 'rgba(245,158,11,.4)' : 'var(--bd2)') + ';background:' + (destravado ? 'rgba(245,158,11,.1)' : 'var(--bd0)') + ';color:' + (destravado ? 'var(--wn-t)' : 'var(--txd)'),
+      travaTitulo: destravado ? 'Ações liberadas' : 'Modo leitura',
+      travaPath: destravado ? 'M7 11V7a5 5 0 0 1 9.9-1' : 'M7 11V7a5 5 0 0 1 10 0v4',
+      travaTexto: destravado ? 'Parar, reiniciar e remover ativos por 30 min nesta sessão.' : 'Nada é alterado no servidor. Liberar exige confirmação explícita.',
+      travaBtn: destravado ? 'Voltar para leitura' : 'Destravar ações (30 min)',
+      travaBtnEstilo: 'text-align:center;padding:6px;border-radius:var(--r);font-size:10.5px;font-weight:650;cursor:pointer;background:' + (destravado ? 'rgba(245,158,11,.2)' : 'rgba(36,150,237,.16)') + ';color:' + (destravado ? 'var(--wn-t)' : '#60a5fa'),
+      onTrava: () => this.setState({ destravado: !destravado }),
+
+      totalStacks: String(stackNomes.length), totalContainers: String(cs.length), stacksView, grade, kpis, vitais,
+      gradeDica: D === 'dado' ? 'valores crus' : (D === 'conhecimento' ? 'o que exige ação' : 'leitura comparada'),
+      hostNome: 'srv1351082 · 4 vCPU · 8 GB · Ubuntu 24.04', hostResumo: 'no ar há 42 dias · docker 27.1 · 13 domínios',
+
+      faixaVisivel: this.state.alerta === 'faixa' && critico,
+      faixaEstilo: 'flex-shrink:0;display:flex;align-items:center;gap:13px;background:linear-gradient(90deg,rgba(239,68,68,.16),rgba(239,68,68,.04));border:1px solid rgba(239,68,68,.4);border-radius:var(--rc);padding:11px 13px',
+      faixaIconeEstilo: 'width:34px;height:34px;border-radius:var(--rc2);display:grid;place-items:center;flex-shrink:0;background:rgba(239,68,68,.18);color:var(--bad-t)',
+      faixaTitulo: inc.titulo, faixaTexto: inc.resumo, faixaAcao: ir('incidente'), faixaAcaoLabel: 'Ver causa-raiz',
+
+      filaTitulo: this.state.alerta === 'discreto' ? 'Resumo do turno' : 'Precisa da sua atenção',
+      filaContagem: fila.length + ' itens',
+      filaContagemEstilo: 'font-family:\'JetBrains Mono\',monospace;font-size:9.5px;padding:2px 6px;border-radius:var(--r2);background:' + (critico ? 'rgba(239,68,68,.16);color:var(--bad-t)' : 'var(--bd0);color:#64748b'),
+      fila,
+
+      tarefasResumo: [ { valor: '4', label: 'a fazer', cor: 'var(--txd)' }, { valor: '2', label: 'em curso', cor: 'var(--ac-t)' }, { valor: '2', label: 'bloqueadas', cor: 'var(--wn-t)' }, { valor: '2', label: 'feitas', cor: 'var(--ok-t)' } ]
+        .map(t => ({ valor: t.valor, label: t.label, valorEstilo: 'font-family:\'JetBrains Mono\',monospace;font-size:17px;font-weight:600;line-height:1;color:' + t.cor })),
+      tarefaDestaque: critico ? 'Em curso: subir o limite de memória do criptotrade-app — resolve o incidente aberto.' : 'Próxima: trocar proxy_pass por 301 nos dois blocos :80 que ainda servem em HTTP puro.',
+      irTarefas: ir('tarefas'),
+
+      incHeroEstilo: 'flex-shrink:0;background:linear-gradient(135deg,rgba(239,68,68,.14),var(--sf));border:1px solid rgba(239,68,68,.35);border-radius:var(--rc);padding:15px 16px',
+      incSev: inc.sev, incSevEstilo: 'font-size:9px;letter-spacing:.13em;font-weight:800;padding:5px 9px;border-radius:var(--r);background:rgba(239,68,68,.2);color:var(--bad-t);flex-shrink:0;margin-top:3px',
+      incTitulo: inc.titulo, incResumo: inc.resumo, incImpacto: inc.impacto, incDesde: inc.desde,
+      incCadeia: inc.cadeia.map((e, i) => ({ hora: e.hora, titulo: e.titulo, texto: e.texto, evidencia: e.evidencia,
+        pontoEstilo: 'width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:4px;background:' + tomCor[e.tipo] + ';box-shadow:0 0 0 3px ' + tomCor[e.tipo] + '22',
+        linhaEstilo: i === inc.cadeia.length - 1 ? 'display:none' : 'flex:1;width:1px;background:var(--bd2);margin:3px 0',
+        evidenciaEstilo: 'font-family:\'JetBrains Mono\',monospace;font-size:10px;color:#64748b;margin-top:4px;background:var(--bg2);border:1px solid var(--bd0);border-radius:var(--r);padding:4px 7px;display:inline-block' })),
+      incEvidencias: inc.evidencias.map(v => ({ k: v.k, v: v.v, estilo: 'font-family:\'JetBrains Mono\',monospace;font-size:13px;font-weight:600;margin-top:2px;color:' + evTom[v.tom] })),
+      incAcoes: inc.acoes.map((a, i) => ({ titulo: a.titulo, detalhe: a.detalhe, cmd: a.cmd, risco: a.risco, ordem: String(i + 1),
+        estilo: 'background:' + (i === 0 ? 'rgba(34,197,94,.07)' : 'var(--bg2)') + ';border:1px solid ' + (i === 0 ? 'rgba(34,197,94,.28)' : 'var(--bd1)') + ';border-radius:var(--rc2);padding:10px 11px',
+        ordemEstilo: 'width:17px;height:17px;border-radius:var(--r2);display:grid;place-items:center;font-family:\'JetBrains Mono\',monospace;font-size:9.5px;font-weight:700;flex-shrink:0;background:' + (i === 0 ? 'rgba(34,197,94,.2);color:var(--ok-t)' : 'var(--bd1);color:#64748b'),
+        cmdEstilo: 'font-family:\'JetBrains Mono\',monospace;font-size:9.5px;color:var(--txd);background:var(--bg);border:1px solid var(--bd1);border-radius:var(--r);padding:6px 8px;word-break:break-all;line-height:1.5',
+        btnEstilo: 'padding:5px 10px;border-radius:var(--r);font-size:10.5px;font-weight:650;cursor:pointer;background:' + (destravado ? (i === 0 ? '#22c55e' : 'var(--bd0)') : 'var(--bd0)') + ';color:' + (destravado && i === 0 ? 'var(--bg)' : (destravado ? 'var(--tx)' : 'var(--txf)')),
+        btnLabel: destravado ? 'Aplicar' : 'Destravar para aplicar', onAplicar: () => this.setState({ destravado: true }) })),
+      mostraAprendizado: D === 'conhecimento' || P === 'estudante',
+      aprendizadoTitulo: inc.aprendizado.titulo, aprendizadoTexto: inc.aprendizado.texto,
+
+      chips: cs.map(c => ({ nome: c.id, onClick: ir('detalhe', c.id), pontoEstilo: this.ponto(this.cor(c), 6, false),
+        estilo: 'display:flex;align-items:center;gap:6px;padding:5px 9px;border-radius:var(--r);cursor:pointer;font-size:11px;font-weight:' + (c.id === sel.id ? '650' : '500') + ';white-space:nowrap;flex-shrink:0;background:' + (c.id === sel.id ? 'var(--sf2)' : 'var(--bg2)') + ';border:1px solid ' + (c.id === sel.id ? 'var(--bd3)' : 'var(--bd0)') + ';color:' + (c.id === sel.id ? 'var(--tx)' : 'var(--txd)') })),
+      dossieHeroEstilo: 'flex-shrink:0;background:var(--sf);border:1px solid ' + (sel.st === 'restarting' ? 'rgba(239,68,68,.35)' : 'var(--bd2)') + ';border-radius:var(--rc);padding:13px 14px',
+      det: {
+        nome: sel.id, identidade: sel.img + ' · id 9f2c41ab7e05 · criado 25/07 02:04',
+        pontoGrande: this.ponto(this.cor(sel), 13, true),
+        statusTexto: sel.st, healthTexto: sel.hl === 'none' ? 'sem healthcheck' : sel.hl,
+        statusPill: 'font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;background:' + this.cor(sel) + '22;color:' + this.cor(sel),
+        healthPill: 'font-size:10px;font-weight:600;padding:3px 8px;border-radius:999px;background:var(--bd0);color:var(--txd)',
+        leituraEstilo: explica ? 'font-size:11.5px;color:var(--tx2);line-height:1.5;margin-top:9px;padding-top:9px;border-top:1px solid var(--bd1)' : 'display:none',
+        leituraTexto: sel.st === 'restarting'
+          ? 'Leitura em uma frase: o container não está com defeito — ele é encerrado pelo sistema por ultrapassar o limite de memória, e volta sozinho logo depois. O que precisa mudar é o limite, não o container.'
+          : 'Leitura em uma frase: ' + sel.info + '. ' + sel.saber + '.',
+        acoes: [ acaoBtn('Reiniciar', 'var(--ac)', destravado), acaoBtn('Parar', '#ef4444', destravado), acaoBtn(destravado ? 'Remover' : 'Modo leitura', destravado ? '#f59e0b' : 'var(--nt)', destravado) ],
+        colunas: detColunas
+      },
+
+      logFiltros: [ { l: 'tudo', on: true }, { l: 'stderr', on: false }, { l: 'sys', on: false } ].map(f => ({ label: f.l, estilo: this.seg(f.on, 'var(--nt)') + ';border:1px solid var(--bd1)' })),
+      logLinhas, metricas,
+
+      topoIntro: this.simples
+        ? 'Cada caixa é uma parada da requisição. Quanto mais para baixo, mais perto do motor do servidor — e mais restrito deve ser o acesso.'
+        : 'Cadeia real declarada em docker-compose.yml e nginx.conf. O cockpit nunca fala com o daemon diretamente: o socket-proxy é o único com acesso ao socket, montado somente-leitura.',
+      topoNos: [
+        { nome: 'Navegador', papel: 'Sessão autenticada por basic auth sobre HTTPS.', pill: 'externo', pillCor: '#f59e0b', rede: 'internet', metrica: '1', metricaLabel: 'sessões', transporte: 'HTTPS · 443' },
+        { nome: 'btv-nginx-prod', papel: 'Gateway único: 13 hosts, 12 certificados, TLS e proxy_pass por domínio.', pill: 'exposto', pillCor: '#f59e0b', rede: 'btv-prod-net', metrica: '13', metricaLabel: 'hosts', transporte: 'HTTP interno · resolver 127.0.0.11' },
+        { nome: 'docker-cockpit', papel: 'FastAPI: serve o cockpit e traduz as chamadas em requisições ao proxy.', pill: 'interno', pillCor: '#22c55e', rede: 'internal + btv-prod-net', metrica: '38 ms', metricaLabel: 'p95 API', transporte: 'httpx · 2375' },
+        { nome: 'docker-cockpit-proxy', papel: 'Filtro de permissões por endpoint. Único ponto com acesso ao socket.', pill: 'crítico', pillCor: '#ef4444', rede: 'internal (sem saída)', metrica: '8', metricaLabel: 'permissões', transporte: 'unix socket · ro' },
+        { nome: 'Docker daemon', papel: 'Executa de fato: containers, imagens, redes e volumes do host.', pill: 'host', pillCor: '#64748b', rede: '/var/run/docker.sock', metrica: '15', metricaLabel: 'containers', transporte: '' }
+      ].map((n, i, arr) => ({ nome: n.nome, papel: n.papel, rede: n.rede, metrica: n.metrica, metricaLabel: n.metricaLabel, transporte: n.transporte, pillTexto: n.pill,
+        estilo: 'display:flex;align-items:center;gap:12px;background:var(--bg2);border:1px solid ' + (n.pill === 'crítico' ? 'rgba(239,68,68,.32)' : 'var(--bd1)') + ';border-radius:var(--rc2);padding:11px 13px',
+        faixaEstilo: 'width:3px;align-self:stretch;border-radius:2px;flex-shrink:0;background:' + n.pillCor,
+        pill: 'font-size:9px;letter-spacing:.1em;text-transform:uppercase;font-weight:800;padding:2px 6px;border-radius:var(--r2);background:' + n.pillCor + '22;color:' + n.pillCor,
+        setaEstilo: i === arr.length - 1 ? 'display:none' : 'display:flex;align-items:center;justify-content:center;gap:8px;height:22px;position:relative;border-left:1px dashed var(--bd3);margin-left:22px;padding-left:12px' })),
+      exposicao: [
+        { alvo: 'Portas 80 / 443', detalhe: 'btv-nginx-prod · 13 hosts na internet', tag: 'público', cor: '#f59e0b' },
+        { alvo: '/var/run/docker.sock', detalhe: 'montado :ro no socket-proxy', tag: 'somente leitura', cor: '#22c55e' },
+        { alvo: 'POST · DELETE no proxy', detalhe: 'permite parar e remover containers', tag: 'revisar', cor: '#ef4444' },
+        { alvo: 'Rede internal', detalhe: 'sem rota para a internet', tag: 'isolada', cor: '#22c55e' },
+        { alvo: 'Terminal (docker exec)', detalhe: 'ENABLE_TERMINAL desligado', tag: 'desligado', cor: '#64748b' },
+        { alvo: 'HTTP puro na porta 80', detalhe: 'executagent e familia-web sem redirect', tag: 'corrigir', cor: '#ef4444' }
+      ].map(e => ({ alvo: e.alvo, detalhe: e.detalhe, tag: e.tag, pontoEstilo: this.ponto(e.cor, 7, false),
+        tagEstilo: 'font-size:9px;letter-spacing:.08em;text-transform:uppercase;font-weight:800;padding:2px 6px;border-radius:var(--r2);background:' + e.cor + '1f;color:' + e.cor })),
+      topoLateralTitulo: this.simples ? 'O que cada camada faz' : 'Notas de arquitetura',
+      topoLateral: this.simples ? [
+        { titulo: 'Ingress', texto: 'A portaria. É o único ponto que a internet enxerga; decide quem entra e para onde vai.' },
+        { titulo: 'Cockpit', texto: 'A recepção. Recebe o pedido já autenticado e pergunta ao proxy o que precisa saber.' },
+        { titulo: 'Socket-proxy', texto: 'O crachá. Filtra o que pode ser perguntado ao motor do Docker — sem ele, quem tem o cockpit tem o servidor.' },
+        { titulo: 'Daemon', texto: 'O motor. É quem realmente cria, para e apaga containers.' }
+      ] : [
+        { titulo: 'Isolamento por rede', texto: 'A rede internal é declarada internal:true — o proxy não tem rota de saída para a internet.' },
+        { titulo: 'Superfície mínima', texto: 'Só o app entra em btv-prod-net; o proxy fica fora do alcance do ingress.' },
+        { titulo: 'Socket somente leitura', texto: 'O bind é :ro, mas POST/DELETE no proxy ainda permitem mutação via API.' },
+        { titulo: 'Falha em cascata', texto: 'depends_on com condition: service_healthy impede o app de subir antes do proxy.' }
+      ],
+
+      backKpis: [ { l: 'Disponibilidade da API', v: '99.98%', s: '30 dias · 2 janelas de deploy', c: 'var(--ok-t)' }, { l: 'p95 global', v: '112 ms', s: 'sem contar stats e logs', c: 'var(--ac-t)' }, { l: 'Erros 5xx', v: '0.04%', s: '17 em 42 mil chamadas', c: 'var(--ok-t)' }, { l: 'Testes', v: '24 / 24', s: 'pytest · CI verde na main', c: 'var(--ok-t)' } ]
+        .map(k => ({ label: k.l, valor: k.v, sub: k.s, valorEstilo: 'font-family:\'JetBrains Mono\',monospace;font-size:20px;font-weight:600;letter-spacing:-.02em;margin-top:4px;color:' + k.c })),
+      endpoints,
+      permsNota: this.simples ? 'Cada etiqueta é uma permissão que o cockpit tem sobre o Docker. Verde é só leitura.' : 'Declaradas no compose do tecnativa/docker-socket-proxy. POST e DELETE habilitam mutação.',
+      permissoes,
+      streams: [ { r: '/api/containers/{id}/logs/stream', d: 'SSE · stdout e stderr ao vivo', c: '1 aberta', cor: '#22c55e' }, { r: '/api/containers/{id}/stats/ws', d: 'WebSocket · CPU, memória e rede', c: '1 aberta', cor: '#22c55e' }, { r: '/api/containers/{id}/terminal', d: 'WebSocket · docker exec', c: 'desligado', cor: '#64748b' } ]
+        .map(s => ({ rota: s.r, desc: s.d, conexoes: s.c, pontoEstilo: this.ponto(s.cor, 7, false) })),
+      ci: [ { t: 'ci · pytest + build', s: 'main @ 6a1d66a', q: 'há 3h', cor: '#22c55e' }, { t: 'ci · pytest + build', s: 'main @ 4b8e21f', q: 'há 2d', cor: '#22c55e' }, { t: 'ci · pytest + build', s: 'fix/logs-demux', q: 'há 4d', cor: '#f59e0b' }, { t: 'deploy manual', s: 'docker compose up -d', q: 'há 12d', cor: '#64748b' } ]
+        .map(c => ({ titulo: c.t, sub: c.s, quando: c.q, pontoEstilo: this.ponto(c.cor, 7, false) })),
+
+      tarefasIntro: 'Tarefas nascem do diagnóstico: cada achado do nginx.conf ou do daemon vira um item com origem, motivo e prazo. As azuis foram criadas automaticamente.',
+      tarefasFiltros: [ { l: 'todas', on: true }, { l: 'do diagnóstico', on: false }, { l: 'minhas', on: false } ].map(f => ({ label: f.l, estilo: this.seg(f.on, 'var(--nt)') + ';border:1px solid var(--bd1)' })),
+      colunasTarefas,
+
+      execHeroEstilo: 'flex-shrink:0;background:linear-gradient(135deg,' + (critico ? 'rgba(239,68,68,.14)' : 'rgba(34,197,94,.12)') + ',var(--sf));border:1px solid ' + (critico ? 'rgba(239,68,68,.3)' : 'rgba(34,197,94,.25)') + ';border-radius:var(--rc);padding:20px 22px',
+      execIconeEstilo: 'width:52px;height:52px;border-radius:var(--rc);display:grid;place-items:center;flex-shrink:0;background:' + (critico ? 'rgba(239,68,68,.18);color:var(--bad-t)' : 'rgba(34,197,94,.16);color:var(--ok-t)'),
+      execIconePath: critico ? 'M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01' : 'M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3',
+      execTitulo: critico ? (this.cenario === 'disco' ? 'No ar, com risco em 24 horas' : 'No ar, com uma função parada') : 'Tudo no ar, sem incidentes',
+      execTexto: critico
+        ? (this.cenario === 'disco'
+          ? 'O site e o sistema seguem funcionando. O servidor, porém, está a 6 GB de ficar sem espaço — quando isso acontece, o sistema para de gravar dados. Existe uma limpeza segura que devolve 22 GB e uma configuração que impede a repetição. Decisão necessária hoje.'
+          : 'O site e o sistema respondem normalmente e nenhum cliente perdeu acesso. O que parou foi o processamento em segundo plano: 2,4 mil pedidos estão na fila desde as 04:12, aguardando. A correção é conhecida, leva cerca de 8 segundos de reinício e não exige janela de manutenção.')
+        : 'Nenhum serviço fora do ar nos últimos 30 dias. O único item aberto é a cópia de segurança, que falhou nas últimas duas noites e precisa de atenção esta semana.',
+      execKpis: [
+        { l: 'Serviços no ar', v: rodando + ' de 12', e: parados + ' parados são tarefas agendadas, não falhas.', c: 'var(--ok-t)' },
+        { l: 'Disponibilidade', v: '99.8%', e: 'Últimos 30 dias, contando só o que o cliente acessa.', c: 'var(--ok-t)' },
+        { l: 'Precisa de decisão', v: critico ? '1' : '0', e: critico ? 'Um item exige aprovação para ser aplicado hoje.' : 'Nada aguardando sua aprovação.', c: critico ? 'var(--bad-t)' : 'var(--ok-t)' },
+        { l: 'Custo do servidor', v: 'R$ 340', e: 'Por mês, servidor único de 4 vCPU e 8 GB.', c: 'var(--ac-t)' }
+      ].map(k => ({ label: k.l, valor: k.v, explica: k.e, valorEstilo: 'font-family:\'JetBrains Mono\',monospace;font-size:26px;font-weight:600;letter-spacing:-.02em;margin-top:6px;color:' + k.c })),
+      execServicos: [
+        { n: 'Painel de trading', e: critico && this.cenario === 'incidente' ? 'Abre, mas sem processar ordens' : 'Operando normalmente', v: critico && this.cenario === 'incidente' ? '96.1%' : '99.9%', cor: critico && this.cenario === 'incidente' ? '#ef4444' : '#22c55e' },
+        { n: 'Central jurídica', e: 'Respondendo normalmente', v: '99.9%', cor: '#22c55e' },
+        { n: 'Chat corporativo', e: 'Respondendo normalmente', v: '100%', cor: '#22c55e' },
+        { n: 'Plataforma giva', e: this.cenario === 'disco' ? 'Uploads falhando desde 03:58' : 'Normal', v: this.cenario === 'disco' ? '97.4%' : '99.8%', cor: this.cenario === 'disco' ? '#ef4444' : '#22c55e' },
+        { n: 'Sites institucionais', e: 'docs, demo, prompte e família no ar', v: '99.9%', cor: '#22c55e' },
+        { n: 'Cópia de segurança', e: 'Não existe serviço de backup', v: '—', cor: '#f59e0b' }
+      ].map(s => ({ nome: s.n, estado: s.e, valor: s.v, pontoEstilo: this.ponto(s.cor, 9, s.cor === '#ef4444'),
+        valorEstilo: 'font-family:\'JetBrains Mono\',monospace;font-size:14px;font-weight:600;color:' + (s.cor === '#22c55e' ? 'var(--ok-t)' : (s.cor === '#ef4444' ? 'var(--bad-t)' : 'var(--wn-t)')) })),
+      execRiscos: [
+        { tag: critico ? 'decidir hoje' : 'esta semana', cor: critico ? '#ef4444' : '#f59e0b', prazo: critico ? 'hoje' : '7 dias',
+          titulo: critico ? (this.cenario === 'disco' ? 'Liberar espaço no servidor' : 'Aumentar a memória do processador de pedidos') : 'Restabelecer a cópia de segurança',
+          texto: critico ? (this.cenario === 'disco' ? 'Limpeza segura de 22 GB, sem parar nada. Sem isso, o sistema para de gravar em cerca de 24 horas.' : 'Reinício de 8 segundos, sem janela de manutenção. A fila volta ao normal em cerca de 6 minutos.') : 'Duas noites sem cópia. Restaurar hoje custa perder até 48 horas de dados.' },
+        { tag: 'planejar', cor: '#60a5fa', prazo: '18 dias', titulo: 'Certificado do site vence em 18 dias', texto: 'A renovação é automática. Vale confirmar uma vez que o processo rodou sozinho.' },
+        { tag: 'estrutural', cor: '#64748b', prazo: 'sem prazo', titulo: 'Servidor único, sem redundância', texto: 'Tudo roda em uma máquina. Uma falha de hardware derruba todos os serviços ao mesmo tempo. Redundância dobra o custo mensal.' }
+      ].map(r => ({ tag: r.tag, prazo: r.prazo, titulo: r.titulo, texto: r.texto,
+        estilo: 'background:var(--bg2);border:1px solid var(--bd1);border-left:3px solid ' + r.cor + ';border-radius:var(--rc2);padding:10px 11px',
+        tagEstilo: 'font-size:8.5px;letter-spacing:.11em;text-transform:uppercase;font-weight:800;padding:2px 6px;border-radius:var(--r2);background:' + r.cor + '22;color:' + r.cor })),
+
+      telasMobile
+    };
+  }
+}
+</script>
+</body>
+</html>
