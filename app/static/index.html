@@ -1,17 +1,17 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-tema="cockpit">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Cockpit Docker — Live</title>
+<title>Cockpit Docker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/css/base.css">
+<link rel="stylesheet" href="/static/css/themes.css">
 <link rel="stylesheet" href="/static/css/components.css">
 <link rel="manifest" href="/static/manifest.json">
 <meta name="theme-color" content="#0a1020">
-<meta name="apple-mobile-web-app-capable" content="yes">
 </head>
 <body>
 
@@ -19,11 +19,7 @@
   <aside class="sidebar">
     <div class="brand">
       <div class="brand-logo">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-          <path d="M2 17l10 5 10-5"/>
-          <path d="M2 12l10 5 10-5"/>
-        </svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
       </div>
       <div>
         <div class="brand-title">Cockpit Docker</div>
@@ -31,13 +27,57 @@
       </div>
     </div>
 
+    <nav class="rail" aria-label="Navegação principal">
+      <a href="#/overview" class="rail-item" aria-current="page" data-screen="overview">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        <span>Visão Geral</span>
+      </a>
+      <a href="#/plantao" class="rail-item" data-screen="plantao">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span>Plantão</span>
+      </a>
+      <a href="#/incidente" class="rail-item" data-screen="incidente">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span>Incidente</span>
+      </a>
+      <a href="#/dossie" class="rail-item" data-screen="dossie">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span>Dossiê</span>
+      </a>
+      <a href="#/logs" class="rail-item" data-screen="logs">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+        <span>Logs</span>
+      </a>
+      <a href="#/ingress" class="rail-item" data-screen="ingress">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        <span>Ingress &amp; TLS</span>
+      </a>
+      <a href="#/topologia" class="rail-item" data-screen="topologia">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="5" r="2"/><circle cx="19" cy="19" r="2"/><circle cx="5" cy="19" r="2"/><line x1="12" y1="9" x2="17" y2="7"/><line x1="12" y1="15" x2="17" y2="17"/><line x1="7" y1="7" x2="5" y2="5"/><line x1="7" y1="17" x2="5" y2="19"/></svg>
+        <span>Topologia</span>
+      </a>
+      <a href="#/backend" class="rail-item" data-screen="backend">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+        <span>Backend</span>
+      </a>
+      <a href="#/capacidade" class="rail-item" data-screen="capacidade">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        <span>Capacidade</span>
+      </a>
+      <a href="#/tarefas" class="rail-item" data-screen="tarefas">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <span>Tarefas</span>
+      </a>
+      <a href="#/executivo" class="rail-item" data-screen="executivo">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+        <span>Executivo</span>
+      </a>
+    </nav>
+
     <div class="sidebar-search">
       <div class="input-wrap">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8"/>
-          <path d="m21 21-4.35-4.35"/>
-        </svg>
-        <input type="text" class="search-input" id="searchInput" placeholder="Buscar container ou imagem...">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" class="search-input" id="searchInput" placeholder="Buscar container...">
       </div>
     </div>
 
@@ -67,11 +107,6 @@
           <div style="flex:1"><div class="skeleton" style="width:55%;height:.85rem"></div>
           <div class="skeleton" style="width:35%;height:.7rem;margin-top:.3rem"></div></div>
         </div>
-        <div style="display:flex;align-items:center;gap:.65rem;padding:.65rem .8rem">
-          <div class="skeleton" style="width:8px;height:8px;border-radius:50%"></div>
-          <div style="flex:1"><div class="skeleton" style="width:60%;height:.85rem"></div>
-          <div class="skeleton" style="width:40%;height:.7rem;margin-top:.3rem"></div></div>
-        </div>
       </div>
     </div>
   </aside>
@@ -79,73 +114,28 @@
   <main class="main">
     <header class="topbar">
       <div class="topbar-title">
-        <h1 id="mainTitle">Visão Geral do Host</h1>
+        <h1 id="mainTitle">Cockpit Docker</h1>
         <div class="muted" id="mainSubtitle">Selecione um container para inspecionar</div>
-      </div>
-
-      <div class="tab-nav" id="tabNav" style="display:none">
-        <button class="tab-btn active" data-target="overview">Overview</button>
-        <button class="tab-btn" data-target="estado">Estado</button>
-        <button class="tab-btn" data-target="health">Health</button>
-        <button class="tab-btn" data-target="rede">Rede</button>
-        <button class="tab-btn" data-target="volumes">Volumes</button>
-        <button class="tab-btn" data-target="env">Env</button>
-        <button class="tab-btn" data-target="json">JSON</button>
-        <button class="tab-btn" data-target="stats">Stats</button>
-        <button class="tab-btn" data-target="logs">Logs</button>
-        <button class="tab-btn" data-target="terminal">Terminal</button>
-        <a class="tab-btn" id="openLabBtn" href="#" target="_blank" style="background:var(--accent);color:#fff;border:none">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-          Laboratório
-        </a>
       </div>
     </header>
 
-    <div class="content" id="mainContent">
-      <div class="overview-hero">
-        <h2 style="margin:0 0 .5rem;font-size:1.5rem">Dashboard do Host</h2>
-        <p style="color:var(--text-dim);margin:0">
-          Selecione um container na lista à esquerda para ver detalhes, ou use os cards abaixo para filtrar.
-        </p>
-      </div>
-
-      <div class="kpis">
-        <div class="kpi kpi-accent">
-          <div class="kpi-label">Total de Containers</div>
-          <div class="kpi-value">—</div>
-        </div>
-        <div class="kpi kpi-ok">
-          <div class="kpi-label">Rodando</div>
-          <div class="kpi-value">—</div>
-        </div>
-        <div class="kpi kpi-warn">
-          <div class="kpi-label">Parados / Exited</div>
-          <div class="kpi-value">—</div>
-        </div>
-        <div class="kpi kpi-bad">
-          <div class="kpi-label">Unhealthy</div>
-          <div class="kpi-value">—</div>
-        </div>
-      </div>
-    </div>
+    <div id="screenContainer"></div>
   </main>
 </div>
 
-<!-- Modal de confirmação -->
+<!-- Modal -->
 <div class="modal-overlay" id="confirmModal">
   <div class="modal">
     <div class="modal-title" id="modalTitle">Confirmação</div>
     <div class="modal-text" id="modalText">Tem certeza?</div>
     <div class="modal-input-wrap" id="modalInputWrap" style="display:none">
-      <label class="modal-checkbox" style="margin-bottom:.25rem;font-size:.8rem;color:var(--text-dim)">
-        Digite <strong id="modalConfirmName"></strong> para confirmar:
-      </label>
-      <input class="modal-input" id="modalInput" type="text" placeholder="digite o nome do container">
+      <label style="margin-bottom:.25rem;font-size:.8rem;color:var(--text-dim)">Digite <strong id="modalConfirmName"></strong> para confirmar:</label>
+      <input class="modal-input" id="modalInput" type="text" placeholder="digite o nome">
     </div>
     <div class="modal-checkbox" id="modalCheckboxWrap" style="display:none">
       <label style="display:flex;align-items:center;gap:.5rem">
         <input type="checkbox" id="modalCheckbox">
-        <span id="modalCheckboxLabel">Remover volumes associados</span>
+        <span id="modalCheckboxLabel"></span>
       </label>
     </div>
     <div class="modal-actions">
@@ -158,16 +148,6 @@
 <!-- Toast container -->
 <div class="toast-container" id="toastContainer"></div>
 
-<script src="/static/js/state.js"></script>
-<script src="/static/js/helpers.js"></script>
-<script src="/static/js/notifications.js"></script>
-<script src="/static/js/api.js"></script>
-<script src="/static/js/containers.js"></script>
-<script src="/static/js/system.js"></script>
-<script src="/static/js/logs.js"></script>
-<script src="/static/js/stats.js"></script>
-<script src="/static/js/terminal.js"></script>
-<script src="/static/js/commands.js"></script>
-<script src="/static/js/main.js"></script>
+<script type="module" src="/static/js/main.js"></script>
 </body>
 </html>
