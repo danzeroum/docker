@@ -10,6 +10,7 @@ NGINX_CONFIG = os.getenv("NGINX_CONFIG_PATH", "/etc/nginx/nginx.conf")
 
 
 def _catalog_to_public(cat):
+    public_set = {s.primary_name for s in cat.public_servers}
     hosts = OrderedDict()
     for s in cat.servers:
         name = s.primary_name
@@ -65,7 +66,6 @@ def _catalog_to_public(cat):
             entry["port_443"] = pi
 
     ordered = OrderedDict(sorted(hosts.items()))
-    publics = {k: v for k, v in ordered.items() if not v.get("internal")}
     result = {}
     for k, v in ordered.items():
         cv = {}
@@ -97,12 +97,12 @@ def _catalog_to_public(cat):
         "hosts": result,
         "totals": {
             "total": len(ordered),
-            "public": len(publics),
-            "with_ssl": sum(1 for v in publics.values() if v.get("ssl")),
-            "with_hsts": sum(1 for v in publics.values() if v.get("hsts")),
-            "with_auth": sum(1 for v in publics.values() if v.get("auth_basic")),
-            "with_bot_filter": sum(1 for v in publics.values() if v.get("bot_filter")),
-            "with_http2": sum(1 for v in publics.values() if v.get("http2")),
+            "public": len(public_set),
+            "with_ssl": sum(1 for v in ordered.values() if not v.get("internal") and v.get("ssl")),
+            "with_hsts": sum(1 for v in ordered.values() if not v.get("internal") and v.get("hsts")),
+            "with_auth": sum(1 for v in ordered.values() if not v.get("internal") and v.get("auth_basic")),
+            "with_bot_filter": sum(1 for v in ordered.values() if not v.get("internal") and v.get("bot_filter")),
+            "with_http2": sum(1 for v in ordered.values() if not v.get("internal") and v.get("http2")),
         },
         "parsed_at": cat.parsed_at,
         "warnings": cat.parse_warnings,

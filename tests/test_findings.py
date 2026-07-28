@@ -423,11 +423,12 @@ def test_upstream_missing_encontra_ghost():
         pass
     ctx = Ctx()
     ctx.ingress = cat
-    ctx.containers = []
+    ctx.containers = [{"Name": "/existing-container"}]
     result = mod.evaluate(ctx)
     assert result is not None
     names = [f["target"] for f in result]
     assert "missing-upstream.btv.local" in names
+    assert "normal.btv.local" not in names
 
 
 def test_upstream_missing_com_container_existente_nao_dispara():

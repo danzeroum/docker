@@ -22,6 +22,8 @@ def evaluate(ctx):
             container_names.add(name[1:])
         elif name:
             container_names.add(name)
+    if not container_names:
+        return None
     findings = []
     seen = set()
     for s in cat.servers:

@@ -232,6 +232,18 @@ def _build_snapshot_data(cat):
     }
 
 
+def test_totals_public_igual_public_servers():
+    from ingress.parser import parse_nginx
+    from routers.ingress import _catalog_to_public
+    for fixture in ("nginx-vps.conf", "nginx-inverted.conf"):
+        text = _load(fixture)
+        cat = parse_nginx(text)
+        api = _catalog_to_public(cat)
+        assert api["totals"]["public"] == len(cat.public_servers), (
+            f"{fixture}: api.totals.public={api['totals']['public']} != len(public_servers)={len(cat.public_servers)}"
+        )
+
+
 def test_parser_vps_snapshot():
     import json
     from ingress.parser import parse_nginx

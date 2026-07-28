@@ -66,7 +66,14 @@ class IngressCatalog:
     @property
     def public_servers(self):
         internal = self._internal_hosts
-        return [s for s in self.servers if s.primary_name not in internal]
+        hosts = {}
+        for s in self.servers:
+            name = s.primary_name
+            if name == "_" or name in internal:
+                continue
+            if name not in hosts or (s.has_ssl and not hosts[name].has_ssl):
+                hosts[name] = s
+        return list(hosts.values())
 
 
 class ServerBlock:
