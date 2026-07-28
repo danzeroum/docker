@@ -375,6 +375,34 @@ def test_body_size_default_fire_contra_vps():
     assert len(result["targets"]) == 12
 
 
+def _make_internal_only_cat():
+    from ingress.parser import parse_nginx
+    text = """
+    http {
+        server {
+            listen 80;
+            server_name internal.only.local localhost;
+            location / { return 200 "ok"; }
+        }
+    }
+    """
+    return parse_nginx(text)
+
+
+def test_agregados_nao_disparam_para_host_interno():
+    from findings.rules import no_http2 as m1
+    from findings.rules import no_gzip as m2
+    from findings.rules import body_size_default as m3
+    importlib.reload(m1); importlib.reload(m2); importlib.reload(m3)
+    cat = _make_internal_only_cat()
+    class Ctx: pass
+    ctx = Ctx()
+    ctx.ingress = cat
+    assert m1.evaluate(ctx) is None
+    assert m2.evaluate(ctx) is None
+    assert m3.evaluate(ctx) is None
+
+
 def test_body_size_default_nao_dispara_contra_inverted():
     from findings.rules import body_size_default as mod
     importlib.reload(mod)

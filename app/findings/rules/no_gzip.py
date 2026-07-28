@@ -11,13 +11,10 @@ def evaluate(ctx):
     if cat.global_config.get("gzip") == "on":
         return None
     public = []
-    for s in cat.servers:
-        name = s.primary_name
-        if name == "_":
-            continue
+    for s in cat.public_servers:
         if not any(l.get("ssl", False) for l in s.listen) and not s.has_ssl:
             continue
-        public.append(name)
+        public.append(s.primary_name)
     if not public:
         return None
     return {

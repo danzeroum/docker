@@ -10,15 +10,12 @@ def evaluate(ctx):
         return None
     any_http2 = False
     public = []
-    for s in cat.servers:
-        name = s.primary_name
-        if name == "_":
-            continue
+    for s in cat.public_servers:
         if s.has_http2:
             any_http2 = True
         if not any(l.get("ssl", False) for l in s.listen) and not s.has_ssl:
             continue
-        public.append(name)
+        public.append(s.primary_name)
     if any_http2 or not public:
         return None
     return {

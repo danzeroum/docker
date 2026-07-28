@@ -55,6 +55,10 @@ class IngressCatalog:
         self.parse_warnings = []
         self.parsed_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
+    @property
+    def public_servers(self):
+        return [s for s in self.servers if not s.is_internal]
+
 
 class ServerBlock:
     def __init__(self):
@@ -85,6 +89,10 @@ class ServerBlock:
             if n != "_":
                 return n
         return self.server_name[0] if self.server_name else "_"
+
+    @property
+    def is_internal(self):
+        return "_" in self.server_name or "localhost" in self.server_name
 
 
 class LocationBlock:
