@@ -25,13 +25,18 @@ async def list_findings(
             "last_seen": r["last_seen"],
             "occurrences": r["occurrences"],
         }
+        if r.get("targets"):
+            try:
+                item["targets"] = json.loads(r["targets"])
+            except (json.JSONDecodeError, TypeError):
+                item["targets"] = []
         try:
             payload = json.loads(r["payload"]) if r["payload"] else {}
         except (json.JSONDecodeError, TypeError):
             payload = {}
         for k in ("title", "title_plain", "interpretation", "interpretation_plain",
                    "recommendation", "evidence", "impact", "facts", "actions",
-                   "caused_by", "chain", "explainer"):
+                   "caused_by", "chain", "explainer", "related_container"):
             if k in payload:
                 item[k] = payload[k]
         result.append(item)
@@ -45,13 +50,18 @@ async def get_finding_detail(finding_id: str):
         from fastapi.responses import JSONResponse
         return JSONResponse({"detail": "Finding not found"}, status_code=404)
     item = dict(r)
+    if r.get("targets"):
+        try:
+            item["targets"] = json.loads(r["targets"])
+        except (json.JSONDecodeError, TypeError):
+            item["targets"] = []
     try:
         payload = json.loads(r["payload"]) if r["payload"] else {}
     except (json.JSONDecodeError, TypeError):
         payload = {}
     for k in ("title", "title_plain", "interpretation", "interpretation_plain",
                "recommendation", "evidence", "impact", "facts", "actions",
-               "caused_by", "chain", "explainer"):
+               "caused_by", "chain", "explainer", "related_container"):
         item[k] = payload.get(k)
     item.pop("payload", None)
     return item

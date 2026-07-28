@@ -11,6 +11,7 @@ from routers.containers import router as containers_router
 from routers.system import router as system_router
 from routers.overview import router as overview_router
 from routers.findings import router as findings_router
+from routers.ingress import router as ingress_router
 from sampler import sampler_loop
 from findings.engine import findings_loop
 from db import init_db, close_db
@@ -79,3 +80,4 @@ app.include_router(containers_router)
 app.include_router(system_router)
 app.include_router(overview_router)
 app.include_router(findings_router)
+app.include_router(ingress_router)

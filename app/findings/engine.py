@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import re
 import time
 from datetime import datetime, timezone
 from sampler import get_container_inspects, get_last_sample
@@ -37,6 +38,13 @@ def _discover_rules():
 
 def _calc_score(severity, urgency=1, reach=1):
     return _SEVERITY_MAP.get(severity, 1) * 10 + urgency + min(reach, 3)
+
+
+def _extract_container_from_upstream(url):
+    if not url:
+        return None
+    m = re.match(r"https?://([^:/]+)(?::\d+)?", url)
+    return m.group(1) if m else None
 
 
 def _now():
@@ -114,6 +122,23 @@ async def _run_cycle():
     ctx.host = host
     ctx.history = history_by_id
 
+    nginx_path = os.getenv("NGINX_CONFIG_PATH", "/etc/nginx/nginx.conf")
+    try:
+        if os.path.isfile(nginx_path):
+            from ingress.parser import parse_file
+            ctx.ingress = parse_file(nginx_path)
+        else:
+            ctx.ingress = None
+    except Exception:
+        ctx.ingress = None
+
+    container_names = set()
+    for c in ctx.containers:
+        if isinstance(c, dict):
+            name = c.get("Name", "")
+            if name.startswith("/"):
+                container_names.add(name[1:])
+
     pending_supersedes = []
     rules_run = set()
 
@@ -129,6 +154,7 @@ async def _run_cycle():
 
         severity = getattr(mod, "SEVERITY", "medium")
         scope = getattr(mod, "SCOPE", "container")
+        aggregate = getattr(mod, "AGGREGATE", False)
 
         result = await _eval_rule(mod, ctx)
         if result is None:
@@ -137,6 +163,34 @@ async def _run_cycle():
         results = result if isinstance(result, list) else [result]
 
         for res in results:
+            if aggregate:
+                targets_list = res.get("targets") if isinstance(res, dict) else None
+                if not targets_list:
+                    continue
+                finding_id = rule_name
+                seen_ids.add(finding_id)
+                if not _check_debounce(rule_name, "_", mod, history_by_id.get(finding_id)):
+                    continue
+                payload = {k: v for k, v in res.items() if k not in ("targets", "target", "caused_by", "supersedes", "score_override")}
+                score = res.get("score_override") or _calc_score(severity)
+                finding = {
+                    "id": finding_id,
+                    "rule": rule_name,
+                    "target": None,
+                    "targets": json.dumps(targets_list, ensure_ascii=False),
+                    "scope": scope,
+                    "severity": severity,
+                    "score": score,
+                    "caused_by": res.get("caused_by"),
+                    "payload": json.dumps(payload, ensure_ascii=False, default=str),
+                }
+                await upsert_finding(finding)
+                supersedes = res.get("supersedes")
+                if supersedes:
+                    targets = supersedes if isinstance(supersedes, list) else [supersedes]
+                    pending_supersedes.extend(targets)
+                continue
+
             target = res.get("target") if isinstance(res, dict) else None
             if not target:
                 continue
@@ -149,6 +203,13 @@ async def _run_cycle():
 
             payload = {k: v for k, v in res.items() if k not in ("target", "caused_by", "supersedes", "score_override")}
             score = res.get("score_override") or _calc_score(severity)
+
+            if scope == "ingress":
+                upstream_url = payload.get("upstream")
+                if upstream_url:
+                    cname = _extract_container_from_upstream(upstream_url)
+                    if cname and cname in container_names:
+                        payload["related_container"] = cname
 
             finding = {
                 "id": finding_id,
@@ -174,10 +235,16 @@ async def _run_cycle():
 
     for h_id in history_by_id:
         if h_id not in seen_ids:
-            rule_of = h_id.split(".", 1)[0] if "." in h_id else ""
+            if "." in h_id:
+                rule_of = h_id.split(".", 1)[0]
+            else:
+                rule_of = h_id
             if rule_of and rule_of not in rules_run:
                 continue
-            _reset_debounce(*h_id.split(".", 1)) if "." in h_id else None
+            if "." in h_id:
+                _reset_debounce(*h_id.split(".", 1))
+            else:
+                _reset_debounce(rule_of, "_")
             await resolve_finding(h_id)
 
 

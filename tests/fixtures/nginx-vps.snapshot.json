@@ -1,0 +1,217 @@
+{
+  "hosts": {
+    "btv.buildtovalue.cloud": {
+      "port_80": {
+        "https_redirect": false,
+        "acme_challenge": false,
+        "upstream": null
+      },
+      "internal": true
+    },
+    "chatcorp.buildtovalue.cloud": {
+      "port_80": {
+        "https_redirect": true,
+        "acme_challenge": true,
+        "upstream": null
+      },
+      "bot_filter": true,
+      "port_443": {
+        "upstreams": ["http://btvchatcorp-frontend-1:80"],
+        "ssl_cert": "/etc/letsencrypt/live/chatcorp.buildtovalue.cloud/fullchain.pem",
+        "hsts": true,
+        "http2": false,
+        "locations": 2
+      }
+    },
+    "conciliaia.buildtovalue.cloud": {
+      "port_80": {
+        "https_redirect": true,
+        "acme_challenge": true,
+        "upstream": null
+      },
+      "bot_filter": true,
+      "port_443": {
+        "upstreams": ["http://conciliaai-backend:8000"],
+        "ssl_cert": "/etc/letsencrypt/live/conciliaia.buildtovalue.cloud/fullchain.pem",
+        "hsts": true,
+        "http2": false,
+        "locations": 2
+      }
+    },
+    "criptotrade.buildtovalue.cloud": {
+      "port_80": {
+        "https_redirect": true,
+        "acme_challenge": true,
+        "upstream": null
+      },
+      "bot_filter": true,
+      "port_443": {
+        "upstreams": ["http://criptotrade-app:8000", "http://criptotrade-frontend:80"],
+        "ssl_cert": "/etc/letsencrypt/live/criptotrade.buildtovalue.cloud/fullchain.pem",
+        "hsts": true,
+        "http2": false,
+        "locations": 5
+      }
+    },
+    "demo.buildtovalue.cloud": {
+      "port_80": {
+        "https_redirect": true,
+        "acme_challenge": true,
+        "upstream": null
+      },
+      "port_443": {
+        "upstreams": ["http://btv-governance:8000"],
+        "ssl_cert": "/etc/letsencrypt/live/demo.buildtovalue.cloud/fullchain.pem",
+        "hsts": true,
+        "http2": false,
+        "locations": 2
+      }
+    },
+    "docker.danzeroum.com": {
+      "port_80": {
+        "https_redirect": true,
+        "acme_challenge": true,
+        "upstream": null
+      },
+      "auth_basic": true,
+      "bot_filter": true,
+      "port_443": {
+        "upstreams": ["http://docker-cockpit:8000"],
+        "ssl_cert": "/etc/letsencrypt/live/docker.danzeroum.com/fullchain.pem",
+        "hsts": true,
+        "http2": false,
+        "locations": 2
+      }
+    },
+    "docs.buildtovalue.cloud": {
+      "port_80": {
+        "https_redirect": true,
+        "acme_challenge": true,
+        "upstream": null
+      },
+      "port_443": {
+        "upstreams": [],
+        "ssl_cert": "/etc/letsencrypt/live/docs.buildtovalue.cloud/fullchain.pem",
+        "hsts": true,
+        "http2": false,
+        "locations": 1
+      }
+    },
+    "executagent.buildtovalue.cloud": {
+      "bot_filter": true,
+      "port_80": {
+        "https_redirect": false,
+        "acme_challenge": true,
+        "upstream": "http://executagent-studio:80"
+      },
+      "port_443": {
+        "upstreams": ["http://executagent-studio:80"],
+        "ssl_cert": "/etc/letsencrypt/live/executagent.buildtovalue.cloud/fullchain.pem",
+        "hsts": true,
+        "http2": false,
+        "locations": 1
+      }
+    },
+    "familia-web.buildtovalue.cloud": {
+      "bot_filter": true,
+      "port_80": {
+        "https_redirect": false,
+        "acme_challenge": true,
+        "upstream": "http://familia-web:3000"
+      },
+      "port_443": {
+        "upstreams": ["http://familia-web:3000"],
+        "ssl_cert": "/etc/letsencrypt/live/familia-web.buildtovalue.cloud/fullchain.pem",
+        "hsts": true,
+        "http2": false,
+        "locations": 1
+      }
+    },
+    "giva.executagent.com": {
+      "port_80": {
+        "https_redirect": true,
+        "acme_challenge": true,
+        "upstream": null
+      },
+      "bot_filter": true,
+      "port_443": {
+        "upstreams": ["http://giva-api-1:8000", "http://giva-frontend-1:80"],
+        "ssl_cert": "/etc/letsencrypt/live/giva.executagent.com/fullchain.pem",
+        "hsts": true,
+        "http2": false,
+        "locations": 4
+      }
+    },
+    "juridico.buildtovalue.cloud": {
+      "port_80": {
+        "https_redirect": true,
+        "acme_challenge": true,
+        "upstream": null
+      },
+      "bot_filter": true,
+      "port_443": {
+        "upstreams": ["http://central-inteligencia-juridica:8000"],
+        "ssl_cert": "/etc/letsencrypt/live/juridico.buildtovalue.cloud/fullchain.pem",
+        "hsts": true,
+        "http2": false,
+        "locations": 5
+      }
+    },
+    "mixlirous.danzeroum.com": {
+      "port_80": {
+        "https_redirect": true,
+        "acme_challenge": true,
+        "upstream": null
+      },
+      "auth_basic": true,
+      "bot_filter": true,
+      "port_443": {
+        "upstreams": ["http://mixlirous-api:8080"],
+        "ssl_cert": "/etc/letsencrypt/live/mixlirous.danzeroum.com/fullchain.pem",
+        "hsts": true,
+        "http2": false,
+        "locations": 3
+      }
+    },
+    "prompte.buildtovalue.cloud": {
+      "port_80": {
+        "https_redirect": true,
+        "acme_challenge": true,
+        "upstream": null
+      },
+      "bot_filter": true,
+      "port_443": {
+        "upstreams": ["http://prompte-frontend:80"],
+        "ssl_cert": "/etc/letsencrypt/live/prompte.buildtovalue.cloud/fullchain.pem",
+        "hsts": true,
+        "http2": false,
+        "locations": 2
+      }
+    },
+    "squad.buildtovalue.cloud": {
+      "port_80": {
+        "https_redirect": true,
+        "acme_challenge": true,
+        "upstream": null
+      },
+      "auth_basic": true,
+      "bot_filter": true,
+      "port_443": {
+        "upstreams": ["http://btv-squad-dashboard:7878"],
+        "ssl_cert": "/etc/letsencrypt/live/squad.buildtovalue.cloud/fullchain.pem",
+        "hsts": true,
+        "http2": false,
+        "locations": 2
+      }
+    }
+  },
+  "totals": {
+    "hosts": 14,
+    "public_hosts": 13,
+    "with_ssl": 13,
+    "with_hsts": 13,
+    "with_auth": 3,
+    "with_bot_filter": 11,
+    "with_http2": 0
+  }
+}

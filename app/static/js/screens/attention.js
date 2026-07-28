@@ -71,22 +71,47 @@ export function renderAttention(container) {
       const ago = age < 60 ? `h\u00e1 ${age}s` : age < 3600 ? `h\u00e1 ${Math.floor(age / 60)}min` : `h\u00e1 ${Math.floor(age / 3600)}h`;
       const duration = f.first_seen && f.last_seen ? Math.round((new Date(f.last_seen).getTime() - new Date(f.first_seen).getTime()) / 1000) : 0;
       const durStr = duration > 60 ? `${Math.floor(duration / 60)}min` : duration > 0 ? `${duration}s` : '';
-      return `<div class="atn-card" data-id="${escapeHtml(f.id)}" style="border-left:3px solid ${color}">
+      const rel = f.related_container;
+      const isAgg = Array.isArray(f.targets);
+      const targetLabel = isAgg ? `${f.targets.length} hosts` : escapeHtml(f.target || '');
+      const targetsAttr = isAgg ? JSON.stringify(f.targets) : '';
+      return `<div class="atn-card" data-id="${escapeHtml(f.id)}" data-scope="${escapeHtml(f.scope || 'container')}" data-target="${escapeHtml(f.target || '')}" data-targets="${escapeHtml(targetsAttr)}" style="border-left:3px solid ${color}">
         <div class="atn-head">
           <span class="atn-sev" style="background:${color};color:#fff">${severityLabel(f.severity)}</span>
           <span class="atn-score">${f.score}</span>
-          <span class="atn-target">${escapeHtml(f.target)}</span>
+          <span class="atn-target">${escapeHtml(targetLabel)}</span>
           ${durStr ? `<span class="atn-occs">${durStr}</span>` : ''}
           <span class="atn-ago">${ago}</span>
         </div>
         <div class="atn-title">${escapeHtml(title)}</div>
         ${interp ? `<div class="atn-interp">${escapeHtml(interp)}</div>` : ''}
         ${f.recommendation ? `<div class="atn-reco">${escapeHtml(f.recommendation)}</div>` : ''}
+        ${rel ? `<div style="margin-top:.3rem"><a href="#/dossie?c=${encodeURIComponent(rel)}" style="font-size:.7rem;color:var(--accent);text-decoration:none" onclick="event.stopPropagation()">→ Dossiê: ${escapeHtml(rel)}</a></div>` : ''}
       </div>`;
     }).join('');
 
     list.querySelectorAll('.atn-card').forEach(card => {
-      card.addEventListener('click', () => {
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('a')) return;
+        const scope = card.dataset.scope;
+        const target = card.dataset.target;
+        const targetsRaw = card.dataset.targets;
+        if (scope === 'ingress') {
+          if (targetsRaw) {
+            try {
+              const targets = JSON.parse(targetsRaw);
+              if (targets.length) {
+                setState({ highlightedTargets: targets });
+                navigate(`#/ingress`);
+                return;
+              }
+            } catch {}
+          }
+          if (target) {
+            navigate(`#/ingress?host=${encodeURIComponent(target)}`);
+            return;
+          }
+        }
         setState({ selectedFinding: card.dataset.id });
         navigate('#/incidente');
       });

@@ -5,6 +5,7 @@ import { showToast, showConfirmModal } from './notifications.js';
 import { initCommandPalette } from './commands.js';
 import { renderOverview } from './screens/overview.js';
 import { renderAttention } from './screens/attention.js';
+import { renderIngress } from './screens/ingress.js';
 
 // --- Theme ---
 function applyTheme(tema) {
@@ -45,6 +46,10 @@ function schedule(fn, ms, key) {
   return () => { clearTimeout(id); };
 }
 
+function _route(screen) {
+  return screen ? screen.split('?')[0] : '#/overview';
+}
+
 function renderScreen(screen) {
   cancelAll();
   if (currentDispose) { currentDispose(); currentDispose = null; }
@@ -55,13 +60,13 @@ function renderScreen(screen) {
   if (!container) return;
 
   let dispose;
-  switch (screen) {
+  switch (_route(screen)) {
     case '#/overview': dispose = renderOverview(container); break;
-    case '#/dossie': renderDossie(container); break;
+    case '#/dossie': dispose = renderDossie(container); break;
     case '#/logs': renderLogs(container); break;
     case '#/plantao': renderPlaceholder(container, 'Plantão', '/api/findings', 'F1'); break;
     case '#/incidente': dispose = renderAttention(container); break;
-    case '#/ingress': renderPlaceholder(container, 'Ingress & TLS', '/api/ingress', 'F3'); break;
+    case '#/ingress': dispose = renderIngress(container); break;
     case '#/topologia': renderPlaceholder(container, 'Topologia', '/api/topology', 'F3'); break;
     case '#/capacidade': renderPlaceholder(container, 'Capacidade', '/api/metrics/history', 'F4'); break;
     case '#/tarefas': renderPlaceholder(container, 'Tarefas', '/api/tasks', 'F5'); break;
@@ -235,7 +240,22 @@ function parseInspect(data) {
 }
 
 function renderDossie(container) {
-  const id = getState().selectedContainer;
+  let id = getState().selectedContainer;
+  if (!id) {
+    const p = new URLSearchParams(location.hash.split('?')[1] || '');
+    const cname = p.get('c');
+    if (cname) {
+      const ctners = getState().containers;
+      const found = ctners.find(c => {
+        const n = (c.Names && c.Names[0] || '').replace(/^\//, '');
+        return n === cname;
+      });
+      if (found) {
+        id = found.Id;
+        setState({ selectedContainer: id });
+      }
+    }
+  }
   if (!id) {
     container.innerHTML = '<div class="content"><div class="empty">Selecione um container na lista à esquerda.</div></div>';
     return;
@@ -380,7 +400,7 @@ function renderDossie(container) {
 
   load();
 
-  currentDispose = () => {
+  return () => {
     ac.abort();
     cancel('inspect');
   };

@@ -60,6 +60,9 @@ async def init_db():
             ")",
             "CREATE INDEX IF NOT EXISTS idx_findings_status ON findings(status, score DESC)",
         ]),
+        (2, [
+            "ALTER TABLE findings ADD COLUMN targets TEXT",
+        ]),
     ]
     for ver, stmts in migrations:
         if ver > current:
@@ -82,6 +85,8 @@ async def upsert_finding(finding: dict) -> bool:
     cur = await db.execute("SELECT * FROM findings WHERE id = ?", (finding["id"],))
     existing = await cur.fetchone()
     now = _now()
+    targets_json = finding.get("targets")
+    target_val = finding.get("target")
     if existing:
         existing = dict(existing)
         if existing["status"] == "resolved":
@@ -96,26 +101,28 @@ async def upsert_finding(finding: dict) -> bool:
                 if delta < 1800:
                     await db.execute("""
                         UPDATE findings SET
-                            last_seen = ?, status = 'open', resolved_at = NULL
+                            last_seen = ?, status = 'open', resolved_at = NULL,
+                            targets = ?, target = ?
                         WHERE id = ?
-                    """, (now, finding["id"]))
+                    """, (now, targets_json, target_val, finding["id"]))
                     await db.commit()
                     return False
         await db.execute("""
             UPDATE findings SET
-                last_seen = ?, occurrences = occurrences + 1, payload = ?
+                last_seen = ?, occurrences = occurrences + 1, payload = ?,
+                targets = ?, target = ?
             WHERE id = ?
-        """, (now, finding.get("payload", "{}"), finding["id"]))
+        """, (now, finding.get("payload", "{}"), targets_json, target_val, finding["id"]))
         await db.commit()
         return False
     else:
         await db.execute("""
-            INSERT INTO findings (id, rule, target, scope, severity, score,
+            INSERT INTO findings (id, rule, target, targets, scope, severity, score,
                 caused_by, status, first_seen, last_seen, occurrences, payload)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, 1, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, 1, ?)
         """, (
-            finding["id"], finding["rule"], finding["target"], finding["scope"],
-            finding["severity"], finding.get("score", 0),
+            finding["id"], finding["rule"], target_val, targets_json,
+            finding["scope"], finding["severity"], finding.get("score", 0),
             finding.get("caused_by"), now, now, finding.get("payload", "{}"),
         ))
         await db.commit()

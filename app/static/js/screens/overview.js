@@ -161,22 +161,45 @@ export function renderOverview(container) {
       const ago = age < 60 ? `h\u00e1 ${age}s` : age < 3600 ? `h\u00e1 ${Math.floor(age / 60)}min` : `h\u00e1 ${Math.floor(age / 3600)}h`;
       const duration = f.first_seen && f.last_seen ? Math.round((new Date(f.last_seen).getTime() - new Date(f.first_seen).getTime()) / 1000) : 0;
       const durStr = duration > 60 ? `${Math.floor(duration / 60)}min` : duration > 0 ? `${duration}s` : '';
-      return `<div class="atn-mini" data-id="${escapeHtml(f.id)}" style="border-left:3px solid ${color}">
+      const rel = f.related_container;
+      const isAgg = Array.isArray(f.targets);
+      const targetLabel = isAgg ? `${f.targets.length} hosts` : escapeHtml(f.target || '');
+      const targetsAttr = isAgg ? JSON.stringify(f.targets) : '';
+      return `<div class="atn-mini" data-id="${escapeHtml(f.id)}" data-scope="${escapeHtml(f.scope || 'container')}" data-target="${escapeHtml(f.target || '')}" data-targets="${escapeHtml(targetsAttr)}" style="border-left:3px solid ${color}">
         <div class="atn-mini-head">
           <span class="atn-mini-sev" style="background:${color}">${severityLabel(f.severity)}</span>
           ${durStr ? `<span style="font-size:.6rem;color:var(--text-mute)">${durStr}</span>` : ''}
           <span class="atn-mini-ago">${ago}</span>
         </div>
         <div class="atn-mini-title">${escapeHtml(title)}</div>
+        ${rel ? `<div style="margin-top:.15rem"><a href="#/dossie?c=${encodeURIComponent(rel)}" style="font-size:.6rem;color:var(--accent);text-decoration:none" onclick="event.stopPropagation()">→ ${escapeHtml(rel)}</a></div>` : ''}
       </div>`;
     }).join('');
     div.innerHTML = items;
     div.querySelectorAll('.atn-mini').forEach(card => {
-      card.addEventListener('click', () => {
-        import('../store.js').then(({ setState }) => {
-          setState({ selectedFinding: card.dataset.id });
-          navigate('#/incidente');
-        });
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('a')) return;
+        const scope = card.dataset.scope;
+        const target = card.dataset.target;
+        const targetsRaw = card.dataset.targets;
+        if (scope === 'ingress') {
+          if (targetsRaw) {
+            try {
+              const targets = JSON.parse(targetsRaw);
+              if (targets.length) {
+                setState({ highlightedTargets: targets });
+                navigate(`#/ingress`);
+                return;
+              }
+            } catch {}
+          }
+          if (target) {
+            navigate(`#/ingress?host=${encodeURIComponent(target)}`);
+            return;
+          }
+        }
+        setState({ selectedFinding: card.dataset.id });
+        navigate('#/incidente');
       });
     });
   }
