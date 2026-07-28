@@ -63,6 +63,31 @@ async def init_db():
         (2, [
             "ALTER TABLE findings ADD COLUMN targets TEXT",
         ]),
+        (3, [
+            "CREATE TABLE IF NOT EXISTS findings_v3 ("
+            "id TEXT PRIMARY KEY,"
+            "rule TEXT NOT NULL,"
+            "target TEXT,"
+            "targets TEXT,"
+            "scope TEXT NOT NULL,"
+            "severity TEXT NOT NULL,"
+            "score INTEGER NOT NULL,"
+            "caused_by TEXT,"
+            "status TEXT NOT NULL DEFAULT 'open',"
+            "ack_reason TEXT,"
+            "ack_note TEXT,"
+            "ack_until TEXT,"
+            "first_seen TEXT NOT NULL,"
+            "last_seen TEXT NOT NULL,"
+            "resolved_at TEXT,"
+            "occurrences INTEGER NOT NULL DEFAULT 1,"
+            "payload TEXT NOT NULL"
+            ")",
+            "INSERT OR IGNORE INTO findings_v3 SELECT * FROM findings",
+            "DROP TABLE findings",
+            "ALTER TABLE findings_v3 RENAME TO findings",
+            "CREATE INDEX IF NOT EXISTS idx_findings_status ON findings(status, score DESC)",
+        ]),
     ]
     for ver, stmts in migrations:
         if ver > current:
