@@ -56,8 +56,17 @@ class IngressCatalog:
         self.parsed_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
     @property
+    def _internal_hosts(self):
+        hosts = set()
+        for s in self.servers:
+            if s.is_internal:
+                hosts.add(s.primary_name)
+        return hosts
+
+    @property
     def public_servers(self):
-        return [s for s in self.servers if not s.is_internal]
+        internal = self._internal_hosts
+        return [s for s in self.servers if s.primary_name not in internal]
 
 
 class ServerBlock:
