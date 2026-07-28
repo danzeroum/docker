@@ -83,7 +83,13 @@ async def init_db():
             "occurrences INTEGER NOT NULL DEFAULT 1,"
             "payload TEXT NOT NULL"
             ")",
-            "INSERT OR IGNORE INTO findings_v3 SELECT * FROM findings",
+            "INSERT OR IGNORE INTO findings_v3 "
+            "(id, rule, target, scope, severity, score, caused_by, status, "
+            "ack_reason, ack_note, ack_until, first_seen, last_seen, "
+            "resolved_at, occurrences, payload) "
+            "SELECT id, rule, target, scope, severity, score, caused_by, "
+            "status, ack_reason, ack_note, ack_until, first_seen, last_seen, "
+            "resolved_at, occurrences, payload FROM findings",
             "DROP TABLE findings",
             "ALTER TABLE findings_v3 RENAME TO findings",
             "CREATE INDEX IF NOT EXISTS idx_findings_status ON findings(status, score DESC)",
