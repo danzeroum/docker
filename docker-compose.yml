@@ -38,8 +38,10 @@ services:
     env_file: .env
     environment:
       SOCKET_PROXY: http://docker-cockpit-proxy:2375
+      DOCKER_HOST: tcp://docker-cockpit-proxy:2375
     volumes:
       - /opt/btv/ingress/nginx:/etc/nginx-ingress:ro
+      - /opt/btv:/opt/btv:ro
       - cockpit-data:/data
     networks:
       - internal

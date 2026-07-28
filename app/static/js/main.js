@@ -6,6 +6,7 @@ import { initCommandPalette } from './commands.js';
 import { renderOverview } from './screens/overview.js';
 import { renderAttention } from './screens/attention.js';
 import { renderIngress } from './screens/ingress.js';
+import { renderProjects } from './screens/projects.js';
 
 // --- Theme ---
 function applyTheme(tema) {
@@ -72,6 +73,7 @@ function renderScreen(screen) {
     case '#/tarefas': renderPlaceholder(container, 'Tarefas', '/api/tasks', 'F5'); break;
     case '#/executivo': renderPlaceholder(container, 'Executivo', '/api/executive', 'F5'); break;
     case '#/backend': renderPlaceholder(container, 'Backend', '/api/backend', 'F6'); break;
+    case '#/projetos': dispose = renderProjects(container); break;
     default: dispose = renderOverview(container); break;
   }
   if (dispose) currentDispose = dispose;
