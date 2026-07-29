@@ -315,10 +315,17 @@ checa_schema() {
 # ---------------------------------------------------------------------------
 # 4 · Validacao — os 4 aceites
 # ---------------------------------------------------------------------------
+# metodo, caminho, header extra -> imprime o status HTTP, ou uma palavra quando
+# nao houve resposta nenhuma.
+#
+# A distincao importa. Antes, qualquer excecao sem `.code` virava "erro", e a
+# mensagem do aceite dizia "esperado 403, veio erro — imagem antiga ainda
+# rodando?". Isso le como se o gate de escrita tivesse falhado. Nao tinha:
+# ninguem respondeu. Reprovar um aceite de seguranca por app fora do ar e
+# exatamente o tipo de diagnostico que manda consertar o lugar errado.
 codigo_http_interno() {
-  # metodo, caminho, header extra -> imprime so o status
   docker exec -i "$CONTAINER" python3 - "$1" "$2" "${3:-}" <<'PY'
-import sys, urllib.request as u
+import sys, socket, urllib.error, urllib.request as u
 metodo, caminho, header = sys.argv[1], sys.argv[2], sys.argv[3]
 h = {}
 if header:
@@ -329,9 +336,49 @@ corpo = None if metodo == "GET" else b"{}"
 req = u.Request("http://localhost:8000" + caminho, method=metodo, data=corpo, headers=h)
 try:
     print(u.urlopen(req, timeout=10).status)
-except Exception as e:
-    print(getattr(e, "code", "erro"))
+except urllib.error.HTTPError as e:
+    # resposta HTTP de verdade, inclusive 401/403/404
+    print(e.code)
+except (socket.timeout, TimeoutError):
+    print("timeout")
+except urllib.error.URLError:
+    # connection refused, app ainda subindo, ou processo caiu no meio
+    print("sem-resposta")
+except Exception:
+    print("sem-resposta")
 PY
+}
+
+# O app pode nao estar ouvindo ainda: em --validate logo depois de
+# `up -d --build app`, o container aparece Started muito antes de o uvicorn
+# aceitar conexao (init_db aplica migrations, o sampler tira a primeira
+# amostra). Sem esta espera, os primeiros aceites reprovavam por corrida.
+APP_RESPONDE="nao"
+# Segundos de espera. 30s cobre init_db + primeira amostra numa VPS carregada.
+# Sobrescrito nos testes, que nao tem app nenhum para esperar.
+ESPERA_APP_S="${ESPERA_APP_S:-30}"
+
+espera_app() {
+  titulo "3d · App ouvindo em localhost:8000"
+  local i st
+  i=0
+  while [ "$i" -lt "$ESPERA_APP_S" ]; do
+    st="$(codigo_http_interno GET /api/tasks)"
+    case "$st" in
+      sem-resposta|timeout) : ;;
+      *)
+        APP_RESPONDE="sim"
+        printf '      respondeu em %ss (status %s)\n' "$i" "$st"
+        c_ok "app ouvindo"
+        return 0
+        ;;
+    esac
+    i=$((i + 1))
+    sleep 1
+  done
+  c_bad "app nao respondeu em ${i}s — os aceites internos nao dizem nada"
+  printf '      docker compose logs app --tail 50\n'
+  printf '      isto NAO e falha do gate de escrita: nada foi exercitado.\n'
 }
 
 # Status HTTP e presenca do desafio de basic auth, em uma linha "status|desafio".
@@ -447,29 +494,66 @@ validar() {
   fi
 
   # --- aceite 1: token estatico antigo -> 403 -----------------------------
+  #
+  # A rota usada aqui era POST /api/containers/docker-cockpit/restart: o script
+  # pedia ao cockpit que reiniciasse a si mesmo. Se o gate REJEITA, da 403 e nao
+  # acontece nada — mas se o gate ACEITA, o cockpit cai no meio da validacao,
+  # a conexao morre, o status vira "sem-resposta" e o proximo aceite tambem
+  # falha. Ou seja: no unico caso em que o teste tinha algo a dizer, ele
+  # destruia a propria evidencia e culpava outra coisa.
+  #
+  # PATCH /api/tasks/<id inexistente> passa pelo MESMO require_unlock e nao
+  # muda nada em nenhum desfecho:
+  #   403 = gate recusou o token (o que se quer provar)
+  #   404 = gate ACEITOU e so nao achou o cartao -> furo, e o alarme aparece
+  # Nada e escrito de qualquer forma, e o cockpit continua de pe para responder.
   printf '\n  [1] token estatico em X-Cockpit-Unlock\n'
-  if [ -n "$TOKEN_ANTIGO" ]; then
-    ST="$(codigo_http_interno POST "/api/containers/${CONTAINER}/restart" "X-Cockpit-Unlock: ${TOKEN_ANTIGO}")"
-    printf '      restart com o token antigo -> %s\n' "$ST"
-    if [ "$ST" = "403" ]; then
-      c_ok "token estatico negado"
-    else
-      c_bad "esperado 403, veio $ST — imagem antiga ainda rodando?"
-    fi
+  if [ "$APP_RESPONDE" != "sim" ]; then
+    c_warn "app nao respondeu no 3d — pulei o aceite (nao ha o que concluir)"
   else
-    c_warn "token antigo desconhecido; testando um valor arbitrario"
-    ST="$(codigo_http_interno POST "/api/containers/${CONTAINER}/restart" "X-Cockpit-Unlock: token-invalido")"
-    if [ "$ST" = "403" ]; then c_ok "token arbitrario negado ($ST)"; else c_bad "esperado 403, veio $ST"; fi
+    ROTA_GUARDADA="/api/tasks/cartao-que-nao-existe"
+    if [ -n "$TOKEN_ANTIGO" ]; then
+      QUAL="o token antigo"
+      TOKEN_TESTE="$TOKEN_ANTIGO"
+    else
+      c_warn "token antigo desconhecido; testando um valor arbitrario"
+      QUAL="um valor arbitrario"
+      TOKEN_TESTE="token-invalido"
+    fi
+    ST="$(codigo_http_interno PATCH "$ROTA_GUARDADA" "X-Cockpit-Unlock: ${TOKEN_TESTE}")"
+    printf '      PATCH em rota guardada com %s -> %s\n' "$QUAL" "$ST"
+    case "$ST" in
+      403)
+        c_ok "token estatico negado pelo gate"
+        ;;
+      404)
+        c_bad "o gate ACEITOU $QUAL (404 = passou e so nao achou o cartao)"
+        printf '      isto e o furo da v8 de volta: require_unlock validando algo\n'
+        printf '      que nao e sessao. Nao siga com a janela.\n'
+        ;;
+      sem-resposta|timeout)
+        c_bad "sem resposta do app ($ST) — aceite inconclusivo, nao aprovado"
+        ;;
+      *)
+        c_bad "esperado 403, veio $ST"
+        ;;
+    esac
   fi
 
   # --- aceite 2: unlock so pelo ingress -----------------------------------
   printf '\n  [2] unlock via ingress 200 · direto no app 401\n'
-  ST_DIRETO="$(codigo_http_interno POST /api/session/unlock)"
-  printf '      direto em localhost:8000 -> %s\n' "$ST_DIRETO"
-  if [ "$ST_DIRETO" = "401" ]; then
-    c_ok "unlock direto negado (sem Remote-User)"
+  if [ "$APP_RESPONDE" != "sim" ]; then
+    c_warn "app nao respondeu no 3d — pulei o teste direto em localhost:8000"
   else
-    c_bad "esperado 401, veio $ST_DIRETO"
+    ST_DIRETO="$(codigo_http_interno POST /api/session/unlock)"
+    printf '      direto em localhost:8000 -> %s\n' "$ST_DIRETO"
+    case "$ST_DIRETO" in
+      401) c_ok "unlock direto negado (sem Remote-User)" ;;
+      sem-resposta|timeout)
+        c_bad "sem resposta do app ($ST_DIRETO) — inconclusivo, nao aprovado"
+        ;;
+      *) c_bad "esperado 401, veio $ST_DIRETO" ;;
+    esac
   fi
 
   if ingress_ok && escreve_ok; then
@@ -594,21 +678,24 @@ validar_board() {
   printf '\n  [5] GET /api/tasks (leitura livre)\n'
   ST="$(codigo_http_interno GET /api/tasks)"
   printf '      /api/tasks -> %s\n' "$ST"
-  if [ "$ST" = "200" ]; then
-    c_ok "board responde"
-  else
-    c_bad "esperado 200, veio $ST"
-  fi
+  case "$ST" in
+    200) c_ok "board responde" ;;
+    sem-resposta|timeout) c_bad "sem resposta do app ($ST) — nao e o board, e o processo" ;;
+    *) c_bad "esperado 200, veio $ST" ;;
+  esac
 
   # --- guard de escrita ---------------------------------------------------
   printf '\n  [6] PATCH /api/tasks sem unlock\n'
   ST="$(codigo_http_interno PATCH /api/tasks/nao-existe)"
   printf '      PATCH sem X-Cockpit-Unlock -> %s\n' "$ST"
-  if [ "$ST" = "403" ]; then
-    c_ok "escrita negada sem destravamento"
-  else
-    c_bad "esperado 403, veio $ST — o board esta escrevendo sem guard"
-  fi
+  case "$ST" in
+    403) c_ok "escrita negada sem destravamento" ;;
+    sem-resposta|timeout)
+      # "o board escreve sem guard" seria acusacao grave e errada: nada respondeu.
+      c_bad "sem resposta do app ($ST) — guard nao exercitado, aceite inconclusivo"
+      ;;
+    *) c_bad "esperado 403, veio $ST — o board esta escrevendo sem guard" ;;
+  esac
 
   # --- escrita autorizada + auditoria -------------------------------------
   printf '\n  [7] PATCH com unlock -> 200 e linha em /api/audit\n'
@@ -730,9 +817,11 @@ if [ "$MODO" = "dry-run" ]; then
   printf '  unlock pelo ingress, SSE aberto). Rodar isso antes da janela so\n'
   printf '  produziria falhas que significam "ainda nao subiu".\n'
 else
-  # A credencial vem ANTES: todo aceite via ingress atravessa o basic auth, e
-  # senha errada la embaixo aparece como 401 que o script atribuia ao
-  # Remote-User. Ver o cabecalho do passo 3c.
+  # Ordem: primeiro o app tem de estar ouvindo, senao todo aceite interno
+  # reprova por corrida com a subida. Depois a credencial, senao todo aceite via
+  # ingress reprova por senha errada apontando o Remote-User. Os dois passos
+  # existem para que uma falha adiante signifique o que diz significar.
+  espera_app
   checa_credencial
   validar
   validar_board
