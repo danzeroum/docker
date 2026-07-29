@@ -39,13 +39,25 @@ export async function apiGet(key, url, timeout = 10000) {
   }
 }
 
+function getUnlockHeader() {
+  try {
+    const raw = sessionStorage.getItem('cockpit-unlock');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed.token) return { 'X-Cockpit-Unlock': parsed.token };
+    }
+  } catch {}
+  return {};
+}
+
 export async function apiPost(key, url, options = {}) {
   const signal = getSignal(key);
+  const unlockHeader = getUnlockHeader();
   try {
     const res = await fetch(url, {
       method: 'POST',
       signal,
-      headers: { 'Accept': 'application/json' },
+      headers: { 'Accept': 'application/json', ...unlockHeader, ...(options.headers || {}) },
       ...options,
     });
     if (!res.ok) {
@@ -63,8 +75,9 @@ export async function apiPost(key, url, options = {}) {
 
 export async function apiDelete(key, url) {
   const signal = getSignal(key);
+  const unlockHeader = getUnlockHeader();
   try {
-    const res = await fetch(url, { method: 'DELETE', signal });
+    const res = await fetch(url, { method: 'DELETE', signal, headers: unlockHeader });
     if (!res.ok) {
       let detail = '';
       try { const j = await res.json(); detail = j.detail || ''; } catch {}

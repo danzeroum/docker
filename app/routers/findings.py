@@ -1,6 +1,6 @@
 import json
-from fastapi import APIRouter, Query
-from db import get_findings, get_finding
+from fastapi import APIRouter, Query, HTTPException, Body
+from db import get_findings, get_finding, ack_finding
 
 router = APIRouter(prefix="/api", tags=["findings"])
 
@@ -24,6 +24,9 @@ async def list_findings(
             "first_seen": r["first_seen"],
             "last_seen": r["last_seen"],
             "occurrences": r["occurrences"],
+            "ack_reason": r.get("ack_reason"),
+            "ack_note": r.get("ack_note"),
+            "ack_until": r.get("ack_until"),
         }
         if r.get("targets"):
             try:
@@ -65,3 +68,21 @@ async def get_finding_detail(finding_id: str):
         item[k] = payload.get(k)
     item.pop("payload", None)
     return item
+
+
+@router.post("/findings/{finding_id}/ack")
+async def ack_finding_endpoint(
+    finding_id: str,
+    reason: str = Body(..., embed=True),
+    note: str = Body("", embed=True),
+    until: str = Body("", embed=True),
+):
+    if not reason:
+        raise HTTPException(status_code=400, detail="reason é obrigatório")
+    r = await get_finding(finding_id)
+    if not r:
+        raise HTTPException(status_code=404, detail="Finding não encontrado")
+    if r["status"] == "resolved":
+        raise HTTPException(status_code=400, detail="Finding já resolvido")
+    await ack_finding(finding_id, reason, note, until)
+    return {"status": "acked", "id": finding_id, "reason": reason, "until": until}

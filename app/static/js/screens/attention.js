@@ -1,6 +1,6 @@
-import { apiGet, cancel } from '../data.js';
-import { escapeHtml, fmtDate } from '../fmt.js';
-import { showToast } from '../notifications.js';
+import { apiGet, apiPost, cancel } from '../data.js';
+import { escapeHtml } from '../fmt.js';
+import { showToast, showAckModal } from '../notifications.js';
 import { navigate } from '../main.js';
 import { getState } from '../store.js';
 
@@ -87,8 +87,31 @@ export function renderAttention(container) {
         ${interp ? `<div class="atn-interp">${escapeHtml(interp)}</div>` : ''}
         ${f.recommendation ? `<div class="atn-reco">${escapeHtml(f.recommendation)}</div>` : ''}
         ${rel ? `<div style="margin-top:.3rem"><a href="#/dossie?c=${encodeURIComponent(rel)}" style="font-size:.7rem;color:var(--accent);text-decoration:none" onclick="event.stopPropagation()">→ Dossiê: ${escapeHtml(rel)}</a></div>` : ''}
+        <div style="margin-top:.5rem;display:flex;gap:.35rem">
+          <button class="ack-btn" data-finding-id="${escapeHtml(f.id)}" style="font-size:.7rem;padding:.2rem .5rem;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text-dim);cursor:pointer;font-family:inherit" onclick="event.stopPropagation()">Silenciar</button>
+        </div>
       </div>`;
     }).join('');
+
+    list.querySelectorAll('.ack-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const findingId = btn.dataset.findingId;
+        const f = data.find(d => d.id === findingId);
+        if (!f) return;
+        const ack = await showAckModal(f);
+        if (!ack) return;
+        btn.disabled = true;
+        btn.textContent = '...';
+        const body = { reason: ack.reason };
+        if (ack.note) body.note = ack.note;
+        if (ack.until) body.until = ack.until;
+        const { error } = await apiPost('ack-' + findingId, `/api/findings/${findingId}/ack`, body);
+        if (error) { showToast(error, 'error'); btn.disabled = false; btn.textContent = 'Silenciar'; return; }
+        showToast('Achado silenciado', 'success');
+        fetchFindings();
+      });
+    });
 
     list.querySelectorAll('.atn-card').forEach(card => {
       card.addEventListener('click', (e) => {

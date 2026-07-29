@@ -7,6 +7,7 @@ import { renderOverview } from './screens/overview.js';
 import { renderAttention } from './screens/attention.js';
 import { renderIngress } from './screens/ingress.js';
 import { renderProjects } from './screens/projects.js';
+import { renderAuditoria } from './screens/auditoria.js';
 
 // --- Theme ---
 function applyTheme(tema) {
@@ -67,6 +68,7 @@ function renderScreen(screen) {
     case '#/logs': renderLogs(container); break;
     case '#/plantao': renderPlaceholder(container, 'Plantão', '/api/findings', 'F1'); break;
     case '#/incidente': dispose = renderAttention(container); break;
+    case '#/auditoria': dispose = renderAuditoria(container); break;
     case '#/ingress': dispose = renderIngress(container); break;
     case '#/topologia': renderPlaceholder(container, 'Topologia', '/api/topology', 'F3'); break;
     case '#/capacidade': renderPlaceholder(container, 'Capacidade', '/api/metrics/history', 'F4'); break;
@@ -384,14 +386,40 @@ function renderDossie(container) {
           });
           if (!r.confirmed) return;
           const qs = r.checkbox ? '?v=1' : '';
-          const { error } = await apiDelete('remove', `/api/containers/${id}${qs}`);
+          let { error } = await apiDelete('remove', `/api/containers/${id}${qs}`);
+          if (error && (error.includes('403') || error.includes('Unlock') || error.includes('ausente'))) {
+            const { showUnlockModal } = await import('./notifications.js');
+            if (!getState().unlock?.token) {
+              const token = await showUnlockModal();
+              if (!token) return;
+            }
+            const retry = await apiDelete('remove-retry', `/api/containers/${id}${qs}`);
+            if (retry.error) { showToast(retry.error, 'error'); return; }
+            showToast('Container removido', 'success');
+            setState({ selectedContainer: null });
+            navigate('#/overview');
+            return;
+          }
           if (error) { showToast(error, 'error'); return; }
           showToast('Container removido', 'success');
           setState({ selectedContainer: null });
           navigate('#/overview');
         } else {
           btn.disabled = true;
-          const { error } = await apiPost(action, `/api/containers/${id}/${action}`);
+          let { error } = await apiPost(action, `/api/containers/${id}/${action}`);
+          if (error && (error.includes('403') || error.includes('Unlock') || error.includes('ausente'))) {
+            const { showUnlockModal } = await import('./notifications.js');
+            if (!getState().unlock?.token) {
+              const token = await showUnlockModal();
+              if (!token) { btn.disabled = false; return; }
+            }
+            btn.disabled = false;
+            const retry = await apiPost(action + '-retry', `/api/containers/${id}/${action}`);
+            if (retry.error) { showToast(retry.error, 'error'); return; }
+            showToast(`Container ${action}`, 'success');
+            load();
+            return;
+          }
           if (error) { showToast(error, 'error'); btn.disabled = false; return; }
           showToast(`Container ${action}`, 'success');
           load();
@@ -511,6 +539,33 @@ document.getElementById('depthToggle')?.addEventListener('click', () => {
   const next = DEPTH_CYCLE[(idx + 1) % DEPTH_CYCLE.length];
   setState({ depth: next });
   updateDepthLabel(next);
+});
+
+// --- Unlock ---
+function updateUnlockUI() {
+  const token = getState().unlock?.token;
+  const icon = document.getElementById('unlockIcon');
+  const label = document.getElementById('unlockLabel');
+  if (token) {
+    if (icon) icon.innerHTML = '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0"/>';
+    if (label) { label.textContent = 'Travado'; label.style.color = 'var(--ok)'; }
+  } else {
+    if (icon) icon.innerHTML = '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/>';
+    if (label) { label.textContent = 'Destravar'; label.style.color = ''; }
+  }
+}
+updateUnlockUI();
+subscribe((s) => {
+  if (s.unlock !== undefined) updateUnlockUI();
+});
+
+document.getElementById('unlockBtn')?.addEventListener('click', async () => {
+  const { showUnlockModal } = await import('./notifications.js');
+  const token = await showUnlockModal();
+  if (token) {
+    setState({ unlock: { token, expiresAt: null } });
+    showToast('Destravado com sucesso', 'success');
+  }
 });
 
 // --- Theme toggle ---

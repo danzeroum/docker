@@ -200,6 +200,16 @@ async def get_finding(finding_id: str):
     row = await cur.fetchone()
     return _parse_row(row, cur.description)
 
+async def ack_finding(finding_id: str, reason: str, note: str = "", until: str = ""):
+    db = await get_db()
+    now = _now()
+    ack_until = until or ""
+    await db.execute("""
+        UPDATE findings SET status = 'acked', ack_reason = ?, ack_note = ?, ack_until = ?, last_seen = ?
+        WHERE id = ? AND status != 'resolved'
+    """, (reason, note, ack_until, now, finding_id))
+    await db.commit()
+
 async def add_audit_entry(action: str, project: str, result: str, token_label: str = "", ip: str = ""):
     db = await get_db()
     now = _now()

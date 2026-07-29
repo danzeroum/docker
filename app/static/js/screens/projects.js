@@ -1,7 +1,7 @@
 import { apiGet, apiPost } from '../data.js';
 import { escapeHtml, fmtDuration } from '../fmt.js';
-import { showToast, showConfirmModal } from '../notifications.js';
-import { setState } from '../store.js';
+import { showToast, showConfirmModal, showUnlockModal } from '../notifications.js';
+import { getState, setState } from '../store.js';
 
 export function renderProjects(container) {
   let pollTimer = null;
@@ -74,7 +74,19 @@ export function renderProjects(container) {
           if (!r.confirmed) return;
         }
         btn.disabled = true;
-        const { error } = await apiPost(`project-${ep}`, `/api/projects/${name}/${ep}`);
+        let { error, data } = await apiPost(`project-${ep}`, `/api/projects/${name}/${ep}`);
+        if (error && (error.includes('403') || error.includes('Unlock') || error.includes('ausente') || error.includes('invalido'))) {
+          if (!getState().unlock?.token) {
+            const token = await showUnlockModal();
+            if (!token) { btn.disabled = false; return; }
+          }
+          btn.disabled = false;
+          const retryRes = await apiPost(`project-${ep}-retry`, `/api/projects/${name}/${ep}`);
+          if (retryRes.error) { showToast(retryRes.error, 'error'); return; }
+          showToast(`${label}do projeto ${name}`, 'success');
+          load();
+          return;
+        }
         if (error) {
           showToast(error, 'error');
           btn.disabled = false;

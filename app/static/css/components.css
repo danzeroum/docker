@@ -408,3 +408,5 @@
 .project-card:hover{border-color:var(--accent)}
 .project-head{display:flex;align-items:flex-start;gap:.75rem}
 .project-name{font-weight:600;font-size:1rem;color:var(--text)}
+.modal-btn:disabled{opacity:.5;cursor:not-allowed}
+.modal-text select,.modal-text input[type="text"]{font-family:inherit}
