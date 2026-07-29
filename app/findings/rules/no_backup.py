@@ -55,22 +55,30 @@ def _texto_de_rotulos(container):
     return " ".join(partes).lower()
 
 
-def _e_solucao_de_backup(container):
-    """Um container conta como backup por imagem, rotulo ou nome."""
+def _e_ferramenta_de_backup(container):
+    """Sinal FORTE: imagem de ferramenta que copia volumes.
+
+    So isto silencia a regra. Nome e rotulo nao entram aqui — ver
+    `_parece_backup_de_um_servico`.
+    """
     imagem = (container.get("Config", {}).get("Image") or "").lower()
-    for conhecida in IMAGENS_DE_BACKUP:
-        if conhecida in imagem:
-            return True
+    return any(conhecida in imagem for conhecida in IMAGENS_DE_BACKUP)
 
-    rotulos = _texto_de_rotulos(container)
-    if "backup" in rotulos:
+
+def _parece_backup_de_um_servico(container):
+    """Sinal FRACO: nome ou rotulo com "backup".
+
+    Encontrado em producao: `prompte-db-backup` rodando `postgres:16-alpine` —
+    um dump do banco de UM servico, na propria maquina. Casava pelo nome e
+    calava a regra inteira, entao a VPS sem backup nenhum de volume aparecia
+    como coberta.
+
+    Sinal fraco nao silencia mais nada. Ele entra no achado como contexto: dizer
+    "existe isto, mas nao cobre a maquina" e mais util que sumir com o alerta.
+    """
+    if "backup" in _texto_de_rotulos(container):
         return True
-
-    nome = (container.get("Name") or "").lstrip("/").lower()
-    if "backup" in nome:
-        return True
-
-    return False
+    return "backup" in (container.get("Name") or "").lstrip("/").lower()
 
 
 def evaluate(ctx):
@@ -79,13 +87,19 @@ def evaluate(ctx):
         # Sem leitura do daemon nao ha o que afirmar. Ver o docstring.
         return None
 
-    encontrados = [
+    ferramentas = [
         (c.get("Name") or "").lstrip("/")
-        for c in containers
-        if _e_solucao_de_backup(c)
+        for c in containers if _e_ferramenta_de_backup(c)
     ]
-    if encontrados:
+    if ferramentas:
         return None
+
+    # Nao silenciam, mas mudam o texto: o operador precisa saber que o que
+    # existe cobre um servico, nao a maquina.
+    parciais = [
+        (c.get("Name") or "").lstrip("/")
+        for c in containers if _parece_backup_de_um_servico(c)
+    ]
 
     total = len(containers)
     return {
@@ -93,8 +107,12 @@ def evaluate(ctx):
         "title": f"Nenhuma solução de backup detectada ({total} containers)",
         "title_plain": "Os dados do servidor não estão sendo copiados",
         "interpretation": (
-            f"Nenhum dos {total} containers usa imagem, rótulo ou nome de "
-            "ferramenta de backup"
+            f"Nenhum dos {total} containers usa imagem de ferramenta de backup"
+            + (
+                f". Existe {', '.join(parciais)}, que cobre um serviço — "
+                "não os volumes da máquina"
+                if parciais else ""
+            )
         ),
         "interpretation_plain": (
             "Se este servidor falhar agora, não existe cópia dos dados "
@@ -109,7 +127,10 @@ def evaluate(ctx):
             "Contratar um destino de cópia externo e programar a cópia "
             "automática dos dados"
         ),
-        "evidence": f"{total} containers inspecionados, 0 com sinal de backup",
+        "evidence": (
+            f"{total} containers inspecionados, 0 com ferramenta de backup de volumes"
+            + (f" (parcial: {', '.join(parciais)})" if parciais else "")
+        ),
         # Vai para "precisa de decisao" no Resumo executivo: escolher destino de
         # copia custa dinheiro, e isso nao e decisao de quem opera.
         "requires_approval": True,
