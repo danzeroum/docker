@@ -9,19 +9,42 @@ o que esta seccao cobre. Nao pule a parte 3.
 
 ---
 
+## Atalho: `scripts/deploy-v8.sh`
+
+A janela inteira esta encapsulada, idempotente e na ordem certa:
+
+```bash
+cd /opt/btv/docker                       # diretorio do compose do cockpit
+export BASIC_AUTH="admin:SENHA"          # necessario para os testes via ingress
+
+bash scripts/deploy-v8.sh --dry-run      # mostra o que faria
+bash scripts/deploy-v8.sh                # janela completa
+bash scripts/deploy-v8.sh --validate     # so revalida, sem tocar em nada
+```
+
+O script para antes de subir se o bloco nginx nao atender, e nunca reescreve o `nginx.conf`
+de producao — imprime o `location /` correto e sai. O resto deste documento e o passo a passo
+manual equivalente, para quando voce quiser conduzir a mao.
+
+---
+
 ## 0 · Antes de mexer
 
 ```bash
 # backup do banco — a v8 recria unlock_state e nao ha volta automatica
-docker exec docker-cockpit sh -c 'sqlite3 /data/cockpit.db ".backup /data/pre-v8.db"' \
-  || docker cp docker-cockpit:/data/cockpit.db ./cockpit-pre-v8.db
+docker cp docker-cockpit:/data/cockpit.db ./cockpit-pre-v8.db
 
 # estado atual, para comparar depois
-docker exec docker-cockpit env | grep -E 'UNLOCK|TRUSTED' || echo "(nenhuma das duas)"
+docker exec docker-cockpit env | grep -E 'UNLOCK|TRUSTED'
 ```
 
 Registre o resultado do `grep`: e o diagnostico do bloqueio. `UNLOCK_TOKEN=<algo>` presente
 confirma o furo; `TRUSTED_GATEWAY_CIDR` ausente confirma que o unlock esta negando tudo.
+Guarde o valor de `UNLOCK_TOKEN` antes de apaga-lo — e o payload do aceite 5.1.
+
+O backup e rede de seguranca para **cockpit inoperante**, e nada mais. Se a validacao de rede
+falhar, o conserto e o CIDR ou o bloco nginx; restaurar o banco devolve o esquema antigo **e o
+furo junto**.
 
 ---
 
@@ -47,9 +70,11 @@ SUBNET=$(docker network inspect btv-prod-net \
 echo "subnet real: $SUBNET"
 
 # grava (substitui se ja existir)
-grep -q '^TRUSTED_GATEWAY_CIDR=' .env \
-  && sed -i "s|^TRUSTED_GATEWAY_CIDR=.*|TRUSTED_GATEWAY_CIDR=${SUBNET}|" .env \
-  || echo "TRUSTED_GATEWAY_CIDR=${SUBNET}" >> .env
+if grep -q '^TRUSTED_GATEWAY_CIDR=' .env; then
+  sed -i "s|^TRUSTED_GATEWAY_CIDR=.*|TRUSTED_GATEWAY_CIDR=${SUBNET}|" .env
+else
+  echo "TRUSTED_GATEWAY_CIDR=${SUBNET}" >> .env
+fi
 ```
 
 Confira que o IP do gateway cai dentro dela — e o `request.client.host` que o app vai ver:
@@ -100,7 +125,8 @@ location / {
 ```
 
 ```bash
-docker exec btv-nginx-prod nginx -t && docker exec btv-nginx-prod nginx -s reload
+docker exec btv-nginx-prod nginx -t
+docker exec btv-nginx-prod nginx -s reload
 ```
 
 ## 4 · Subir
@@ -207,14 +233,54 @@ done
   navegador (SSE da F6). Se so mudar depois de ~30 s, o SSE caiu para o polling de
   reconciliacao — volte ao passo 3.
 
-## 7 · Rollback
+## 7 · Teste negativo do fail-closed
+
+Vale rodar uma vez, para ver o guard negando por conta propria:
+
+```bash
+cp .env .env.bak
+sed -i '/^TRUSTED_GATEWAY_CIDR=/d' .env
+docker compose up -d app
+
+# qualquer unlock, mesmo pelo ingress com credencial certa
+curl -s -o /dev/null -w '%{http_code}\n' -u admin:SENHA \
+  -X POST https://docker.danzeroum.com/api/session/unlock \
+  -H 'Content-Type: application/json' -d '{}'          # esperado: 403
+
+docker compose logs --tail 20 app | grep -i "nao configurado"
+
+cp .env.bak .env
+docker compose up -d app
+```
+
+Config ausente nega e loga — nunca libera. Se esse teste devolver 200, o fail-closed quebrou e
+a janela nao deve seguir.
+
+---
+
+## 8 · Rollback
+
+**Falha de validacao de rede nao e caso de rollback.** 401 no unlock via ingress e
+`Remote-User` (passo 3); 403 "origem nao autorizada" e o CIDR (passo 2). Conserte a config e
+rode `bash scripts/deploy-v8.sh --validate` de novo.
+
+Restaurar o banco so se o cockpit estiver **inoperante**:
 
 ```bash
 docker compose down app
-docker cp ./cockpit-pre-v8.db docker-cockpit:/data/cockpit.db   # ou restaure o volume
+docker cp ./cockpit-pre-v8.db docker-cockpit:/data/cockpit.db
 # suba a imagem anterior
 ```
 
 A v8 nao tem downgrade automatico: ela recria `unlock_state` vazia. Restaurar o backup devolve
-o esquema antigo **e o furo junto** — so faca isso se o cockpit estiver inoperante, e refaca a
-janela em seguida.
+o esquema antigo **e o furo do token estatico junto** — e a janela precisa ser refeita inteira
+em seguida, nao adiada.
+
+---
+
+## Kill switch
+
+`UNLOCK_TOKEN` **nao volta** como kill switch. Se a necessidade de "travar tudo" reaparecer, a
+forma decidida e uma flag booleana (`COCKPIT_READONLY=1`) que nega toda mutacao — nunca um
+token em env, que e credencial disfarcada de configuracao e foi exatamente o defeito que a v8
+fechou. Ainda nao implementada; hoje o fail-closed e o `TRUSTED_GATEWAY_CIDR`.

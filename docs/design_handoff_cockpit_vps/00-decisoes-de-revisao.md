@@ -94,7 +94,14 @@ Achados de borda encontrados no mesmo caminho, todos com teste:
   existente (correto), então em produção o `proxy_read_timeout 60s` continuava lá: agora ele
   **diagnostica** o bloco existente em vez de passar em silêncio.
 
-Runbook da janela em `08-janela-de-deploy.md`, com a separação verificação × validação.
+Runbook da janela em `08-janela-de-deploy.md` (encapsulado em `scripts/deploy-v8.sh`), com a
+separação verificação × validação.
+
+**Kill switch não volta como token.** Remover `UNLOCK_TOKEN` também removeu o efeito colateral
+de "env vazia = ninguém escreve". Se essa capacidade for necessária de novo, ela é uma flag
+booleana (`COCKPIT_READONLY=1`) que nega toda mutação — nunca um token em env. Um segredo em
+configuração é credencial disfarçada de config, e é precisamente o que a v8 fechou. Hoje o
+fail-closed é o `TRUSTED_GATEWAY_CIDR`; a flag ainda não está implementada.
 
 ---
 
