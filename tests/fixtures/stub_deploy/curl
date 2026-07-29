@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# Stub de curl para exercitar deploy-cockpit.sh sem VPS.
+#
+# Le o cenario de STUB_CENARIO:
+#   senha_errada  — /api/system com a credencial informada devolve 401 do nginx
+#   ok            — credencial boa aceita, credencial falsa recusada
+#   auth_aberto   — qualquer credencial passa (auth_basic desligado no nginx)
+#
+# So precisa cobrir o que o script pede: -i (com cabecalhos), -w '%{http_code}'
+# e o corpo JSON de algumas rotas.
+
+CRED=""
+URL=""
+COM_CABECALHO=0
+SO_STATUS=0
+METODO="GET"
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -u) CRED="$2"; shift 2 ;;
+    -i) COM_CABECALHO=1; shift ;;
+    -w) case "$2" in *http_code*) SO_STATUS=1 ;; esac; shift 2 ;;
+    -X) METODO="$2"; shift 2 ;;
+    -o|-d|-H|--max-time) shift 2 ;;
+    -s|-N) shift ;;
+    http*|https*) URL="$1"; shift ;;
+    *) shift ;;
+  esac
+done
+
+# A credencial "certa" e a que o teste exporta como STUB_CRED_BOA.
+credencial_boa() {
+  [ "$CRED" = "${STUB_CRED_BOA:-cockpit:senha-certa}" ]
+}
+
+status_de_system() {
+  case "${STUB_CENARIO:-ok}" in
+    senha_errada) printf '401\n' ;;
+    auth_aberto)  printf '200\n' ;;
+    *) if credencial_boa; then printf '200\n'; else printf '401\n'; fi ;;
+  esac
+}
+
+STATUS=200
+CORPO='{}'
+
+case "$URL" in
+  */api/system*)
+    STATUS="$(status_de_system)"
+    CORPO='{"platform":"Linux"}'
+    ;;
+  */api/session/unlock*)
+    STATUS=200
+    # token diferente a cada chamada, como o produto faz
+    CORPO="{\"token\":\"tok-$RANDOM$RANDOM\",\"expires_at\":\"2026-07-30T00:00:00Z\"}"
+    ;;
+  */api/findings*)
+    STATUS=200
+    CORPO='[{"id":"healthcheck_never_passed.x","rule":"healthcheck_never_passed","severity":"high"}]'
+    ;;
+  */api/audit*)
+    STATUS=200
+    CORPO='[{"action":"ack","token_label":"cockpit"},{"action":"task_move","token_label":"cockpit"}]'
+    ;;
+  */api/tasks*)
+    STATUS=200
+    CORPO='{"columns":[{"col":"todo","tasks":[{"id":"t1","col":"todo"}]}]}'
+    ;;
+  */api/events/stream*)
+    STATUS=200
+    CORPO=''
+    ;;
+esac
+
+if [ "$SO_STATUS" = "1" ]; then
+  printf '%s' "$STATUS"
+  exit 0
+fi
+
+if [ "$COM_CABECALHO" = "1" ]; then
+  printf 'HTTP/1.1 %s x\r\n' "$STATUS"
+  if [ "$STATUS" = "401" ]; then
+    # O desafio e o que denuncia que o 401 veio do nginx, nao do app.
+    printf 'WWW-Authenticate: Basic realm="cockpit"\r\n'
+  fi
+  printf 'Content-Type: application/json\r\n\r\n'
+fi
+
+printf '%s' "$CORPO"
