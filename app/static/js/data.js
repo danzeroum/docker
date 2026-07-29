@@ -39,6 +39,26 @@ export async function apiGet(key, url, timeout = 10000) {
   }
 }
 
+// Rota de texto le com .text(); so JSON passa por apiGet.
+// /api/containers/{id}/logs devolve text/plain (o demux das molduras de 8
+// bytes do Docker acontece no servidor). Passar isso por apiGet dava
+// "Unexpected non-whitespace character after JSON" na primeira linha de log.
+export async function apiGetText(key, url, timeout = 10000) {
+  const signal = getSignal(key);
+  try {
+    const res = await fetch(url, { signal, headers: { 'Accept': 'text/plain' } });
+    if (!res.ok) {
+      let detail = '';
+      try { const j = await res.json(); detail = j.detail || ''; } catch {}
+      return { error: detail || `HTTP ${res.status}` };
+    }
+    return { data: await res.text() };
+  } catch (err) {
+    if (err.name === 'AbortError') return { error: 'abortado' };
+    return { error: err.message || 'Erro de rede' };
+  }
+}
+
 function getUnlockHeader() {
   try {
     const raw = sessionStorage.getItem('cockpit-unlock');

@@ -23,7 +23,7 @@ CLASSES_CONVERTIDAS = [
 ]
 
 # Cartoes que tem interativo dentro e por isso usam o botao esticado.
-CARTOES_ESTICADOS = ["atn-card", "atn-mini", "ig-finding"]
+CARTOES_ESTICADOS = ["atn-card", "atn-mini", "ig-finding", "plt-card"]
 
 
 def _todo_o_js():

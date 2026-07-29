@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Query
 from db import get_host_series, get_findings, get_first_sample_time
@@ -34,6 +35,25 @@ def _days_to(threshold, slope, intercept):
 
 
 _REPLAY_CACHE = {}
+
+
+def _payload(finding):
+    """Payload de achado como dict, sem nunca levantar.
+
+    Esta tela e a unica leitora de `payload` fora de /api/findings, e um
+    payload truncado no banco nao pode virar 500 em Capacidade: campo ausente
+    e um dado que falta, nao um erro do servidor.
+    """
+    raw = finding.get("payload")
+    if isinstance(raw, dict):
+        return raw
+    if not isinstance(raw, str) or not raw:
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
 
 
 @router.get("/metrics/history")
@@ -74,6 +94,9 @@ async def get_metrics_history(
     result["projection"] = {
         "method": "ols",
         "slope_per_day": ols["slope_per_day"],
+        # a tela desenha as barras projetadas com intercept + slope*x; sem o
+        # intercept a altura virava NaN e a projecao sumia sem erro nenhum
+        "intercept": ols["intercept"],
         "r2": ols["r2"],
         "stable": True,
         "days_to_80": _days_to(80, ols["slope_per_day"], ols["intercept"]),
@@ -129,12 +152,7 @@ async def get_capacity():
     ]
 
     for f in cert_findings:
-        text = f.get("payload", "{}")
-        try:
-            import json
-            p = json.loads(text) if isinstance(text, str) else text
-        except Exception:
-            p = {}
+        p = _payload(f)
         domain = p.get("server_name") or f.get("target", "?")
         expires = p.get("expires_at", "")
         item = {"text": f"Certificado de {domain} vence em {expires}", "source": f"finding:{f['rule']}:{f['id']}"}
@@ -142,7 +160,7 @@ async def get_capacity():
 
     for f in critical:
         if f.get("rule", "").startswith("disk_"):
-            pct = json.loads(f.get("payload", "{}")).get("pct", "?") if isinstance(f.get("payload"), str) else "?"
+            pct = _payload(f).get("pct", "?")
             item = {"text": f"Disco em {f.get('target', '?')}: {pct}%", "source": f"finding:{f['rule']}:{f['id']}"}
             windows[0]["items"].append(item)
         elif f.get("rule", "").startswith("oom") or f.get("rule", "").startswith("restart"):

@@ -13,6 +13,8 @@ Estes testes olham — sem navegador, so pelo que da para afirmar lendo o codigo
 """
 import pathlib
 import re
+import shutil
+import subprocess
 import pytest
 
 RAIZ = pathlib.Path(__file__).resolve().parent.parent
@@ -44,6 +46,28 @@ def test_sem_redeclaracao_no_topo_do_modulo(arquivo):
             f"{tipo} no topo do modulo — SyntaxError, o modulo nao carrega"
         )
         vistos[nome] = tipo
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node ausente")
+@pytest.mark.parametrize("arquivo", ARQUIVOS, ids=lambda p: p.name)
+def test_modulo_passa_pelo_parser_de_verdade(arquivo):
+    """O teste acima e regex; este e o parser.
+
+    `node --check arquivo.js` NAO serve para isto: num arquivo com `import` o
+    node detecta ESM e sai 0 mesmo com `let` duplicado — justamente o erro que
+    matou a interface. Provado no node 22.22:
+
+        printf 'let a=1;\\nlet a=2;\\n' > d.js            -> exit 1
+        printf 'import{x}from"./y.js";\\nlet a=1;\\nlet a=2;\\n' > d2.js -> exit 0
+
+    Com --input-type=module lendo da entrada padrao, o parse acontece. Assim
+    qualquer SyntaxError e pego, nao so a redeclaracao no topo que a regex ve.
+    """
+    r = subprocess.run(
+        ["node", "--input-type=module", "--check"],
+        stdin=arquivo.open("rb"), capture_output=True, text=True, timeout=30,
+    )
+    assert r.returncode == 0, f"{arquivo.name} nao e um modulo ES valido:\n{r.stderr}"
 
 
 @pytest.mark.parametrize("arquivo", ARQUIVOS, ids=lambda p: p.name)
