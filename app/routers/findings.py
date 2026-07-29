@@ -41,7 +41,8 @@ async def list_findings(
         except (json.JSONDecodeError, TypeError):
             payload = {}
         for k in ("title", "title_plain", "interpretation", "interpretation_plain",
-                   "recommendation", "evidence", "impact", "facts", "actions",
+                   "recommendation", "recommendation_plain", "evidence",
+                   "impact", "impact_plain", "facts", "actions",
                    "caused_by", "chain", "explainer", "related_container"):
             if k in payload:
                 item[k] = payload[k]
@@ -66,7 +67,8 @@ async def get_finding_detail(finding_id: str):
     except (json.JSONDecodeError, TypeError):
         payload = {}
     for k in ("title", "title_plain", "interpretation", "interpretation_plain",
-               "recommendation", "evidence", "impact", "facts", "actions",
+               "recommendation", "recommendation_plain", "evidence",
+               "impact", "impact_plain", "facts", "actions",
                "caused_by", "chain", "explainer", "related_container"):
         item[k] = payload.get(k)
     item.pop("payload", None)

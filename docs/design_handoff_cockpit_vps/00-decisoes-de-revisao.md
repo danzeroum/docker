@@ -139,6 +139,29 @@ assert falhava, a thread da aiosqlite sobrevivia e o pytest ficava pendurado no 
 sem erro, sem saída, só um processo parado. O sintoma parece hang de infraestrutura e é falha de
 teste. `close_db()` agora mora no `finally`, e conexões cruas abertas no meio do teste também.
 
+## `no_backup` — a primeira regra de ausência
+
+As 16 regras anteriores observam algo **quebrado**. Esta observa uma **ausência**, e isso muda
+duas coisas no desenho:
+
+**Ausência de dado não é evidência de ausência.** Se `ctx.containers` vier vazio — socket-proxy
+reiniciando, por exemplo — a regra se cala. Afirmar "não há backup" porque não conseguimos listar
+container nenhum seria inventar um crítico a partir de uma falha de leitura. É o mesmo erro da
+primeira versão da regra de OOM, com outra roupa.
+
+**Container de backup parado não dispara.** A afirmação é "não existe solução configurada";
+stack parada é outro problema e já tem dono (`upstream_missing`, `unhealthy`, a tela Projetos).
+Regra que reivindica mais do que observa manda o operador para o lugar errado com ar de certeza.
+
+Detecção por três sinais independentes — imagem (lista de ferramentas conhecidas, casamento por
+substring), rótulo contendo `backup`, ou nome do container. Qualquer um basta: o custo de um
+falso negativo (não avisar que não há backup) é muito maior que o de um falso positivo aqui.
+
+**`impact_plain` e `recommendation_plain` não chegavam na API.** A whitelist de `findings.py` só
+repassava `title_plain` e `interpretation_plain` — as outras variantes eram gravadas no payload e
+descartadas na resposta, em silêncio. Corrigido junto, porque o Resumo executivo depende
+justamente dessas duas para falar de impacto e conserto sem jargão.
+
 ---
 
 ## Correções à primeira versão do handoff
