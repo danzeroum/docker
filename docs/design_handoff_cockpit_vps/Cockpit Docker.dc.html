@@ -265,9 +265,12 @@
                       </div>
                       <div style="font-size:12px;font-weight:650;line-height:1.3;letter-spacing:-.01em">{{ f.titulo }}</div>
                       <div style="{{ f.corpoEstilo }}">{{ f.corpo }}</div>
-                      <div onClick="{{ f.onAcao }}" style="{{ f.acaoEstilo }}">
-                        <span>{{ f.acaoLabel }}</span>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="width:11px;height:11px"><path d="m9 18 6-6-6-6"></path></svg>
+                      <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+                        <div onClick="{{ f.onAcao }}" style="{{ f.acaoEstilo }}">
+                          <span>{{ f.acaoLabel }}</span>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="width:11px;height:11px"><path d="m9 18 6-6-6-6"></path></svg>
+                        </div>
+                        <div onClick="{{ f.onSilenciar }}" style="{{ f.silenciarEstilo }}">silenciar</div>
                       </div>
                     </div>
                   </sc-for>
@@ -914,13 +917,189 @@
         </div>
       </sc-if>
 
+      <!-- ===================== PROJETOS / STACKS ===================== -->
+      <sc-if value="{{ isProjetos }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:11px">
+          <div style="display:flex;align-items:center;gap:16px;background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:9px 14px;flex-shrink:0">
+            <sc-for list="{{ projStats }}" as="s" hint-placeholder-count="4">
+              <div style="display:flex;align-items:baseline;gap:5px">
+                <span style="{{ s.valorEstilo }}">{{ s.valor }}</span>
+                <span style="font-size:10px;color:#64748b;letter-spacing:.06em;text-transform:uppercase;font-weight:700">{{ s.label }}</span>
+              </div>
+            </sc-for>
+            <span style="flex:1;min-width:0;font-size:11px;color:var(--txd);text-align:right;line-height:1.4">{{ projIntro }}</span>
+          </div>
+          <div style="flex:1;min-height:0;overflow-y:auto;display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:min-content;gap:11px;align-content:start">
+            <sc-for list="{{ projetos }}" as="p" hint-placeholder-count="12">
+              <div style="{{ p.estilo }}">
+                <div style="display:flex;align-items:center;gap:7px;margin-bottom:2px">
+                  <span style="{{ p.pontoEstilo }}"></span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.nome }}</span>
+                  <span style="{{ p.statusEstilo }}">{{ p.status }}</span>
+                </div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:9px">{{ p.path }}</div>
+                <div style="display:flex;gap:16px;margin-bottom:9px">
+                  <div>
+                    <div style="{{ p.ctrEstilo }}">{{ p.ctr }}</div>
+                    <div style="font-size:9px;color:#64748b;letter-spacing:.06em;text-transform:uppercase;font-weight:700">containers</div>
+                  </div>
+                  <div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;color:var(--txd)">{{ p.mem }}</div>
+                    <div style="font-size:9px;color:#64748b;letter-spacing:.06em;text-transform:uppercase;font-weight:700">memória</div>
+                  </div>
+                </div>
+                <div style="{{ p.avisoEstilo }}">{{ p.aviso }}</div>
+                <div style="display:flex;gap:6px;margin-top:10px;padding-top:9px;border-top:1px solid var(--bd0)">
+                  <div onClick="{{ p.onAcao }}" style="{{ p.acaoEstilo }}">{{ p.acaoLabel }}</div>
+                  <div onClick="{{ p.onLogs }}" style="{{ p.verEstilo }}">{{ p.verLabel }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ===================== AUDITORIA ===================== -->
+      <sc-if value="{{ isAuditoria }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-height:0;display:grid;grid-template-columns:1fr 320px;gap:12px">
+          <div style="background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);display:flex;flex-direction:column;min-height:0">
+            <div style="display:flex;align-items:center;gap:9px;padding:11px 13px;border-bottom:1px solid var(--bd1)">
+              <span style="font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700;flex:1">Registro de ações · últimas 48h</span>
+              <sc-for list="{{ audFiltros }}" as="f" hint-placeholder-count="3">
+                <div style="{{ f.estilo }}">{{ f.label }}</div>
+              </sc-for>
+            </div>
+            <div style="display:flex;gap:10px;padding:7px 13px;border-bottom:1px solid var(--bd1);font-size:8.5px;letter-spacing:.11em;text-transform:uppercase;color:#64748b;font-weight:700">
+              <span style="width:92px;flex-shrink:0">Quando</span>
+              <span style="width:56px;flex-shrink:0">Quem</span>
+              <span style="width:70px;flex-shrink:0">Ação</span>
+              <span style="flex:1">Alvo</span>
+              <span style="width:70px;text-align:right;flex-shrink:0">Resultado</span>
+            </div>
+            <div style="flex:1;min-height:0;overflow-y:auto">
+              <sc-for list="{{ auditoria }}" as="a" hint-placeholder-count="9">
+                <div style="{{ a.linhaEstilo }}">
+                  <span style="width:92px;flex-shrink:0;font-family:'JetBrains Mono',monospace;font-size:10px;color:#64748b">{{ a.quando }}</span>
+                  <span style="width:56px;flex-shrink:0;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tx2)">{{ a.quem }}</span>
+                  <span style="width:70px;flex-shrink:0"><span style="{{ a.acaoEstilo }}">{{ a.acao }}</span></span>
+                  <span style="flex:1;min-width:0;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ a.alvo }}</span>
+                  <span style="width:70px;flex-shrink:0;text-align:right"><span style="{{ a.resEstilo }}">{{ a.res }}</span></span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px;min-height:0">
+            <div style="{{ sessao.estilo }}">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;flex-shrink:0;color:{{ sessao.corTitulo }}"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                <span style="font-size:11px;font-weight:700;letter-spacing:.04em;color:{{ sessao.corTitulo }}">{{ sessao.titulo }}</span>
+              </div>
+              <div style="font-size:11px;color:var(--txd);line-height:1.5">{{ sessao.texto }}</div>
+            </div>
+            <div style="background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:12px 13px">
+              <div style="font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#64748b;font-weight:700;margin-bottom:8px">O que é auditado</div>
+              <sc-for list="{{ auditados }}" as="a" hint-placeholder-count="7">
+                <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--bd0)">
+                  <span style="{{ a.pontoEstilo }}"></span>
+                  <span style="flex:1;min-width:0;font-size:11px;color:var(--tx2)">{{ a.t }}</span>
+                  <span style="{{ a.valorEstilo }}">{{ a.valor }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="flex:1;min-height:0;background:var(--sf);border:1px solid var(--bd1);border-radius:var(--rc);padding:12px 13px;display:flex;flex-direction:column;justify-content:center;gap:12px">
+              <sc-for list="{{ audStats }}" as="s" hint-placeholder-count="3">
+                <div style="display:flex;align-items:baseline;gap:9px">
+                  <span style="{{ s.valorEstilo }}">{{ s.v }}</span>
+                  <span style="font-size:11px;color:var(--txd);line-height:1.3">{{ s.l }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
     </div>
   </main>
+
+  <!-- ===================== MODAL · DESTRAVAR ===================== -->
+  <sc-if value="{{ modalUnlock }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ onFecharModal }}" style="position:absolute;inset:0;z-index:50;background:rgba(4,8,18,.68);display:flex;align-items:center;justify-content:center;padding:20px">
+      <div onClick="{{ stopProp }}" style="width:442px;background:var(--sf);border:1px solid var(--bd2);border-radius:var(--rc);box-shadow:0 24px 70px rgba(0,0,0,.5);overflow:hidden">
+        <div style="padding:15px 17px;border-bottom:1px solid var(--bd1);display:flex;align-items:center;gap:11px">
+          <div style="width:32px;height:32px;border-radius:var(--rc2);display:grid;place-items:center;flex-shrink:0;background:rgba(245,158,11,.16);color:var(--wn-t)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:700">Destravar ações desta sessão</div>
+            <div style="font-size:10.5px;color:var(--txd);margin-top:1px">libera parar, reiniciar e remover por 30 minutos</div>
+          </div>
+        </div>
+        <div style="padding:15px 17px;display:flex;flex-direction:column;gap:12px">
+          <div style="font-size:12px;color:var(--tx2);line-height:1.55">Enquanto destravada, toda ação de escrita é aplicada no servidor real e registrada na auditoria com o seu usuário. A sessão volta a travar sozinha ao fim dos 30 minutos.</div>
+          <div>
+            <div style="font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:#64748b;font-weight:700;margin-bottom:5px">Motivo <span style="color:var(--txm);text-transform:none;letter-spacing:0">· opcional, entra no registro</span></div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txm);background:var(--bg2);border:1px solid var(--bd1);border-radius:var(--r);padding:9px 11px">janela de manutenção · subir limite do criptotrade-app<span style="color:var(--ac);font-weight:700">▏</span></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid var(--bd1);border-radius:var(--r);padding:8px 11px">
+            <span style="font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:#64748b;font-weight:700">Validade</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:var(--tx)">30 min</span>
+            <span style="font-size:10.5px;color:var(--txd);margin-left:auto">renova a cada ação</span>
+          </div>
+        </div>
+        <div style="padding:13px 17px;border-top:1px solid var(--bd1);display:flex;gap:9px">
+          <div onClick="{{ onFecharModal }}" style="padding:9px 16px;border-radius:var(--r);font-size:12px;font-weight:600;cursor:pointer;background:var(--bd0);color:var(--txd);border:1px solid var(--bd1)">Cancelar</div>
+          <div onClick="{{ onUnlockConfirm }}" style="flex:1;text-align:center;padding:9px;border-radius:var(--r);font-size:12px;font-weight:700;cursor:pointer;background:#f59e0b;color:#0a1020">Destravar por 30 min</div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===================== MODAL · SILENCIAR ACHADO ===================== -->
+  <sc-if value="{{ modalAck }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ onFecharModal }}" style="position:absolute;inset:0;z-index:50;background:rgba(4,8,18,.68);display:flex;align-items:center;justify-content:center;padding:20px">
+      <div onClick="{{ stopProp }}" style="width:472px;background:var(--sf);border:1px solid var(--bd2);border-radius:var(--rc);box-shadow:0 24px 70px rgba(0,0,0,.5);overflow:hidden">
+        <div style="padding:15px 17px;border-bottom:1px solid var(--bd1)">
+          <div style="font-size:14px;font-weight:700">Silenciar achado</div>
+          <div style="font-size:11px;color:var(--txd);margin-top:3px;line-height:1.45">Sai da fila de atenção e volta sozinho no prazo escolhido. Continua no histórico — silenciar não é resolver.</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tx2);background:var(--bg2);border:1px solid var(--bd1);border-radius:var(--r);padding:7px 9px;margin-top:9px;word-break:break-word">{{ ackFinding }}</div>
+        </div>
+        <div style="padding:14px 17px;display:flex;flex-direction:column;gap:13px">
+          <div>
+            <div style="font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:#64748b;font-weight:700;margin-bottom:7px">Motivo <span style="color:#ef4444">· obrigatório</span></div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <sc-for list="{{ ackMotivos }}" as="m" hint-placeholder-count="3">
+                <div onClick="{{ m.onClick }}" style="{{ m.estilo }}">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span style="{{ m.radioEstilo }}"></span>
+                    <span style="{{ m.tEstilo }}">{{ m.t }}</span>
+                  </div>
+                  <span style="font-size:10.5px;color:var(--txd);line-height:1.4;margin-left:22px">{{ m.d }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:#64748b;font-weight:700;margin-bottom:7px">Volta a aparecer em</div>
+            <div style="display:flex;gap:6px">
+              <sc-for list="{{ ackDurs }}" as="d" hint-placeholder-count="4">
+                <div onClick="{{ d.onClick }}" style="{{ d.estilo }}">{{ d.label }}</div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        <div style="padding:13px 17px;border-top:1px solid var(--bd1);display:flex;gap:9px;align-items:center">
+          <span style="{{ ackAvisoEstilo }}">{{ ackAviso }}</span>
+          <div onClick="{{ onFecharModal }}" style="padding:9px 16px;border-radius:var(--r);font-size:12px;font-weight:600;cursor:pointer;background:var(--bd0);color:var(--txd);border:1px solid var(--bd1)">Cancelar</div>
+          <div onClick="{{ onAckConfirm }}" style="{{ ackConfirmEstilo }}">Silenciar</div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900},&quot;tema&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;cockpit&quot;,&quot;escritorio&quot;,&quot;claro&quot;],&quot;default&quot;:&quot;cockpit&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Tema&quot;},&quot;perfil&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;sre&quot;,&quot;dev&quot;,&quot;estudante&quot;,&quot;gestor&quot;,&quot;auditor&quot;],&quot;default&quot;:&quot;sre&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Público&quot;},&quot;cenario&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;normal&quot;,&quot;incidente&quot;,&quot;disco&quot;],&quot;default&quot;:&quot;incidente&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Estado simulado&quot;}}">
 class Component extends DCLogic {
-  state = { screen: null, tema: null, perfil: null, depth: null, cenario: null, destravado: false, alerta: 'faixa', sel: 'criptotrade-app' };
+  state = { screen: null, tema: null, perfil: null, depth: null, cenario: null, destravado: false, alerta: 'faixa', sel: 'criptotrade-app', modal: null, ackFinding: null, ackReason: null, ackDur: '7d' };
 
   perfis = {
     sre:       { curto: 'Operador / SRE',   depth: 'informacao',   cor: 'var(--ac)' },
@@ -1174,16 +1353,18 @@ class Component extends DCLogic {
       { id: 'overview', label: 'Visão geral', badge: '' },
       { id: 'incidente', label: 'Atenção agora', badge: cen.severidade === 'crit' ? '1' : '' },
       { id: 'detalhe', label: 'Containers', badge: '15' },
+      { id: 'projetos', label: 'Projetos (stacks)', badge: '3' },
       { id: 'logs', label: 'Logs & métricas', badge: '' },
       { id: 'ingress', label: 'Ingress & TLS', badge: '4' },
       { id: 'topologia', label: 'Topologia', badge: '' },
       { id: 'backend', label: 'Backend & API', badge: '' },
       { id: 'capacidade', label: 'Capacidade', badge: '' },
       { id: 'tarefas', label: 'Tarefas', badge: '10' },
+      { id: 'auditoria', label: 'Auditoria', badge: '' },
       { id: 'gestor', label: 'Resumo executivo', badge: '' },
       { id: 'mobile', label: 'Plantão mobile', badge: '' }
     ];
-    const relev = { sre: ['overview','incidente','detalhe','logs','capacidade','mobile'], dev: ['overview','detalhe','logs','backend','incidente','ingress'], estudante: ['overview','topologia','incidente','detalhe','ingress'], gestor: ['gestor','overview','incidente','capacidade','tarefas'], auditor: ['ingress','overview','topologia','backend','capacidade','detalhe'] };
+    const relev = { sre: ['overview','incidente','detalhe','projetos','logs','capacidade','auditoria','mobile'], dev: ['overview','detalhe','projetos','logs','backend','incidente','ingress'], estudante: ['overview','topologia','incidente','detalhe','ingress'], gestor: ['gestor','overview','incidente','capacidade','tarefas','auditoria'], auditor: ['ingress','overview','topologia','backend','auditoria','capacidade','detalhe'] };
     const navItens = nav.map(n => {
       const on = n.id === S, rel = relev[P].includes(n.id);
       return { label: n.label, badge: n.badge, onClick: ir(n.id),
@@ -1264,7 +1445,9 @@ class Component extends DCLogic {
       estilo: 'background:' + (f.cor === '#ef4444' ? 'rgba(239,68,68,.08)' : 'var(--bg2)') + ';border:1px solid ' + (f.cor === '#ef4444' ? 'rgba(239,68,68,.35)' : 'var(--bd1)') + ';border-left:3px solid ' + f.cor + ';border-radius:var(--rc2);padding:9px 10px',
       sevEstilo: 'font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;font-weight:800;padding:2px 6px;border-radius:var(--r2);background:' + f.cor + '22;color:' + f.cor,
       corpoEstilo: 'font-size:10.5px;color:var(--txd);line-height:1.45;margin-top:4px',
-      acaoEstilo: 'display:inline-flex;align-items:center;gap:4px;margin-top:8px;font-size:10.5px;font-weight:650;color:var(--ac-t);cursor:pointer' }));
+      acaoEstilo: 'display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:650;color:var(--ac-t);cursor:pointer',
+      onSilenciar: () => this.setState({ modal: 'ack', ackFinding: f.titulo, ackReason: null, ackDur: '7d' }),
+      silenciarEstilo: 'margin-left:auto;font-size:10px;font-weight:600;color:var(--txm);cursor:pointer;padding:2px 8px;border-radius:var(--r2);border:1px solid var(--bd1)' }));
 
     const inc = this.incidenteDados();
     const tomCor = { crit: '#ef4444', warn: '#f59e0b', info: '#60a5fa' };
@@ -1533,6 +1716,8 @@ class Component extends DCLogic {
       overview: ['Visão geral', 'srv1351082 · 15 containers · 12 stacks · 13 domínios · leitura a cada 5s'],
       ingress: ['Ingress & TLS', 'nginx.conf · 13 hosts · 12 certificados · 11 achados de configuração'],
       capacidade: ['Capacidade e antecipação', 'para onde a VPS caminha em 24 horas, 7 e 30 dias'],
+      projetos: ['Projetos e stacks', '/opt/btv/* · 15 projetos em disco · 3 parados com domínio ativo'],
+      auditoria: ['Auditoria de ações', 'toda mutação exige sessão destravada e fica registrada · leitura não'],
       incidente: ['Atenção agora', 'diagnóstico assistido · cenário: ' + cen.rotulo.toLowerCase()],
       detalhe: ['Dossiê do container', sel.id + ' · ' + sel.img],
       logs: ['Logs & métricas', sel.id + ' · SSE /logs/stream + WS /stats/ws'],
@@ -1543,7 +1728,114 @@ class Component extends DCLogic {
       mobile: ['Plantão mobile', '390 × 844 · o que dá para resolver do celular às 4h']
     };
 
+    const cor3 = { run: '#22c55e', deg: '#ef4444', stop: '#64748b' };
+    const cripto = this.cenario === 'incidente' ? { st: 'deg', on: 1 } : { st: 'run', on: 2 };
+    const stLabel = { run: 'no ar', deg: 'degradado', stop: 'parado' };
+    const projDefs = [
+      { nome: 'plataforma', st: 'stop', on: 0, tot: 2, mem: '—', sys: false, host: 'plataforma.buildtovalue.cloud' },
+      { nome: 'mixlirous', st: 'stop', on: 0, tot: 1, mem: '—', sys: false, host: 'mixlirous.danzeroum.com' },
+      { nome: 'btv-demo', st: 'stop', on: 0, tot: 1, mem: '—', sys: false, host: 'demo.buildtovalue.cloud' },
+      { nome: 'criptotrade', st: cripto.st, on: cripto.on, tot: 2, mem: '500 MB', sys: false, host: '' },
+      { nome: 'giva', st: 'run', on: 2, tot: 2, mem: '1.07 GB', sys: false, host: '' },
+      { nome: 'juridico', st: 'run', on: 1, tot: 1, mem: '880 MB', sys: false, host: '' },
+      { nome: 'executagent', st: 'run', on: 1, tot: 1, mem: '328 MB', sys: false, host: '' },
+      { nome: 'familia-web', st: 'run', on: 1, tot: 1, mem: '544 MB', sys: false, host: '' },
+      { nome: 'conciliaai', st: 'run', on: 1, tot: 1, mem: '656 MB', sys: false, host: '' },
+      { nome: 'btvchatcorp', st: 'run', on: 1, tot: 1, mem: '256 MB', sys: false, host: '' },
+      { nome: 'governance', st: 'run', on: 1, tot: 1, mem: '432 MB', sys: false, host: '' },
+      { nome: 'prompte', st: 'run', on: 1, tot: 1, mem: '80 MB', sys: false, host: '' },
+      { nome: 'squad', st: 'run', on: 1, tot: 1, mem: '608 MB', sys: false, host: '' },
+      { nome: 'docker-cockpit', st: 'run', on: 2, tot: 2, mem: '216 MB', sys: true, host: '' },
+      { nome: 'global-ingress', st: 'run', on: 1, tot: 1, mem: '88 MB', sys: true, host: '' }
+    ];
+    const projetos = projDefs.map(p => {
+      const c = cor3[p.st], warn = p.host && !p.sys;
+      const acaoLabel = !destravado ? 'Destravar para agir' : (p.st === 'stop' ? 'Iniciar stack' : (p.st === 'deg' ? 'Reiniciar' : 'Parar stack'));
+      const acaoCor = p.st === 'stop' ? '#22c55e' : (p.st === 'deg' ? '#f59e0b' : '#ef4444');
+      return {
+        nome: p.nome, status: stLabel[p.st], ctr: p.on + '/' + p.tot, mem: p.mem,
+        path: '/opt/btv/' + (p.nome === 'docker-cockpit' ? 'docker' : (p.nome === 'global-ingress' ? 'ingress' : p.nome)),
+        estilo: 'display:flex;flex-direction:column;background:var(--sf);border:1px solid ' + (p.st === 'stop' ? 'var(--bd2)' : (p.st === 'deg' ? 'rgba(239,68,68,.35)' : 'var(--bd1)')) + ';border-radius:var(--rc);padding:11px 12px',
+        pontoEstilo: this.ponto(c, 8, p.st === 'deg'),
+        statusEstilo: 'font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:800;padding:2px 6px;border-radius:var(--r2);background:' + c + '22;color:' + c,
+        ctrEstilo: 'font-family:\'JetBrains Mono\',monospace;font-size:14px;font-weight:600;color:' + (p.on < p.tot ? 'var(--wn-t)' : 'var(--tx)'),
+        aviso: p.sys ? 'Infraestrutura — não desligar.' : (p.host ? 'Domínio ' + p.host + ' aponta para esta stack parada.' : 'Todos os containers no ar.'),
+        avisoEstilo: 'font-size:10px;line-height:1.4;color:' + (warn ? 'var(--wn-t)' : 'var(--txm)') + ';background:' + (warn ? 'rgba(245,158,11,.1)' : 'transparent') + ';border-radius:var(--r2);padding:' + (warn ? '5px 7px' : '0') + ';min-height:30px',
+        onAcao: () => { if (!destravado) this.setState({ modal: 'unlock' }); },
+        acaoLabel: acaoLabel, acaoEstilo: 'flex:1;text-align:center;padding:6px;border-radius:var(--r);font-size:10.5px;font-weight:650;cursor:pointer;background:' + (destravado ? acaoCor : 'var(--bd0)') + ';color:' + (destravado ? '#fff' : 'var(--txf)'),
+        onLogs: p.host ? ir('ingress') : (p.on > 0 ? ir('detalhe') : () => {}),
+        verLabel: p.host ? 'Ver domínio' : 'Abrir',
+        verEstilo: 'padding:6px 10px;border-radius:var(--r);font-size:10.5px;font-weight:600;cursor:pointer;background:var(--bd0);color:var(--txd);border:1px solid var(--bd1)'
+      };
+    });
+    const nRun = projDefs.filter(p => p.st === 'run').length, nStop = projDefs.filter(p => p.st === 'stop').length, nDeg = projDefs.filter(p => p.st === 'deg').length;
+    const projStats = [
+      { valor: String(projDefs.length), label: 'projetos', cor: 'var(--tx)' },
+      { valor: String(nRun), label: 'no ar', cor: 'var(--ok-t)' },
+      { valor: String(nStop), label: 'parados', cor: 'var(--wn-t)' },
+      { valor: String(nDeg), label: 'degradados', cor: nDeg ? 'var(--bad-t)' : 'var(--txd)' }
+    ].map(s => ({ valor: s.valor, label: s.label, valorEstilo: 'font-family:\'JetBrains Mono\',monospace;font-size:19px;font-weight:600;color:' + s.cor }));
+    const projIntro = 'Cada projeto é um docker-compose.yml em /opt/btv. Iniciar e parar exige sessão destravada e vai para a auditoria. Os 3 parados têm domínio publicado no nginx — origem dos achados upstream_missing.';
+
+    const audAcaoCor = { restart: '#7dd3fc', start: '#22c55e', stop: '#ef4444', remove: '#ef4444', unlock: '#f59e0b', ack: '#64748b', deploy: '#22c55e' };
+    const auditoria = [
+      { quando: 'hoje 04:38', quem: 'dz', acao: 'restart', alvo: 'criptotrade-app', res: 'ok' },
+      { quando: 'hoje 04:37', quem: 'dz', acao: 'unlock', alvo: 'sessão · 30 min · "subir limite"', res: 'ok' },
+      { quando: 'ontem 22:10', quem: 'dz', acao: 'stop', alvo: 'stack btv-demo', res: 'ok' },
+      { quando: 'ontem 18:44', quem: 'ci-bot', acao: 'deploy', alvo: 'docker-cockpit @ 8484197', res: 'ok' },
+      { quando: '27/07 19:59', quem: 'dz', acao: 'start', alvo: 'stack giva', res: 'ok' },
+      { quando: '27/07 16:20', quem: 'dz', acao: 'ack', alvo: 'healthcheck_never_passed.criptotrade-dashboard', res: '7 dias' },
+      { quando: '27/07 16:20', quem: 'dz', acao: 'ack', alvo: 'healthcheck_never_passed.criptotrade-orchestrator', res: '7 dias' },
+      { quando: '27/07 15:02', quem: '—', acao: 'stop', alvo: 'stack criptotrade · sem destravar', res: '403' },
+      { quando: '26/07 09:12', quem: 'dz', acao: 'remove', alvo: 'docker-nginx-1 (órfão)', res: 'ok' }
+    ].map(a => {
+      const c = audAcaoCor[a.acao] || '#64748b', bad = a.res === '403';
+      return { quando: a.quando, quem: a.quem, acao: a.acao, alvo: a.alvo, res: a.res,
+        acaoEstilo: 'font-family:\'JetBrains Mono\',monospace;font-size:9.5px;font-weight:700;padding:2px 6px;border-radius:var(--r2);background:' + c + '1f;color:' + c,
+        resEstilo: 'font-family:\'JetBrains Mono\',monospace;font-size:10px;font-weight:600;padding:2px 7px;border-radius:var(--r2);background:' + (bad ? 'rgba(239,68,68,.16)' : (a.res === 'ok' ? 'rgba(34,197,94,.14)' : 'var(--bd0)')) + ';color:' + (bad ? 'var(--bad-t)' : (a.res === 'ok' ? 'var(--ok-t)' : 'var(--txd)')),
+        linhaEstilo: 'display:flex;gap:10px;align-items:center;padding:8px 13px;border-bottom:1px solid var(--bd0);' + (bad ? 'background:rgba(239,68,68,.05)' : '') };
+    });
+    const audFiltros = [ { l: 'todas', on: true }, { l: 'mutações', on: false }, { l: 'negadas', on: false } ].map(f => ({ label: f.l, estilo: this.seg(f.on, 'var(--nt)') + ';border:1px solid var(--bd1)' }));
+    const sessao = {
+      estilo: 'border-radius:var(--rc);padding:12px 13px;border:1px solid ' + (destravado ? 'rgba(245,158,11,.4)' : 'var(--bd1)') + ';background:' + (destravado ? 'rgba(245,158,11,.1)' : 'var(--sf)'),
+      corTitulo: destravado ? 'var(--wn-t)' : 'var(--tx)',
+      titulo: destravado ? 'Sessão destravada' : 'Sessão em leitura',
+      texto: destravado ? 'Ações liberadas nesta sessão, expira em ~28 min. Depois disso toda mutação volta a exigir novo destravamento.' : 'Nenhuma escrita permitida. Destravar no rail à esquerda, com registro de motivo.'
+    };
+    const auditados = [
+      { t: 'start / stop de stack', on: true }, { t: 'start / stop / restart de container', on: true },
+      { t: 'remover container', on: true }, { t: 'destravar sessão', on: true }, { t: 'silenciar achado (ack)', on: true },
+      { t: 'ler containers, logs, métricas', on: false }, { t: 'abrir inspect e env mascarada', on: false }
+    ].map(a => ({ t: a.t, pontoEstilo: this.ponto(a.on ? '#22c55e' : '#64748b', 7, false), valor: a.on ? 'registrado' : 'não', valorEstilo: 'font-size:9.5px;font-weight:700;color:' + (a.on ? 'var(--ok-t)' : 'var(--txm)') }));
+    const audStats = [
+      { v: '1', l: 'ação negada (403) em 48h', c: 'var(--bad-t)' },
+      { v: '8', l: 'mutações aplicadas', c: 'var(--tx)' },
+      { v: 'dz', l: 'quem mais agiu', c: 'var(--ac-t)' }
+    ].map(s => ({ v: s.v, l: s.l, valorEstilo: 'font-family:\'JetBrains Mono\',monospace;font-size:18px;font-weight:600;color:' + s.c }));
+
+    const ackReason = this.state.ackReason, ackDur = this.state.ackDur || '7d';
+    const ackMotivos = [
+      { k: 'aceito_estrutural', t: 'Aceito, é estrutural', d: 'Convivo com isso. Decisão consciente — não some sozinho.' },
+      { k: 'monitorando', t: 'Monitorando', d: 'Sei do risco e volto a olhar no prazo escolhido.' },
+      { k: 'falso_positivo', t: 'Falso positivo', d: 'A regra errou. Conta como sinal para revisar a regra.' }
+    ].map(m => ({ t: m.t, d: m.d, onClick: () => this.setState({ ackReason: m.k }),
+      estilo: 'display:flex;flex-direction:column;gap:3px;padding:9px 11px;border-radius:var(--rc2);cursor:pointer;border:1px solid ' + (ackReason === m.k ? 'var(--ac)' : 'var(--bd1)') + ';background:' + (ackReason === m.k ? 'rgba(36,150,237,.1)' : 'var(--bg2)'),
+      radioEstilo: 'width:14px;height:14px;border-radius:50%;flex-shrink:0;border:2px solid ' + (ackReason === m.k ? 'var(--ac)' : 'var(--bd3)') + ';background:' + (ackReason === m.k ? 'var(--ac)' : 'transparent') + ';box-shadow:inset 0 0 0 2px var(--sf)',
+      tEstilo: 'font-size:12px;font-weight:650;color:' + (ackReason === m.k ? 'var(--tx)' : 'var(--tx2)') }));
+    const ackDurs = [ { k: '4h', l: '4 horas' }, { k: '24h', l: '24 horas' }, { k: '7d', l: '7 dias' }, { k: '30d', l: '30 dias' } ].map(d => ({ label: d.l, onClick: () => this.setState({ ackDur: d.k }), estilo: 'flex:1;text-align:center;padding:7px;border-radius:var(--r);font-size:11px;font-weight:600;cursor:pointer;border:1px solid ' + (ackDur === d.k ? 'var(--ac)' : 'var(--bd1)') + ';background:' + (ackDur === d.k ? 'rgba(36,150,237,.14)' : 'var(--bg2)') + ';color:' + (ackDur === d.k ? 'var(--tx)' : 'var(--txd)') }));
+    const ackPode = !!ackReason;
+
     return {
+      isProjetos: S === 'projetos', isAuditoria: S === 'auditoria',
+      projetos, projStats, projIntro, auditoria, audFiltros, sessao, auditados, audStats,
+      modalUnlock: this.state.modal === 'unlock', modalAck: this.state.modal === 'ack',
+      onFecharModal: () => this.setState({ modal: null }), stopProp: (e) => e.stopPropagation(),
+      onUnlockConfirm: () => this.setState({ destravado: true, modal: null }),
+      onAckConfirm: () => { if (ackReason) this.setState({ modal: null, ackReason: null }); },
+      ackFinding: this.state.ackFinding || 'achado selecionado', ackMotivos, ackDurs,
+      ackConfirmEstilo: 'padding:9px 18px;text-align:center;border-radius:var(--r);font-size:12px;font-weight:700;cursor:' + (ackPode ? 'pointer' : 'not-allowed') + ';background:' + (ackPode ? 'var(--ac)' : 'var(--bd0)') + ';color:' + (ackPode ? '#fff' : 'var(--txf)'),
+      ackAviso: ackPode ? '' : 'escolha um motivo para continuar',
+      ackAvisoEstilo: 'flex:1;font-size:10.5px;color:var(--txm)',
       tema: this.tema, temaBtns,
       hostsIngress, certificados, achados, ingKpis, horizontes, projBarras, consumo, evolucao, postura,
       projTitulo: 'Uso do disco · 20 dias medidos + 10 projetados',
@@ -1565,7 +1857,7 @@ class Component extends DCLogic {
       travaTexto: destravado ? 'Parar, reiniciar e remover ativos por 30 min nesta sessão.' : 'Nada é alterado no servidor. Liberar exige confirmação explícita.',
       travaBtn: destravado ? 'Voltar para leitura' : 'Destravar ações (30 min)',
       travaBtnEstilo: 'text-align:center;padding:6px;border-radius:var(--r);font-size:10.5px;font-weight:650;cursor:pointer;background:' + (destravado ? 'rgba(245,158,11,.2)' : 'rgba(36,150,237,.16)') + ';color:' + (destravado ? 'var(--wn-t)' : '#60a5fa'),
-      onTrava: () => this.setState({ destravado: !destravado }),
+      onTrava: () => destravado ? this.setState({ destravado: false }) : this.setState({ modal: 'unlock' }),
 
       totalStacks: String(stackNomes.length), totalContainers: String(cs.length), stacksView, grade, kpis, vitais,
       gradeDica: D === 'dado' ? 'valores crus' : (D === 'conhecimento' ? 'o que exige ação' : 'leitura comparada'),

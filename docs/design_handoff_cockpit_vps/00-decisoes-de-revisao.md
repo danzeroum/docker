@@ -7,9 +7,52 @@ outros documentos — vários pontos aqui **corrigem** a primeira versão deles.
 
 | Fase | PR | Situação |
 |---|---|---|
-| F0a — backend | [#3](https://github.com/danzeroum/docker/pull/3) | concluída |
-| F0b — frontend | [#4](https://github.com/danzeroum/docker/pull/4) | em revisão |
-| F1 → F6 | — | não iniciadas |
+| F0a — backend | [#3](https://github.com/danzeroum/docker/pull/3) | em produção |
+| F0b — frontend | [#4](https://github.com/danzeroum/docker/pull/4) | em produção |
+| F1 — visão geral | #5 | em produção |
+| F2 — motor de achados | #6 | em produção |
+| F3 — ingress & TLS | #7 | em produção |
+| F5 — destravamento + auditoria | — | **antecipada** (ver abaixo) |
+| F4 — capacidade | — | não iniciada |
+| F6 — tempo real | — | não iniciada |
+
+Pendências: `ack` (endpoint e tela) da F2 continua sendo a última fatia em aberto.
+
+## F5 saiu fora de ordem
+
+Destravamento (`X-Cockpit-Unlock`, TTL 30 min) e auditoria nasceram junto com o **gerenciador
+de projetos** (não previsto no plano original): um scan de `/opt/btv/*/docker-compose.yml` com
+start/stop de stack por HTTP. Como isso adicionou mutação de 12 stacks à superfície, o guard
+da F5 teve de vir junto — não dava para expor stop de produção sem credencial.
+
+Na mesma leva, as 4 rotas de mutação de container que estavam **abertas desde a F0a**
+(`start/stop/restart`, `DELETE`) entraram sob o mesmo guard. A remoção do basic auth do app
+("o ingress cuida") deixou de ser dívida latente e virou exposição ativa no instante em que a
+mutação de stack foi adicionada — qualquer container em `btv-prod-net` alcançava os endpoints.
+
+Guard único em `auth.require_unlock` (dependência FastAPI), compartilhado por `projects` e
+`containers`; toda mutação grava em `audit`. Falta da F5: token com nota de motivo na UI e a
+tela de auditoria — o backend já persiste, o frontend ainda não mostra.
+
+Débito registrado: um header compartilhado injetado pelo ingress para todo `/api/*` continua
+recomendado — o `require_unlock` cobre escrita, mas leitura (inspect, env mascarada) segue
+alcançável de dentro da rede interna sem credencial.
+
+## F3 — ingress & TLS, o que a produção revelou
+
+- **13 hosts públicos + 1 interno** (`btv.buildtovalue.cloud`, que compartilha `server_name`
+  com `localhost` e sustenta o healthcheck do gateway). Totais contam só públicos.
+- Achados reais que o protótipo não previa: `docs_public` também em `juridico` (não só
+  `criptotrade`); `http_plain` em dois hosts subiu para **crítico** ao confirmar-se tela de
+  login (WordPress/CMS) — credencial trafega em texto claro.
+- **Agregação**: `no_http2`, `no_gzip`, `body_size_default` são UM achado com N alvos, não N
+  achados — senão a fila afoga com 13 linhas do mesmo conserto. `AGGREGATE = True` no módulo,
+  id sem sufixo de alvo, alvos filtrados por `public_servers`.
+- **Migração custou dado duas vezes**: a v3 com `SELECT *` embaralhou colunas e perdeu
+  `first_seen` de achados em produção (corrigido em `4dd3699` com colunas explícitas). Regra
+  nova: toda migração de esquema tem teste com banco populado antes do deploy.
+- `stream_timeout` no `docker.danzeroum.com` é auto-diagnóstico: `proxy_read_timeout 60`
+  corta o SSE de logs e o WS de stats do próprio cockpit.
 
 ---
 
@@ -51,6 +94,71 @@ tela.
 
 ---
 
+## Aprendido durante a F2
+
+**Janela de recência é obrigatória em regra baseada em estado.** A primeira versão da regra de
+OOM produziu 5 críticos falsos: `State.ExitCode == 137` permanece no inspect de containers que
+morreram semanas atrás e nunca mais subiram. Arqueologia apresentada como incidente aberto é
+pior que ausência de achado — cinco críticos que o operador aprende a ignorar tornam o sexto
+invisível. Toda regra de estado precisa perguntar "isso é agora?".
+
+**`occurrences` era contagem de ciclos, não de acontecimentos.** "105 ocorrências" para um
+problema contínuo observado 105 vezes em 17 minutos. Renomeado para `observations`, mantido
+no banco para depuração e **nunca exibido**. Na tela vai duração (`last_seen - first_seen`) e,
+quando fizer sentido, transições distintas.
+
+**`SUPERSEDES` no motor, não `caused_by`.** `oom` e `restart_loop` disparam sempre juntos no
+mesmo alvo — são dois sintomas de um problema, não dois problemas. A regra declara
+`SUPERSEDES = ["restart_loop"]` e o motor suprime o suplantado no mesmo alvo, promovendo-o a
+fato dentro do achado que sobrou. Serve de novo em `cert_expiring` × `cert_expired` e
+`disk_pressure` × `disk_forecast`.
+
+**Badge do rail:** conta as linhas de topo da fila (não o total do banco), cor pela maior
+severidade aberta, e zero não desenha badge — nunca "0".
+
+**Inicialização de estado falha alto.** `init_db` dentro de `try/except` largo derrubaria o
+produto em silêncio; o certo é matar o startup. Aconteceu de verdade (`ProgrammingError:
+You can only execute one statement at a time`) e o app entrou em laço de reinício — caso que
+a própria regra `restart_loop` existe para pegar, e ninguém foi avisado. Ordem de resposta:
+produzão de volta na `main` primeiro, diagnóstico depois.
+
+**Cobertura do caminho de inicialização.** 24 testes verdes e nenhum chamava `init_db()`.
+Teste de inicialização roda **duas vezes seguidas** — é a idempotência que falta quando o
+banco fica meio criado.
+
+---
+
+## Motor de achados (F2) — decisões de desenho
+
+**Ciclo de vida é do motor, não da regra.** A regra declara `DEBOUNCE` e `MIN_INTERVAL`;
+anti-flapping, `first_seen` e dedupe são aplicados igualmente para todas. Treze regras
+implementando cada uma a sua histerese = treze comportamentos e nenhuma previsibilidade.
+
+**Causalidade por aresta declarada, não por proximidade.** Rejeitada a inferência por
+`com.docker.compose.project` + rede: 12 dos 15 containers estão em `btv-prod-net`, então
+co-participação de rede não informa nada, e dentro de um projeto a proximidade não diz qual
+causa qual. Só valem arestas reais: upstream do nginx (F3), `depends_on` e volume
+compartilhado (F2). Causalidade errada manda o operador começar pelo lugar errado com ar de
+certeza.
+
+**`_plain` fica.** Não é o texto técnico com outro escape — é outra frase para outro leitor
+("exit 137" versus "o painel de trading parou"). Virou campo opcional com fallback para o
+texto técnico; obrigatório só nas regras que chegam ao Resumo executivo.
+
+**`ack` com select obrigatório** (`aceito_estrutural` / `monitorando` / `falso_positivo`) e
+nota livre opcional — texto livre sozinho às 4h vira `asdf`. `falso_positivo` é contado por
+regra e vira sinal na tela Backend & API.
+
+**Loop próprio para as regras**, separado do sampler, mesmo intervalo de 10 s.
+
+**Um banco só: `/data/cockpit.db`** (SQLite/aiosqlite, WAL, `schema_version` desde o primeiro
+commit). Achados, séries da F4, tarefas e auditoria da F5 no mesmo arquivo — bancos separados
+impediriam transação entre um achado e a tarefa que ele gera.
+
+**Descoberta de regras por filesystem** (`app/findings/rules/*.py`), sem lista registrada.
+
+---
+
 ## Decisões de arquitetura tomadas
 
 **`EXEC` no socket-proxy: não.** Para ler o nginx, o arquivo é montado `:ro`. O `nginx.conf`
@@ -78,33 +186,6 @@ quando existe achado `critical`. O layout só se mexe quando é grave de verdade
 
 **Seletor de cenário: atrás de `?demo=1`.** Sai do caminho em produção e continua útil para
 treinar plantonista.
-
----
-
----
-
-## Regras nascidas de casos reais
-
-**`healthcheck_never_passed`** — descoberta durante validação da F2 na VPS. Dois containers
-(`criptotrade-orchestrator` e `criptotrade-dashboard`) com `Health.Status: unhealthy` mas
-`FailingStreak × intervalo ≈ uptime` e nenhum `ExitCode: 0` no `Health.Log`. A sonda nunca
-acertou desde o deploy — é erro de configuração, não incidente. A regra:
-- severidade `medium` (não `high` como `unhealthy`)
-- SUPERSEDES `unhealthy.<alvo>`  (troca "serviço caído" por "sonda nunca passou")
-- condição: `FailingStreak × avg_interval / uptime > 0.7` (nunca passou)
-- desempate: se qualquer `Health.Log` tiver `ExitCode: 0`, não dispara (é regressão real)
-Nasce do caso real, não da especificação. (Carry: conserto dos Dockerfiles vira tarefa na F5.)
-
----
-
-## Pendências para fases seguintes
-
-**Autenticação entre containers na rede interna.** O ingress nginx protege `/api/*` contra
-acesso externo, mas qualquer container em `btv-prod-net` — são doze — alcança
-`http://docker-cockpit:8000/api/containers/{id}/json` sem autenticação. No futuro, também
-`POST /stop`. O token de destravamento (F5) cobre operações de escrita; cabe avaliar se todas
-as rotas `/api/*` devem exigir um cabeçalho compartilhado injetado pelo ingress. (registrado
-em F0b, carry para F5)
 
 ---
 

@@ -185,6 +185,7 @@ Nenhum dado desta tela existe hoje. Duas fontes novas.
 | Campo | Como obter |
 |---|---|
 | `server_name` | parse do `nginx.conf` 🆕 |
+| `internal: true` | bloco que compartilha `server_name` com `localhost` — é o `server` do healthcheck do gateway (`btv.buildtovalue.cloud`), não um domínio servido ao público. **São 14 blocos, 13 públicos**; os totais da tela contam só os públicos 🆕 |
 | comportamento da porta 80 | há `return 301`? há `proxy_pass`? há `return 200/444`? 🆕 |
 | porta 443 presente, `ssl`, `http2` | diretivas `listen` 🆕 |
 | HSTS | existe `add_header Strict-Transport-Security` no bloco 🆕 |
@@ -219,10 +220,10 @@ As 11 regras que o protótipo mostra, com a verificação exata a implementar:
 
 | id | Severidade | Verificação sobre a árvore do nginx |
 |---|---|---|
-| `nginx.http_plain` | crítico | bloco `listen 80` cujo `location /` tem `proxy_pass` em vez de `return 301` |
-| `nginx.docs_public` | alto | `location` que serve `/docs`, `/redoc` ou `/openapi.json` sem `auth_basic` no bloco |
+| `nginx.http_plain` | **alto** | bloco `listen 80` cujo `location /` tem `proxy_pass` em vez de `return 301`. Um achado por host (ids separados) — cada um se resolve sozinho. Sobe para crítico se o upstream tiver autenticação, porque a credencial trafega legível |
+| `nginx.docs_public` | alto | `location` que serve `/docs`, `/redoc` ou `/openapi.json` sem `auth_basic` no bloco. Detectado em `criptotrade` **e `juridico`** (este último não estava previsto no protótipo). Recomendação é `auth_basic`, não desligar os docs |
 | `nginx.stream_timeout` | alto | bloco cujo upstream é um container que expõe SSE/WS e tem `proxy_read_timeout < 300` ou não tem `proxy_buffering off` |
-| `nginx.default_cert_borrowed` | alto | `default_server` 443 usando `ssl_certificate` de um host nomeado |
+| `nginx.default_cert_borrowed` | médio | `default_server` 443 usando `ssl_certificate` de um host nomeado (hoje o de `prompte`). Dano de confiança, não de serviço: aviso de certificado em domínio não configurado. Recomendação é cert autoassinado ou `return 444` |
 | `nginx.env_unescaped` | médio | regex de `location` contendo `env` sem `\.` antes |
 | `nginx.connection_upgrade_global` | médio | `proxy_set_header Connection "upgrade"` no nível `http` sem `map $http_upgrade` |
 | `nginx.body_size_default` | médio | blocos sem `client_max_body_size` (padrão 1 MB) |

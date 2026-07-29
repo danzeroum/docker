@@ -146,6 +146,7 @@ As fontes vêm do Google Fonts, como já acontece no `index.html` atual.
 | `03-frontend.md` | arquitetura, estado, camada de dados, temas, acessibilidade |
 | `04-plano-de-entrega.md` | 6 fases, com critério de aceite por fase |
 | `05-prompt-para-o-desenvolvedor.md` | prompt pronto para colar no Claude Code |
+| `06-telas-operacao.md` | contrato das 4 telas novas (Projetos, Auditoria, modais Destravar e Silenciar) |
 | `Cockpit Docker.dc.html` | o protótipo navegável (referência de design) |
 
 Para abrir o protótipo: qualquer navegador. Troque perfil, tema e cenário pelos controles do
