@@ -191,7 +191,8 @@ async def _mutate_container(ctid: str, action: str, ip: str, proxy_fn, *args, **
         result = await proxy_fn(*args, **kwargs)
         await add_audit_entry(action, ctid, "success", "unlock", ip)
         return result
-    except HTTPException:
+    except HTTPException as exc:
+        await add_audit_entry(action, ctid, f"error: {exc.status_code} {exc.detail}", "unlock", ip)
         raise
     except Exception as e:
         await add_audit_entry(action, ctid, f"error: {e}", "unlock", ip)
