@@ -1,7 +1,6 @@
 import { apiGet, apiPost } from '../data.js';
 import { escapeHtml, fmtDuration } from '../fmt.js';
 import { showToast, showConfirmModal, showUnlockModal } from '../notifications.js';
-import { getState, setState } from '../store.js';
 
 export function renderProjects(container) {
   let pollTimer = null;
@@ -76,10 +75,8 @@ export function renderProjects(container) {
         btn.disabled = true;
         let { error, data } = await apiPost(`project-${ep}`, `/api/projects/${name}/${ep}`);
         if (error && (error.includes('403') || error.includes('Unlock') || error.includes('ausente') || error.includes('invalido'))) {
-          if (!getState().unlock?.token) {
-            const token = await showUnlockModal();
-            if (!token) { btn.disabled = false; return; }
-          }
+          const result = await showUnlockModal();
+          if (!result) { btn.disabled = false; return; }
           btn.disabled = false;
           const retryRes = await apiPost(`project-${ep}-retry`, `/api/projects/${name}/${ep}`);
           if (retryRes.error) { showToast(retryRes.error, 'error'); return; }

@@ -94,7 +94,6 @@ export function showUnlockModal() {
   return new Promise((resolve) => {
     const overlay = document.getElementById('confirmModal');
     document.getElementById('modalTitle').textContent = 'Destravar';
-    document.getElementById('modalText').innerHTML = 'Digite o token de destravamento:';
     document.getElementById('modalConfirmName').textContent = '';
     const inputWrap = document.getElementById('modalInputWrap');
     const inputEl = document.getElementById('modalInput');
@@ -102,11 +101,12 @@ export function showUnlockModal() {
     const confirmBtn = document.getElementById('modalConfirm');
     inputWrap.style.display = '';
     checkboxWrap.style.display = 'none';
-    inputEl.value = '';
     inputEl.style.borderColor = '';
-    inputEl.placeholder = 'Token X-Cockpit-Unlock';
-    confirmBtn.className = 'modal-btn confirm';
+    inputEl.placeholder = 'Motivo (opcional)';
+    confirmBtn.className = 'modal-btn confirm start';
     confirmBtn.textContent = 'Destravar';
+    document.getElementById('modalText').innerHTML = '<div style="margin-bottom:.5rem;color:var(--text-dim);font-size:.85rem">Confirme para destravar mutações por 30 minutos.</div>';
+
     overlay.classList.add('open');
 
     const cleanup = () => {
@@ -116,17 +116,34 @@ export function showUnlockModal() {
       inputEl.removeEventListener('keydown', onKeydown);
     };
     const onCancel = () => { cleanup(); resolve(null); };
-    const onConfirm = () => {
-      const token = inputEl.value.trim();
-      if (!token) {
-        inputEl.style.borderColor = 'var(--bad)';
-        inputEl.focus();
-        return;
+    const onConfirm = async () => {
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Destravando…';
+      const motivo = inputEl.value.trim();
+      try {
+        const res = await fetch('/api/session/unlock', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ motivo }),
+        });
+        if (!res.ok) {
+          let detail = '';
+          try { const j = await res.json(); detail = j.detail || ''; } catch {}
+          showToast(detail || 'Erro ao destravar', 'error');
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = 'Destravar';
+          return;
+        }
+        const data = await res.json();
+        const unlockData = { token: data.token, expiresAt: data.expires_at };
+        setState({ unlock: unlockData });
+        cleanup();
+        resolve(unlockData);
+      } catch (err) {
+        showToast('Erro de rede ao destravar', 'error');
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Destravar';
       }
-      inputEl.style.borderColor = '';
-      setState({ unlock: { token, expiresAt: null } });
-      cleanup();
-      resolve(token);
     };
     const onKeydown = (e) => {
       if (e.key === 'Enter') onConfirm();
@@ -172,14 +189,11 @@ export function showAckModal(finding) {
       <div style="margin-bottom:.5rem">
         <label style="display:block;font-size:.8rem;color:var(--text-dim);margin-bottom:.25rem">Silenciar por</label>
         <div style="display:flex;gap:.35rem;flex-wrap:wrap">
-          <button class="ack-dur" data-dur="1h" style="padding:.3rem .6rem;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text-dim);cursor:pointer;font-family:inherit;font-size:.8rem">1h</button>
           <button class="ack-dur" data-dur="4h" style="padding:.3rem .6rem;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text-dim);cursor:pointer;font-family:inherit;font-size:.8rem">4h</button>
-          <button class="ack-dur" data-dur="12h" style="padding:.3rem .6rem;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text-dim);cursor:pointer;font-family:inherit;font-size:.8rem">12h</button>
           <button class="ack-dur active" data-dur="24h" style="padding:.3rem .6rem;border-radius:6px;border:1px solid var(--border);background:var(--accent);color:#fff;cursor:pointer;font-family:inherit;font-size:.8rem">24h</button>
-          <button class="ack-dur" data-dur="72h" style="padding:.3rem .6rem;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text-dim);cursor:pointer;font-family:inherit;font-size:.8rem">72h</button>
           <button class="ack-dur" data-dur="7d" style="padding:.3rem .6rem;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text-dim);cursor:pointer;font-family:inherit;font-size:.8rem">7d</button>
+          <button class="ack-dur" data-dur="30d" style="padding:.3rem .6rem;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text-dim);cursor:pointer;font-family:inherit;font-size:.8rem">30d</button>
         </div>
-        <input id="ackUntil" type="text" style="width:100%;margin-top:.35rem;padding:.5rem;border-radius:8px;background:var(--surface);border:1px solid var(--border);color:var(--text-dim);font-family:JetBrains Mono;font-size:.8rem" value="24h" placeholder="ex: 4h, 7d, 2026-08-01T00:00:00Z">
       </div>
     `;
 
@@ -190,7 +204,6 @@ export function showAckModal(finding) {
 
     const reasonEl = document.getElementById('ackReason');
     const noteEl = document.getElementById('ackNote');
-    const untilEl = document.getElementById('ackUntil');
 
     reasonEl.addEventListener('change', () => {
       confirmBtn.disabled = !reasonEl.value;
@@ -205,7 +218,6 @@ export function showAckModal(finding) {
       });
       durBtn.style.background = 'var(--accent)';
       durBtn.style.color = '#fff';
-      untilEl.value = durBtn.dataset.dur;
     });
 
     overlay.classList.add('open');
@@ -223,8 +235,10 @@ export function showAckModal(finding) {
         reasonEl.focus();
         return;
       }
+      const activeDur = textEl.querySelector('.ack-dur.active') || textEl.querySelector('.ack-dur');
+      const until = activeDur ? activeDur.dataset.dur : '24h';
       cleanup();
-      resolve({ reason, note: noteEl.value, until: untilEl.value });
+      resolve({ reason, note: noteEl.value, until });
     };
     document.getElementById('modalCancel').addEventListener('click', onCancel);
     confirmBtn.addEventListener('click', onConfirm2);

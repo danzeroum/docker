@@ -19,10 +19,13 @@ FAKE_PROJECTS = {
 
 @pytest.fixture(autouse=True)
 def mock_db():
-    """Mock add_audit_entry to avoid needing a real database."""
+    """Mock add_audit_entry and unlock session to avoid needing a real database."""
+    valid_session = {"token": "test-token-123", "remote_user": "test", "ip": "", "motivo": "", "created_at": "2026-01-01T00:00:00Z"}
     with patch("routers.projects.add_audit_entry", new=AsyncMock()):
         with patch("routers.containers.add_audit_entry", new=AsyncMock()):
-            yield
+            with patch("auth.get_valid_unlock_session", new=AsyncMock(return_value=valid_session)):
+                with patch("db.set_unlock_state", new=AsyncMock()):
+                    yield
 
 
 def test_list_projects_sem_unlock():

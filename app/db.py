@@ -1,6 +1,6 @@
 import os
 import aiosqlite
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 _DB_PATH = os.getenv("COCKPIT_DB", "/data/cockpit.db")
 _connection = None
@@ -102,6 +102,15 @@ async def init_db():
             "result TEXT NOT NULL,"
             "token_label TEXT NOT NULL DEFAULT '',"
             "ip TEXT NOT NULL DEFAULT '',"
+            "created_at TEXT NOT NULL"
+            ")",
+        ]),
+        (5, [
+            "CREATE TABLE IF NOT EXISTS unlock_state ("
+            "token TEXT PRIMARY KEY,"
+            "remote_user TEXT NOT NULL DEFAULT '',"
+            "ip TEXT NOT NULL DEFAULT '',"
+            "motivo TEXT NOT NULL DEFAULT '',"
             "created_at TEXT NOT NULL"
             ")",
         ]),
@@ -226,3 +235,39 @@ async def get_audit_log(limit: int = 100):
     )
     rows = await cur.fetchall()
     return _parse_rows(rows, cur.description)
+
+async def cleanup_expired_sessions():
+    db = await get_db()
+    cutoff = (datetime.now(timezone.utc) - timedelta(minutes=30)).isoformat().replace("+00:00", "Z")
+    await db.execute("DELETE FROM unlock_state WHERE created_at < ?", (cutoff,))
+    await db.commit()
+
+async def set_unlock_state(token: str, remote_user: str, ip: str, motivo: str):
+    db = await get_db()
+    now = _now()
+    await cleanup_expired_sessions()
+    await db.execute(
+        "INSERT OR REPLACE INTO unlock_state (token, remote_user, ip, motivo, created_at) VALUES (?, ?, ?, ?, ?)",
+        (token, remote_user, ip, motivo, now),
+    )
+    await db.commit()
+
+async def get_valid_unlock_session(token: str):
+    await cleanup_expired_sessions()
+    db = await get_db()
+    cur = await db.execute(
+        "SELECT * FROM unlock_state WHERE token = ?",
+        (token,),
+    )
+    row = await cur.fetchone()
+    if not row:
+        return None
+    session = dict(row)
+    try:
+        created = datetime.fromisoformat(session["created_at"].replace("Z", "+00:00"))
+        now = datetime.now(timezone.utc)
+        if (now - created).total_seconds() > 1800:
+            return None
+    except Exception:
+        return None
+    return session

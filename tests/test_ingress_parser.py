@@ -154,6 +154,23 @@ def test_parser_synthetic_sem_ssl():
     assert no_ssl[0].primary_name == "no-ssl-test.buildtovalue.cloud"
 
 
+def test_parser_synthetic_proxy_set_header():
+    from ingress.parser import parse_nginx
+    text = _load("nginx-synthetic.conf")
+    cat = parse_nginx(text)
+    cockpit = [s for s in cat.servers if s.primary_name == "cockpit-test.buildtovalue.cloud"]
+    assert len(cockpit) == 1
+    loc = [l for l in cockpit[0].locations if l.path == "/"]
+    assert len(loc) == 1
+    psh = loc[0].proxy_set_headers
+    assert psh.get("Remote-User") == "$remote_user", (
+        f"Esperado Remote-User $remote_user, obteve: {psh}"
+    )
+    assert psh.get("X-Forwarded-For") == "$proxy_add_x_forwarded_for", (
+        f"Esperado X-Forwarded-For $proxy_add_x_forwarded_for, obteve: {psh}"
+    )
+
+
 def test_parser_synthetic_upstream_literal():
     from ingress.parser import parse_nginx
     text = _load("nginx-synthetic.conf")

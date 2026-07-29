@@ -39,6 +39,9 @@ services:
     environment:
       SOCKET_PROXY: http://docker-cockpit-proxy:2375
       DOCKER_HOST: tcp://docker-cockpit-proxy:2375
+      # TRUSTED_GATEWAY_CIDR: 172.x.0.0/16
+      # Descubra com: docker network inspect btv-prod-net --format '{{range .IPAM.Config}}{{.Subnet}}{{end}}'
+      # Se ausente, /session/unlock retorna 403 (fail-closed) e loga warning.
     volumes:
       - /opt/btv/ingress/nginx:/etc/nginx-ingress:ro
       - /opt/btv:/opt/btv:ro

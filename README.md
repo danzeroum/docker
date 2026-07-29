@@ -32,7 +32,13 @@ cd /opt/btv/docker
 cp .env.example .env
 # editar .env se necessario
 
-# 2. Subir app + socket-proxy
+# 2. Descobrir o CIDR da rede do ingress e setar no .env
+docker network inspect btv-prod-net --format '{{range .IPAM.Config}}{{.Subnet}}{{end}}'
+# Exemplo de saida: 172.19.0.0/16
+# Coloque no .env: TRUSTED_GATEWAY_CIDR=172.19.0.0/16
+# Sem essa env o unlock retorna 403 (fail-closed).
+
+# 3. Subir app + socket-proxy
 docker compose up -d
 
 # 3. Emitir certificado e registrar no global-ingress

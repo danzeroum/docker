@@ -17,6 +17,7 @@ _RE_AUTH_BASIC = re.compile(r"auth_basic\s+\"(.*?)\";")
 _RE_AUTH_USER_FILE = re.compile(r"auth_basic_user_file\s+(.+?);")
 _RE_ROOT = re.compile(r"root\s+(.+?);")
 _RE_INDEX = re.compile(r"index\s+(.+?);")
+_RE_PROXY_SET_HEADER = re.compile(r"proxy_set_header\s+(\S+)\s+(.+?);")
 _RE_CLIENT_MAX = re.compile(r"client_max_body_size\s+(.+?);")
 _RE_PROXY_TIMEOUT = re.compile(r"proxy_read_timeout\s+(.+?);")
 _RE_PROXY_BUFFERING = re.compile(r"proxy_buffering\s+(off|on);")
@@ -119,6 +120,7 @@ class LocationBlock:
         self.proxy_pass_resolved = None
         self.rewrite = None
         self.headers = {}
+        self.proxy_set_headers = {}
         self.root = None
         self.return_code = None
         self.return_body = None
@@ -354,6 +356,14 @@ def _process_directive(line, server, current_location_block, catalog):
             current_location_block.root = val
         else:
             server.root = val
+        return
+
+    m = _RE_PROXY_SET_HEADER.search(line)
+    if m:
+        key = m.group(1).strip()
+        val = m.group(2).strip().strip(";").strip('"')
+        if current_location_block:
+            current_location_block.proxy_set_headers[key] = val
         return
 
     m = _RE_AUTOINDEX.search(line)
