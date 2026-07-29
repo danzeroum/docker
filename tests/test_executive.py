@@ -185,41 +185,6 @@ def test_custo_aceita_virgula():
 
 
 # ---------------------------------------------------------------------------
-# disponibilidade: serie curta
-# ---------------------------------------------------------------------------
-
-@pytest.mark.asyncio
-async def test_disponibilidade_sem_serie():
-    with patch("routers.executive.get_first_sample_time", new=AsyncMock(return_value=None)):
-        d = await ex.montar_disponibilidade()
-    assert d["value"] is None
-    assert d["coletando_desde"] is None
-
-
-@pytest.mark.asyncio
-async def test_disponibilidade_serie_curta_diz_desde_quando():
-    from datetime import datetime, timezone, timedelta
-    desde = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat().replace("+00:00", "Z")
-    with patch("routers.executive.get_first_sample_time", new=AsyncMock(return_value=desde)):
-        d = await ex.montar_disponibilidade()
-    assert d["value"] is None, "afirmou disponibilidade com 2 dias de serie"
-    assert d["coletando_desde"] == desde
-    assert d["dias"] == 2
-
-
-@pytest.mark.asyncio
-async def test_disponibilidade_com_30_dias_declara_a_fonte():
-    from datetime import datetime, timezone, timedelta
-    desde = (datetime.now(timezone.utc) - timedelta(days=40)).isoformat().replace("+00:00", "Z")
-    serie = [{"ts": f"d{i}", "v": 10.0} for i in range(30)]
-    with patch("routers.executive.get_first_sample_time", new=AsyncMock(return_value=desde)):
-        with patch("routers.executive.get_host_series", new=AsyncMock(return_value=serie)):
-            d = await ex.montar_disponibilidade()
-    assert d["value"] == 100.0
-    assert d["source"], "numero sem fonte declarada"
-
-
-# ---------------------------------------------------------------------------
 # endpoint
 # ---------------------------------------------------------------------------
 
@@ -236,8 +201,7 @@ def test_endpoint_com_config_ausente_renderiza_o_resto(tmp_path):
     with patch("routers.executive.SERVICOS_PATH", str(tmp_path / "ausente.json")):
         with patch("routers.executive.get_findings", new=AsyncMock(return_value=findings)):
             with patch("routers.executive._hosts_publicos", return_value=["a.com"]):
-                with patch("routers.executive.get_first_sample_time", new=AsyncMock(return_value=None)):
-                    r = client.get("/api/executive")
+                r = client.get("/api/executive")
     assert r.status_code == 200
     d = r.json()
     assert d["config_missing"], "nao avisou qual arquivo falta"
@@ -253,9 +217,29 @@ def test_endpoint_sem_custo_omite_o_campo(tmp_path):
     with patch("routers.executive.SERVICOS_PATH", str(tmp_path / "x.json")):
         with patch("routers.executive.get_findings", new=AsyncMock(return_value=[])):
             with patch("routers.executive._hosts_publicos", return_value=[]):
-                with patch("routers.executive.get_first_sample_time", new=AsyncMock(return_value=None)):
-                    r = client.get("/api/executive")
+                r = client.get("/api/executive")
     assert r.json()["cost_monthly"] is None
+
+
+def test_endpoint_nao_expoe_disponibilidade(tmp_path):
+    """Removida de proposito: cobertura de coleta nao e uptime de servico.
+
+    Dois numeros diferentes com o mesmo rotulo e pior que campo ausente —
+    quem le "99,8%" nao vai atras da nota que explica a diferenca. Volta
+    quando existir uptime de verdade.
+    """
+    client = _client()
+    with patch("routers.executive.SERVICOS_PATH", str(tmp_path / "x.json")):
+        with patch("routers.executive.get_findings", new=AsyncMock(return_value=[])):
+            with patch("routers.executive._hosts_publicos", return_value=[]):
+                r = client.get("/api/executive")
+    assert "availability" not in r.json()
+
+
+def test_tela_nao_tem_kpi_de_disponibilidade():
+    fonte = (JS / "screens" / "executivo.js").read_text()
+    assert "Disponibilidade" not in fonte
+    assert "availability" not in fonte
 
 
 def test_endpoint_sem_riscos(tmp_path):
@@ -263,8 +247,7 @@ def test_endpoint_sem_riscos(tmp_path):
     with patch("routers.executive.SERVICOS_PATH", str(tmp_path / "x.json")):
         with patch("routers.executive.get_findings", new=AsyncMock(return_value=[])):
             with patch("routers.executive._hosts_publicos", return_value=[]):
-                with patch("routers.executive.get_first_sample_time", new=AsyncMock(return_value=None)):
-                    r = client.get("/api/executive")
+                r = client.get("/api/executive")
     d = r.json()
     assert d["risks"] == []
     assert d["hero"] is None

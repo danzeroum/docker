@@ -6,15 +6,20 @@ endpoint inteiro:
 - **Nada de jargao.** O hero e os riscos saem dos campos `_plain` do motor de
   achados, nunca do texto tecnico. Se um achado nao tem `_plain`, ele nao entra
   aqui — melhor a tela mostrar menos do que mostrar "exit 137" para um gestor.
-- **Campo sem fonte real nao entra.** Disponibilidade so vira numero quando a
-  serie tem 30 dias; custo so aparece com `COST_MONTHLY` configurado. Sem isso,
-  o campo some ou diz desde quando esta coletando — nunca um zero inventado.
+- **Campo sem fonte real nao entra.** Custo so aparece com `COST_MONTHLY`
+  configurado; sem isso o cartao some, em vez de mostrar "R$ 0".
+
+  Nao existe disponibilidade aqui, de proposito. `host_samples` guarda CPU,
+  memoria e disco — cobertura de coleta e piso de amostragem, nao uptime de
+  servico. Dois numeros diferentes com o mesmo rotulo e pior que campo ausente:
+  ninguem que le "99,8%" vai atras da nota de rodape que explica a diferenca.
+  O campo volta quando existir uptime de verdade.
 """
 import json
 import os
 from fastapi import APIRouter
 
-from db import get_findings, get_first_sample_time, get_host_series
+from db import get_findings
 
 router = APIRouter(prefix="/api", tags=["executive"])
 
@@ -22,9 +27,6 @@ APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SERVICOS_PATH = os.getenv(
     "SERVICOS_CONFIG", os.path.join(APP_DIR, "config", "servicos.json")
 )
-
-# Dias de serie exigidos antes de a tela afirmar uma disponibilidade.
-DIAS_PARA_DISPONIBILIDADE = 30
 
 SEVERIDADE_ORDEM = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
 
@@ -174,46 +176,6 @@ def montar_servicos(hosts_publicos, mapa):
     return mapeados, nao_mapeados
 
 
-async def montar_disponibilidade():
-    """Cobertura de coleta nos ultimos 30 dias, ou desde quando esta coletando.
-
-    ATENCAO ao que este numero e e ao que ele NAO e. `host_samples` guarda CPU,
-    memoria e disco — nao uptime de servico. O que da para afirmar com essa
-    fonte e quantos dos ultimos 30 dias tiveram coleta: dia sem amostra e dia em
-    que o cockpit (e provavelmente a VPS) esteve fora. E um piso observado, nao
-    a disponibilidade dos servicos publicados, e o campo `source` diz isso.
-
-    Chamar isso de "disponibilidade dos servicos" seria inventar numero — a
-    mesma razao que tirou latencia por salto e CVEs das telas.
-    """
-    desde = await get_first_sample_time()
-    if not desde:
-        return {"value": None, "coletando_desde": None, "dias": 0, "source": None}
-
-    from datetime import datetime, timezone
-    try:
-        inicio = datetime.fromisoformat(str(desde).replace("Z", "+00:00"))
-        dias = (datetime.now(timezone.utc) - inicio).days
-    except (ValueError, TypeError):
-        return {"value": None, "coletando_desde": desde, "dias": 0, "source": None}
-
-    if dias < DIAS_PARA_DISPONIBILIDADE:
-        return {"value": None, "coletando_desde": desde, "dias": dias, "source": None}
-
-    try:
-        serie = await get_host_series("cpu_pct", days=DIAS_PARA_DISPONIBILIDADE, step="1d")
-    except Exception:
-        serie = []
-    dias_com_coleta = len([p for p in serie if p])
-    valor = round((dias_com_coleta / DIAS_PARA_DISPONIBILIDADE) * 100, 1)
-    return {
-        "value": valor,
-        "coletando_desde": desde,
-        "dias": dias,
-        "source": "cobertura de coleta (host_samples), nao uptime de servico",
-    }
-
-
 def _hosts_publicos():
     """Dominios servidos pelo ingress. Lista vazia se o nginx.conf nao for legivel."""
     caminho = os.getenv("NGINX_CONFIG_PATH", "/etc/nginx/nginx.conf")
@@ -243,7 +205,6 @@ async def get_executive():
     hosts = _hosts_publicos()
     servicos, nao_mapeados = montar_servicos(hosts, mapa)
     custo = _custo_mensal()
-    disponibilidade = await montar_disponibilidade()
     riscos = montar_riscos(findings, mapa)
 
     faltando = []
@@ -255,7 +216,6 @@ async def get_executive():
         "services": servicos,
         "services_unmapped": nao_mapeados,
         "risks": riscos,
-        "availability": disponibilidade,
         # None significa "sem fonte" — a tela omite o cartao em vez de mostrar zero.
         "cost_monthly": custo,
         "open_findings": len(findings),

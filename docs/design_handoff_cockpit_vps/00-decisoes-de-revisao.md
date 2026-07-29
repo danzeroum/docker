@@ -178,11 +178,12 @@ para não falar em domínio. O `_plain` é outra frase para outro leitor, e nome
 vem resolvido pelo `servicos.json`. Risco cujo alvo não está no mapa fica **sem** nome, em vez de
 vazar o técnico.
 
-**Disponibilidade não é uptime, e a tela diz isso.** `host_samples` guarda CPU, memória e disco —
-não disponibilidade de serviço. Com 30 dias de série dá para afirmar quantos desses dias tiveram
-coleta (dia sem amostra é dia em que o cockpit, e provavelmente a VPS, esteve fora). É um piso
-observado, e o campo `source` carrega a ressalva. Chamar isso de "disponibilidade dos serviços"
-seria a mesma invenção que tirou latência por salto e CVEs das telas.
+**Disponibilidade saiu da tela.** A primeira versão exibia cobertura de coleta (quantos dos
+últimos 30 dias tiveram amostra) rotulada como disponibilidade, com um campo `source` explicando
+a diferença. Não basta: são dois números distintos sob o mesmo rótulo, e quem lê "99,8%" não vai
+atrás da nota de rodapé. Nota de rodapé não conserta rótulo errado. O KPI foi removido do
+frontend **e** do endpoint; volta quando existir uptime de verdade. `host_samples` guarda CPU,
+memória e disco — nunca teve como sustentar esse campo.
 
 **Custo sem `COST_MONTHLY` some, não vira zero.** "R$ 0" é uma afirmação falsa sobre o negócio;
 campo ausente é honesto.

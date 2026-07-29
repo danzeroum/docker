@@ -4,13 +4,6 @@ import { escapeHtml } from '../fmt.js';
 // Nenhuma frase de diagnostico aqui: hero, riscos e impacto vem dos campos
 // _plain do motor. O que existe neste arquivo e rotulo de interface.
 
-function dataCurta(iso) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return '';
-  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
 function moeda(valor) {
   return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
@@ -29,25 +22,6 @@ export function renderExecutivo(container) {
         : 'todos identificados',
       tom: d.services_unmapped ? 'warn' : 'ok',
     });
-
-    const disp = d.availability || {};
-    if (disp.value === null || disp.value === undefined) {
-      cartoes.push({
-        label: 'Disponibilidade',
-        valor: '—',
-        nota: disp.coletando_desde
-          ? `coletando desde ${dataCurta(disp.coletando_desde)}`
-          : 'ainda sem coleta',
-        tom: 'mute',
-      });
-    } else {
-      cartoes.push({
-        label: 'Disponibilidade',
-        valor: `${disp.value}%`,
-        nota: disp.source || '',
-        tom: disp.value >= 99 ? 'ok' : 'warn',
-      });
-    }
 
     cartoes.push({
       label: 'Precisa de decisão',
