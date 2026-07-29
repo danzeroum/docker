@@ -423,7 +423,7 @@ def test_upstream_missing_encontra_ghost():
         pass
     ctx = Ctx()
     ctx.ingress = cat
-    ctx.containers = [{"Name": "/existing-container"}]
+    ctx.containers = [{"Name": "/existing-container", "State": {"Running": True}}]
     result = mod.evaluate(ctx)
     assert result is not None
     names = [f["target"] for f in result]
@@ -439,7 +439,7 @@ def test_upstream_missing_com_container_existente_nao_dispara():
         pass
     ctx = Ctx()
     ctx.ingress = cat
-    ctx.containers = [{"Name": "/existing-container"}]
+    ctx.containers = [{"Name": "/existing-container", "State": {"Running": True}}]
     result = mod.evaluate(ctx)
     assert result is not None
     targets = [f["target"] for f in result]
@@ -457,7 +457,7 @@ def test_upstream_missing_nao_dispara_contra_vps():
         pass
     ctx = Ctx()
     ctx.ingress = cat
-    ctx.containers = [{"Name": f"/{name}"} for name in (
+    ctx.containers = [{"Name": f"/{name}", "State": {"Running": True}} for name in (
         "executagent-studio", "familia-web", "central-inteligencia-juridica",
         "criptotrade-app", "criptotrade-frontend", "btv-squad-dashboard",
         "docker-cockpit", "conciliaai-backend", "btvchatcorp-frontend-1",
