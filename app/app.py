@@ -35,8 +35,30 @@ ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "").split(",") if os.getenv("ALLO
 
 
 @asynccontextmanager
+def _avisa_se_nginx_ausente():
+    """Grita se o nginx.conf do ingress nao estiver onde o codigo procura.
+
+    Sem o arquivo, o parser devolve None, as 11 regras de ingress nunca emitem,
+    a tela Ingress & TLS fica vazia e o Resumo executivo nao lista servico
+    nenhum — tudo sem erro nenhum no log. Falha silenciosa e o modo de errar
+    mais caro deste produto, entao ela deixa de ser silenciosa aqui.
+    """
+    import logging
+    caminho = os.getenv("NGINX_CONFIG_PATH", "/etc/nginx/nginx.conf")
+    if os.path.isfile(caminho):
+        return
+    logging.getLogger(__name__).warning(
+        "nginx.conf do ingress nao encontrado em %s — as regras de ingress e a "
+        "lista de servicos do Resumo executivo ficarao VAZIAS. Ajuste "
+        "NGINX_CONFIG_PATH para o caminho dentro do container (o compose monta "
+        "/opt/btv/ingress/nginx em /etc/nginx-ingress).",
+        caminho,
+    )
+
+
 async def lifespan(app: FastAPI):
     configure_proxy(SOCKET_PROXY, ENABLE_TERMINAL)
+    _avisa_se_nginx_ausente()
     from sampler import take_sample
     await take_sample()
     await init_db()
