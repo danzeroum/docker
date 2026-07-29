@@ -36,7 +36,13 @@ def evaluate(ctx):
     return {
         "target": "_",
         "title": "Certificado emprestado ao default_server SSL",
-        "title_plain": "O servidor SSL padrao usa o certificado de outro dominio",
+        "title_plain": "Um endereco responde com certificado de outro servico",
+        "impact_plain": "O navegador do cliente pode acusar site inseguro",
+        "recommendation_plain": (
+            "Emitir um certificado proprio para esse endereco — pode exigir "
+            "ajuste de DNS"
+        ),
+        "requires_approval": True,
         "interpretation": (
             f"O server default SSL (server_name _) usa o certificado de {cert_host} "
             f"({cert_path}). Acessos por IP ou dominio nao configurado exibem "

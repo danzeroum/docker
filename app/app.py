@@ -19,6 +19,7 @@ from routers.metrics import router as metrics_router
 from routers.events import router as events_router
 from routers.backend import router as backend_router
 from routers.tasks import router as tasks_router
+from routers.executive import router as executive_router
 from sampler import sampler_loop
 from findings.engine import findings_loop
 from db import init_db, close_db
@@ -108,6 +109,7 @@ app.include_router(projects_router)
 app.include_router(audit_router)
 app.include_router(session_router)
 app.include_router(tasks_router)
+app.include_router(executive_router)
 app.include_router(metrics_router)
 app.include_router(events_router)
 app.include_router(backend_router)

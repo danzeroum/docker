@@ -1,0 +1,22 @@
+{
+  "_comentario": [
+    "Mapa dominio -> nome de negocio. Copie para servicos.json e preencha.",
+    "O Resumo executivo e a unica tela que fala para quem nao opera a VPS:",
+    "sem este mapa ela volta a dizer nome de container, que e exatamente o",
+    "que ela existe para evitar.",
+    "Dominio sem entrada aqui aparece como 'nao mapeado' — nunca com o",
+    "nome tecnico. Preencher e trabalho de quem conhece o negocio, nao",
+    "deducao do codigo."
+  ],
+  "servicos": {
+    "exemplo.seudominio.com": {
+      "nome": "Painel de trading",
+      "descricao": "onde o cliente acompanha as operacoes",
+      "critico": true
+    },
+    "outro.seudominio.com": {
+      "nome": "Site institucional",
+      "critico": false
+    }
+  }
+}

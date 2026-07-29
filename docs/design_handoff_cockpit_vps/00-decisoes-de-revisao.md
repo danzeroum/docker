@@ -162,6 +162,36 @@ repassava `title_plain` e `interpretation_plain` — as outras variantes eram gr
 descartadas na resposta, em silêncio. Corrigido junto, porque o Resumo executivo depende
 justamente dessas duas para falar de impacto e conserto sem jargão.
 
+## Resumo executivo — o que a tela se recusa a dizer
+
+**`servicos.json`, não `.yml`.** O handoff pedia YAML; entrar com PyYAML no
+`requirements.txt` para ler um mapa de 13 linhas não se paga, e o `projects.py` não parseia YAML
+(chama o binário `docker compose`), então não havia parser para reaproveitar.
+
+**O `_plain` não tem fallback aqui.** Nas outras telas, `_plain` cai para o texto técnico quando
+ausente. No Resumo executivo, não: achado sem `_plain` simplesmente **não aparece**. Um crítico
+de OOM sem tradução vira "exit 137" na tela do gestor, que é pior que a tela mostrar menos.
+
+**`_plain` das regras de ingress deixou de interpolar o host.** `http_plain.title_plain` era
+`f"{host} serve conteúdo em HTTP puro"` — o domínio ia direto para a tela que existe justamente
+para não falar em domínio. O `_plain` é outra frase para outro leitor, e nome de serviço agora
+vem resolvido pelo `servicos.json`. Risco cujo alvo não está no mapa fica **sem** nome, em vez de
+vazar o técnico.
+
+**Disponibilidade não é uptime, e a tela diz isso.** `host_samples` guarda CPU, memória e disco —
+não disponibilidade de serviço. Com 30 dias de série dá para afirmar quantos desses dias tiveram
+coleta (dia sem amostra é dia em que o cockpit, e provavelmente a VPS, esteve fora). É um piso
+observado, e o campo `source` carrega a ressalva. Chamar isso de "disponibilidade dos serviços"
+seria a mesma invenção que tirou latência por salto e CVEs das telas.
+
+**Custo sem `COST_MONTHLY` some, não vira zero.** "R$ 0" é uma afirmação falsa sobre o negócio;
+campo ausente é honesto.
+
+**`disk_pressure` e `cert_expiring` não existem** — o handoff os cita, mas as regras nunca foram
+escritas (como `no_backup` até o PR #12). `requires_approval` entrou nas três que existem e
+pedem decisão de negócio: `no_backup` (custa dinheiro), `http_plain` (pode quebrar quem integra)
+e `default_cert_borrowed` (pode exigir DNS).
+
 ---
 
 ## Correções à primeira versão do handoff
