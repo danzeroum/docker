@@ -48,8 +48,8 @@ export function renderProjects(container) {
         </div>
         ${svcHtml}
         <div class="action-bar" style="margin-top:.75rem;gap:.5rem">
-          <button class="action-btn start" data-action="start" ${!canStart?'disabled':''}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Iniciar</button>
-          <button class="action-btn stop" data-action="stop" ${!canStop?'disabled':''}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="12" height="16"/></svg> Parar</button>
+          <button type="button" class="action-btn start" data-action="start" ${!canStart?'disabled':''}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Iniciar</button>
+          <button type="button" class="action-btn stop" data-action="stop" ${!canStop?'disabled':''}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="12" height="16"/></svg> Parar</button>
         </div>
       </div>`;
     }

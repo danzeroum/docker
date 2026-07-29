@@ -54,7 +54,7 @@ function renderStacks(stacks) {
   if (!stacks || !stacks.length) return '<div class="empty">Nenhuma stack</div>';
   return stacks.map(s => {
     const c = worstColor(s.worst);
-    const dotsHtml = s.containers.map(cn => `<span class="stack-contr" data-name="${escapeHtml(cn)}">${escapeHtml(cn)}</span>`).join('');
+    const dotsHtml = s.containers.map(cn => `<button type="button" class="stack-contr" data-name="${escapeHtml(cn)}">${escapeHtml(cn)}</button>`).join('');
     return `<div class="stack-block" data-stack="${escapeHtml(s.id)}">
       <div class="stack-head" style="--stack-color:${c}">
         <span class="stack-dot"></span>
@@ -81,7 +81,7 @@ function renderContainers(containers, findingsMap) {
     } else if (depth === 'conhecimento') {
       secLine = finding ? `<span style="color:var(--accent);font-style:italic">${escapeHtml(finding.recommendation || '')}</span>` : '<span style="color:var(--text-mute);font-style:italic">Nenhum achado</span>';
     }
-    return `<div class="container-card" data-id="${escapeHtml(c.id)}" data-state="${escapeHtml(c.state)}">
+    return `<button type="button" class="container-card" data-id="${escapeHtml(c.id)}" data-state="${escapeHtml(c.state)}">
       <div class="card-header">
         <span class="card-badge ${lbl}">${lbl}</span>
         <span class="card-name" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</span>
@@ -95,7 +95,7 @@ function renderContainers(containers, findingsMap) {
         <span>${c.ports || 'sem portas'}</span>
         <span class="card-exposure ${c.exposure === 'internet' ? 'exp-internet' : 'exp-pendente'}">${c.exposure === 'internet' ? 'Internet' : c.exposure === 'pendente' ? 'pendente' : 'interna'}</span>
       </div>
-    </div>`;
+    </button>`;
   }).join('');
 }
 
@@ -166,18 +166,20 @@ export function renderOverview(container) {
       const targetLabel = isAgg ? `${f.targets.length} hosts` : escapeHtml(f.target || '');
       const targetsAttr = isAgg ? JSON.stringify(f.targets) : '';
       return `<div class="atn-mini" data-id="${escapeHtml(f.id)}" data-scope="${escapeHtml(f.scope || 'container')}" data-target="${escapeHtml(f.target || '')}" data-targets="${escapeHtml(targetsAttr)}" style="border-left:3px solid ${color}">
+        <button type="button" class="card-open" data-open="${escapeHtml(f.id)}"><span class="sr-only">Abrir achado ${escapeHtml(title)}</span></button>
         <div class="atn-mini-head">
           <span class="atn-mini-sev" style="background:${color}">${severityLabel(f.severity)}</span>
           ${durStr ? `<span style="font-size:.6rem;color:var(--text-mute)">${durStr}</span>` : ''}
           <span class="atn-mini-ago">${ago}</span>
         </div>
         <div class="atn-mini-title">${escapeHtml(title)}</div>
-        ${rel ? `<div style="margin-top:.15rem"><a href="#/dossie?c=${encodeURIComponent(rel)}" style="font-size:.6rem;color:var(--accent);text-decoration:none" onclick="event.stopPropagation()">→ ${escapeHtml(rel)}</a></div>` : ''}
+        ${rel ? `<div style="margin-top:.15rem"><a href="#/dossie?c=${encodeURIComponent(rel)}" class="card-link" style="font-size:.6rem;color:var(--accent);text-decoration:none">→ ${escapeHtml(rel)}</a></div>` : ''}
       </div>`;
     }).join('');
     div.innerHTML = items;
-    div.querySelectorAll('.atn-mini').forEach(card => {
-      card.addEventListener('click', (e) => {
+    div.querySelectorAll('.atn-mini .card-open').forEach(botao => {
+      const card = botao.closest('.atn-mini');
+      botao.addEventListener('click', (e) => {
         if (e.target.closest('a')) return;
         const scope = card.dataset.scope;
         const target = card.dataset.target;

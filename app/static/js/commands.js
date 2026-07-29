@@ -85,7 +85,7 @@ export function initCommandPalette(extraCommands = []) {
     <div class="palette-overlay" id="paletteOverlay">
       <div class="palette" id="paletteBox">
         <input class="palette-input" id="paletteInput" type="text" placeholder="Digite um comando ou busque..." autofocus>
-        <div class="palette-list" id="paletteList"></div>
+        <div class="palette-list" id="paletteList" role="listbox" aria-label="Resultados"></div>
       </div>
     </div>
   `;
@@ -115,10 +115,14 @@ export function initCommandPalette(extraCommands = []) {
     list.innerHTML = all.map((c, i) => {
       const isSearch = !!c.id && (c.id.startsWith('c-') || c.id.startsWith('h-') || c.id.startsWith('f-') || c.id.startsWith('p-'));
       const icon = c.icon || '○';
-      return `<div class="palette-item ${i === 0 ? 'active' : ''}" data-idx="${i}">
+      // tabindex="-1" de proposito: numa paleta quem navega e a seta, com o
+      // foco parado no campo de busca. Tab passeando por 50 resultados seria
+      // pior que a div de antes. Continua <button type="button">, entao Enter e clique
+      // acionam o mesmo caminho.
+      return `<button type="button" role="option" tabindex="-1" aria-selected="${i === 0}" class="palette-item ${i === 0 ? 'active' : ''}" data-idx="${i}">
         <span class="palette-icon">${icon}</span>
         <span class="palette-label${isSearch ? ' palette-search' : ''}">${c.label}</span>
-      </div>`;
+      </button>`;
     }).join('');
   }
 

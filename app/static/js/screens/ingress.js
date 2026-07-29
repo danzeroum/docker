@@ -62,7 +62,7 @@ function renderHostRow(name, h) {
     p443html = us.length ? `<span style="font-family:JetBrains Mono;font-size:.7rem">${escapeHtml(us[0])}${us.length > 1 ? ` +${us.length - 1}` : ''}</span>` : '<span style="color:var(--text-dim)">sem proxy</span>';
   }
   const highlighted = _highlightedHosts.includes(name);
-  return `<div class="ig-row${highlighted ? ' ig-highlight' : ''}" data-host="${escapeHtml(name)}">
+  return `<button type="button" class="ig-row${highlighted ? ' ig-highlight' : ''}" data-host="${escapeHtml(name)}">
     <div class="ig-cell ig-cell-name"><strong>${escapeHtml(name)}</strong></div>
     <div class="ig-cell ig-cell-p80">${p80html}</div>
     <div class="ig-cell ig-cell-p443">${p443html}</div>
@@ -70,7 +70,7 @@ function renderHostRow(name, h) {
     <div class="ig-cell ig-cell-bool">${yesno(h.bot_filter)}</div>
     <div class="ig-cell ig-cell-bool">${yesno(h.auth_basic)}</div>
     <div class="ig-cell ig-cell-cert" title="${escapeHtml(h.cert_path || '')}">${h.cert_path ? `<span style="font-family:JetBrains Mono;font-size:.7rem;color:var(--text-dim)">${escapeHtml(h.cert_path.split('/').slice(-2).join('/'))}</span>` : '—'}</div>
-  </div>`;
+  </button>`;
 }
 
 function renderTable(hosts) {
@@ -135,6 +135,7 @@ function renderFindingsPanel(findings) {
     const hostAttr = isAgg ? '' : escapeHtml(f.target || '');
     const targetLabel = isAgg ? `${f.targets.length} hosts` : escapeHtml(f.target || '');
     return `<div class="ig-finding" data-finding-id="${escapeHtml(f.id)}" data-host="${hostAttr}" data-targets="${escapeHtml(targetsAttr)}" style="border-left:3px solid ${color}">
+      <button type="button" class="card-open" data-open="${escapeHtml(f.id)}"><span class="sr-only">Abrir achado</span></button>
       <div class="ig-finding-head">
         <span class="ig-finding-sev" style="background:${color}">${sevLabel(f.severity)}</span>
         <span class="ig-finding-score">${f.score}</span>
@@ -162,8 +163,9 @@ function renderRight(hosts, findings) {
       <div class="ig-finding-list">${renderFindingsPanel(findings)}</div>
     </div>
   </div>`;
-  r.querySelectorAll('.ig-finding').forEach(card => {
-    card.addEventListener('click', (e) => {
+  r.querySelectorAll('.ig-finding .card-open').forEach(botao => {
+    const card = botao.closest('.ig-finding');
+    botao.addEventListener('click', (e) => {
       if (e.target.closest('.ig-finding-link')) return;
       const targetsRaw = card.dataset.targets;
       let hosts = [];

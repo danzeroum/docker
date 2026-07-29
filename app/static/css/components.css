@@ -44,7 +44,7 @@
 .search-input{
   width:100%;background:var(--surface);border:1px solid var(--border);
   border-radius:8px;padding:.6rem .8rem .6rem 2.2rem;color:var(--text);
-  font-size:.825rem;font-family:inherit;outline:none;transition:border-color .2s;
+  font-size:.825rem;font-family:inherit;transition:border-color .2s;
 }
 .search-input:focus{border-color:var(--accent)}
 
@@ -214,7 +214,7 @@
 .modal-input{
   width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;
   padding:.5rem .75rem;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.8rem;
-  margin-bottom:1rem;outline:none
+  margin-bottom:1rem
 }
 .modal-input:focus{border-color:var(--accent)}
 .modal-checkbox{display:flex;align-items:center;gap:.5rem;font-size:.8rem;color:var(--text-dim);margin-bottom:1rem}
@@ -273,7 +273,7 @@
 }
 .palette-input{
   width:100%;background:var(--bg);border:none;border-bottom:1px solid var(--border);
-  padding:.85rem 1rem;color:var(--text);font-size:.9rem;font-family:inherit;outline:none
+  padding:.85rem 1rem;color:var(--text);font-size:.9rem;font-family:inherit
 }
 .palette-list{max-height:300px;overflow-y:auto;padding:.25rem}
 .palette-item{
@@ -464,3 +464,72 @@
 .exec-risco-impacto{font-size:.78rem;color:var(--text-dim);margin-bottom:.25rem}
 .exec-risco-decisao{font-size:.8rem;color:var(--text)}
 .exec-sem-risco{padding:.7rem .85rem;border-radius:var(--radius);font-size:.85rem;background:color-mix(in srgb,#22c55e 10%,transparent);color:var(--ok-t,#15803d);border:1px solid color-mix(in srgb,#22c55e 25%,transparent)}
+
+/* --- Acessibilidade (fatia 4) ---------------------------------------------
+   Alvo clicavel e <button> ou <a>. As classes abaixo nasceram como <div>, e a
+   conversao nao pode mudar pixel nenhum: por isso o reset vai dentro de
+   :where(), que tem especificidade ZERO. Qualquer regra de classe existente
+   continua ganhando, independente da ordem no arquivo. Sem isso o UA
+   pintaria fundo e borda de botao por cima do estilo dos cartoes.            */
+:where(button.filter-pill, button.list-item, button.stack-header,
+       button.container-card, button.stack-contr, button.ig-row,
+       button.card-open, button.action-btn, button.task-move,
+       button.palette-item) {
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+  width: 100%;
+  cursor: pointer;
+}
+
+/* Botao esticado: cobre o cartao inteiro sem existir no layout. Usado onde o
+   cartao ja tem um link ou botao dentro — interativo dentro de interativo e
+   HTML invalido e quebra a navegacao por teclado. */
+.atn-card, .atn-mini, .ig-finding { position: relative; }
+.card-open {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+/* O que fica DENTRO do cartao sobe acima do botao esticado e continua clicavel. */
+.atn-card > *:not(.card-open),
+.atn-mini > *:not(.card-open),
+.ig-finding > *:not(.card-open) { position: relative; z-index: 1; }
+.card-link, .ack-btn { position: relative; z-index: 2; }
+
+/* Rotulo so para leitor de tela: o botao esticado precisa de nome acessivel. */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Anel de foco. O contorno nunca e suprimido — quem navega por teclado
+   precisa ver onde esta. Cor propria por tema porque o anel tem de contrastar com o fundo, e o
+   fundo muda nos tres. */
+:focus-visible {
+  outline: 2px solid var(--focus-ring, #2496ED);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm, 4px);
+}
+.card-open:focus-visible {
+  outline-offset: -3px;
+  border-radius: var(--radius, 7px);
+}
+[data-tema="cockpit"] { --focus-ring: #7dd3fc; }
+[data-tema="escritorio"] { --focus-ring: #2563eb; }
+[data-tema="claro"] { --focus-ring: #1d4ed8; }

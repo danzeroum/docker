@@ -193,6 +193,37 @@ escritas (como `no_backup` até o PR #12). `requires_approval` entrou nas três 
 pedem decisão de negócio: `no_backup` (custa dinheiro), `http_plain` (pode quebrar quem integra)
 e `default_cert_borrowed` (pode exigir DNS).
 
+## Acessibilidade — o que a conversão div→button obrigou a decidir
+
+**Reset dentro de `:where()`.** As classes convertidas já têm estilo próprio; um reset apendado
+no fim do arquivo sobrescreveria fundo e padding e mudaria o layout, que era proibido.
+`:where()` tem especificidade **zero**, então qualquer regra de classe existente continua
+vencendo, independente da ordem. Sem isso a conversão mexeria em pixel.
+
+**Nem todo cartão virou botão.** `atn-card` tem um botão de silenciar dentro, `atn-mini` e
+`ig-finding` têm link. Interativo dentro de interativo é HTML inválido e quebra a navegação por
+teclado. Esses três seguem `<div>` com um botão **esticado** (`.card-open`, `position:absolute;
+inset:0`) que cobre o cartão sem existir no layout; o conteúdo interno sobe de `z-index` e
+continua clicável. O botão esticado é vazio, então carrega um rótulo `.sr-only` — botão sem nome
+faz o leitor de tela anunciar só "botão".
+
+**Item da paleta é `<button tabindex="-1">` com `role="option"`.** Numa paleta quem navega é a
+seta, com o foco parado no campo de busca; Tab passeando por 50 resultados seria pior que a
+`div` de antes. Continua botão, então Enter e clique acionam o mesmo caminho.
+
+**Três `outline:none` removidos**, em input e modais. Nenhum foi substituído por outra supressão:
+o anel agora vem de `:focus-visible` com `--focus-ring` por tema, porque o fundo muda nos três e
+um anel único não contrasta nos três.
+
+**O modal de silenciar não fechava com Escape** — os outros dois fechavam. Encontrado pelo teste
+que contava os handlers, não por inspeção. Junto entrou o foco preso: Tab não escapa para o
+fundo enquanto o modal está aberto, e ao fechar o foco volta para quem o abriu, não para o topo
+da página.
+
+Os testes são de **estrutura**. Ordem de foco e contraste real precisam de navegador; o que eles
+travam é a regressão — alvo clicável voltando a ser `div`, contorno suprimido, cartão esticado
+sem nome acessível.
+
 ---
 
 ## Correções à primeira versão do handoff
