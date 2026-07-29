@@ -1,5 +1,5 @@
 import { getState, setState, subscribe } from './store.js';
-import { apiGet, apiPost, apiDelete, cancel, cancelAll } from './data.js';
+import { apiGet, apiGetText, apiPost, apiDelete, cancel, cancelAll } from './data.js';
 import { fmtBytes, fmtDuration, fmtDate, shortId, escapeHtml, jsonHighlight } from './fmt.js';
 import { showToast, showConfirmModal } from './notifications.js';
 import { initCommandPalette } from './commands.js';
@@ -12,6 +12,8 @@ import { renderCapacidade } from './screens/capacidade.js';
 import { renderBackend } from './screens/backend.js';
 import { renderTarefas } from './screens/tarefas.js';
 import { renderExecutivo } from './screens/executivo.js';
+import { renderTopologia } from './screens/topologia.js';
+import { renderPlantao } from './screens/plantao.js';
 
 // --- Theme ---
 function applyTheme(tema) {
@@ -70,11 +72,11 @@ function renderScreen(screen) {
     case '#/overview': dispose = renderOverview(container); break;
     case '#/dossie': dispose = renderDossie(container); break;
     case '#/logs': renderLogs(container); break;
-    case '#/plantao': renderPlaceholder(container, 'Plantão', '/api/findings', 'F1'); break;
+    case '#/plantao': dispose = renderPlantao(container); break;
     case '#/incidente': dispose = renderAttention(container); break;
     case '#/auditoria': dispose = renderAuditoria(container); break;
     case '#/ingress': dispose = renderIngress(container); break;
-    case '#/topologia': renderPlaceholder(container, 'Topologia', '/api/topology', 'F3'); break;
+    case '#/topologia': dispose = renderTopologia(container); break;
     case '#/capacidade': dispose = renderCapacidade(container); break;
     case '#/tarefas': dispose = renderTarefas(container); break;
     case '#/executivo': dispose = renderExecutivo(container); break;
@@ -509,9 +511,9 @@ function renderLogs(container) {
   }
 
   async function fetchLines(n) {
-    const { data, error } = await apiGet('logs', `/api/containers/${id}/logs?tail=${n}`);
+    const { data, error } = await apiGetText('logs', `/api/containers/${id}/logs?tail=${n}`);
     if (error) { logEl.textContent = 'Erro: ' + error; return; }
-    logEl.textContent = data;
+    logEl.textContent = data || 'Container sem linhas de log.';
   }
 
   container.querySelector('[data-lines="100"]').onclick = () => { stopStream(); fetchLines(100); };
@@ -535,19 +537,6 @@ function renderLogs(container) {
     stopStream();
     cancel('logs');
   };
-}
-
-// --- Screen: Placeholder ---
-function renderPlaceholder(container, title, endpoint, phase) {
-  container.innerHTML = `<div class="content">
-    <div class="section">
-      <div class="section-head"><div><h2 class="section-title">${escapeHtml(title)}</h2></div></div>
-      <div class="empty-field" style="background:var(--neutral-soft);border-color:var(--border);color:var(--text-dim)">
-        Aguarda <code>${escapeHtml(endpoint)}</code>, previsto para <strong>${escapeHtml(phase)}</strong>.
-      </div>
-    </div>
-  </div>`;
-  currentDispose = () => {};
 }
 
 // --- Filter pills ---

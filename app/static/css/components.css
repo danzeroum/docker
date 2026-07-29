@@ -491,7 +491,7 @@
 /* Botao esticado: cobre o cartao inteiro sem existir no layout. Usado onde o
    cartao ja tem um link ou botao dentro — interativo dentro de interativo e
    HTML invalido e quebra a navegacao por teclado. */
-.atn-card, .atn-mini, .ig-finding { position: relative; }
+.atn-card, .atn-mini, .ig-finding, .plt-card { position: relative; }
 .card-open {
   position: absolute;
   inset: 0;
@@ -504,7 +504,8 @@
 /* O que fica DENTRO do cartao sobe acima do botao esticado e continua clicavel. */
 .atn-card > *:not(.card-open),
 .atn-mini > *:not(.card-open),
-.ig-finding > *:not(.card-open) { position: relative; z-index: 1; }
+.ig-finding > *:not(.card-open),
+.plt-card > *:not(.card-open) { position: relative; z-index: 1; }
 .card-link, .ack-btn { position: relative; z-index: 2; }
 
 /* Rotulo so para leitor de tela: o botao esticado precisa de nome acessivel. */

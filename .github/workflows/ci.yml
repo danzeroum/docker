@@ -23,6 +23,13 @@ jobs:
           cache: pip
           cache-dependency-path: tests/requirements-test.txt
 
+      # Os testes de logica de tela importam os modulos ES do frontend no node.
+      # Sem isso eles se marcam como skip e 12 asserts desaparecem em silencio.
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       - name: Instalar dependencias de teste
         run: pip install -r tests/requirements-test.txt
 
