@@ -3,3 +3,4 @@ certbot/conf/
 nginx/.htpasswd
 __pycache__/
 *.pyc
+app/config/servicos.json

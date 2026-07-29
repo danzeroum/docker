@@ -427,3 +427,40 @@
 .task-detail{font-size:.74rem;color:var(--text-dim);margin-bottom:.3rem}
 .task-note{font-size:.7rem;color:var(--text-mute);font-style:italic}
 .task-actions{margin-top:.5rem}
+
+/* --- Resumo executivo --- */
+.exec-config-aviso{background:var(--warn-soft,rgba(245,158,11,.12));border:1px solid var(--border);border-radius:var(--radius);padding:.6rem .8rem;font-size:.8rem;color:var(--text-dim);margin-bottom:12px}
+.exec-config-aviso code{font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.exec-hero{border-radius:var(--radius-card);padding:1.1rem 1.3rem;margin-bottom:12px;border:1px solid var(--border)}
+.exec-hero-ok{background:color-mix(in srgb,#22c55e 8%,transparent)}
+.exec-hero-warn{background:color-mix(in srgb,#f59e0b 10%,transparent)}
+.exec-hero-bad{background:color-mix(in srgb,#ef4444 10%,transparent)}
+.exec-hero-title{font-size:1.35rem;font-weight:700;margin:0 0 .4rem;color:var(--text);line-height:1.25}
+.exec-hero-text{font-size:.95rem;color:var(--text-dim);margin:0 0 .35rem;line-height:1.5}
+.exec-hero-impact{font-size:.88rem;color:var(--text-dim);margin:0 0 .35rem}
+.exec-hero-next{font-size:.88rem;color:var(--text);margin:.5rem 0 0}
+.exec-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:12px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-card);padding:.7rem .9rem}
+.kpi-label{font-size:.68rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--text-mute)}
+.kpi-value{font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:600;color:var(--text);line-height:1.3}
+.kpi-note{font-size:.72rem;color:var(--text-dim)}
+.kpi-ok .kpi-value{color:var(--ok,#22c55e)}
+.kpi-warn .kpi-value{color:var(--warn,#f59e0b)}
+.exec-colunas{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
+.exec-lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.exec-servico{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;padding:.55rem .7rem;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius)}
+.exec-servico-nome{font-weight:600;font-size:.9rem;color:var(--text)}
+.exec-servico-desc{font-size:.76rem;color:var(--text-mute)}
+.exec-servico-vazio .exec-servico-nome{color:var(--text-mute);font-style:italic}
+.exec-tag{font-size:.62rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:.1rem .38rem;border-radius:var(--radius-sm);background:var(--neutral-soft);color:var(--text-dim)}
+.exec-tag.warn{background:color-mix(in srgb,#f59e0b 18%,transparent);color:var(--warn,#b45309)}
+.exec-risco{padding:.6rem .75rem;background:var(--surface-2);border:1px solid var(--border);border-left-width:3px;border-radius:var(--radius)}
+.exec-risco-critical{border-left-color:#ef4444}
+.exec-risco-high{border-left-color:#f59e0b}
+.exec-risco-medium{border-left-color:#60a5fa}
+.exec-risco-topo{display:flex;justify-content:space-between;align-items:center;gap:.5rem;margin-bottom:.25rem}
+.exec-prazo{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text-mute)}
+.exec-risco-titulo{font-size:.9rem;font-weight:600;color:var(--text);margin-bottom:.25rem}
+.exec-risco-impacto{font-size:.78rem;color:var(--text-dim);margin-bottom:.25rem}
+.exec-risco-decisao{font-size:.8rem;color:var(--text)}
+.exec-sem-risco{padding:.7rem .85rem;border-radius:var(--radius);font-size:.85rem;background:color-mix(in srgb,#22c55e 10%,transparent);color:var(--ok-t,#15803d);border:1px solid color-mix(in srgb,#22c55e 25%,transparent)}

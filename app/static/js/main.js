@@ -11,6 +11,7 @@ import { renderAuditoria } from './screens/auditoria.js';
 import { renderCapacidade } from './screens/capacidade.js';
 import { renderBackend } from './screens/backend.js';
 import { renderTarefas } from './screens/tarefas.js';
+import { renderExecutivo } from './screens/executivo.js';
 
 // --- Theme ---
 function applyTheme(tema) {
@@ -76,7 +77,7 @@ function renderScreen(screen) {
     case '#/topologia': renderPlaceholder(container, 'Topologia', '/api/topology', 'F3'); break;
     case '#/capacidade': dispose = renderCapacidade(container); break;
     case '#/tarefas': dispose = renderTarefas(container); break;
-    case '#/executivo': renderPlaceholder(container, 'Executivo', '/api/executive', 'F5'); break;
+    case '#/executivo': dispose = renderExecutivo(container); break;
     case '#/backend': dispose = renderBackend(container); break;
     case '#/projetos': dispose = renderProjects(container); break;
     default: dispose = renderOverview(container); break;

@@ -110,6 +110,9 @@ def evaluate(ctx):
             "automática dos dados"
         ),
         "evidence": f"{total} containers inspecionados, 0 com sinal de backup",
+        # Vai para "precisa de decisao" no Resumo executivo: escolher destino de
+        # copia custa dinheiro, e isso nao e decisao de quem opera.
+        "requires_approval": True,
         "impact": "Perda total e definitiva dos dados em falha de disco ou do provedor",
         "impact_plain": "Uma falha do servidor apaga tudo, sem volta",
         "facts": [

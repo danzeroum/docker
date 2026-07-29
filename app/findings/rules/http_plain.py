@@ -42,9 +42,20 @@ def evaluate(ctx):
                     upstream = loc.proxy_pass_resolved
         payload = {
             "title": f"{host}: HTTP sem redirecionamento HTTPS",
-            "title_plain": f"{host} serve conteudo em HTTP puro",
+            # Sem o dominio: o _plain e a frase do gestor, e o Resumo executivo
+            # nomeia servico pelo mapa de negocio, nunca pelo host tecnico.
+            "title_plain": "Um servico esta acessivel sem criptografia",
             "interpretation": f"{host} expoe servicos em HTTP (porta 80) sem redirecionar para HTTPS",
-            "interpretation_plain": "O servico esta acessivel em texto claro sem criptografia",
+            "interpretation_plain": (
+                "Quem enviar senha ou dados nesse endereco trafega em texto "
+                "aberto, visivel para quem estiver no caminho da rede"
+            ),
+            "impact_plain": "Senhas e dados de clientes podem ser interceptados",
+            "recommendation_plain": (
+                "Forcar o acesso criptografado; pode exigir avisar quem integra "
+                "com o servico hoje"
+            ),
+            "requires_approval": True,
             "recommendation": "Adicionar location / { return 301 https://$host$request_uri; } no server de porta 80 — cookies de sessao, credenciais de login e payloads trafegam em texto claro",
             "impact": "Cada requisicao HTTP expoe cookies de sessao e corpos de requisicao em texto claro para qualquer um no caminho da rede",
             "evidence": f"Servidor HTTP em {host} nao redireciona para HTTPS",
