@@ -410,3 +410,20 @@
 .project-name{font-weight:600;font-size:1rem;color:var(--text)}
 .modal-btn:disabled{opacity:.5;cursor:not-allowed}
 .modal-text select,.modal-text input[type="text"]{font-family:inherit}
+
+/* --- Board de tarefas (v9) --- */
+.kanban{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;align-items:start}
+.kanban-col{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-card);overflow:hidden}
+.kanban-head{display:flex;align-items:center;justify-content:space-between;padding:.5rem .7rem;background:var(--surface-2);border-bottom:1px solid var(--border)}
+.kanban-title{font-size:.72rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--text-mute)}
+.kanban-count{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--text-dim)}
+.kanban-body{display:flex;flex-direction:column;gap:8px;padding:.6rem;min-height:60px}
+.task-card{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);padding:.6rem}
+.task-head{margin-bottom:.35rem}
+.task-tag{font-size:.62rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:.12rem .4rem;border-radius:var(--radius-sm);background:var(--neutral-soft);color:var(--text-dim)}
+.task-tag.auto{background:color-mix(in srgb,var(--accent) 13%,transparent);color:var(--accent)}
+.task-title{font-size:.82rem;font-weight:600;margin:0 0 .3rem;color:var(--text)}
+.task-target{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--text-dim);margin-bottom:.3rem}
+.task-detail{font-size:.74rem;color:var(--text-dim);margin-bottom:.3rem}
+.task-note{font-size:.7rem;color:var(--text-mute);font-style:italic}
+.task-actions{margin-top:.5rem}

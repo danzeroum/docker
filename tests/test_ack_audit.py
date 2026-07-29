@@ -8,6 +8,18 @@ import pytest
 from unittest.mock import patch, AsyncMock
 from fastapi.testclient import TestClient
 
+
+async def _fecha(db_mod):
+    """Fecha a conexao mesmo quando o assert falha.
+
+    Sem isto a thread da aiosqlite sobrevive e o pytest trava no fim da
+    suite, sem mensagem de erro — o sintoma parece hang, nao falha."""
+    try:
+        await db_mod.close_db()
+    except Exception:
+        pass
+
+
 FINDING_ID = "healthcheck_never_passed:criptotrade-dashboard"
 
 
@@ -51,8 +63,8 @@ async def test_ack_tira_da_fila_e_registra_auditoria(tmp_path):
             l["action"] == "ack" and l["project"] == FINDING_ID and l["token_label"] == "admin"
             for l in linhas
         ), "ack nao apareceu em /api/audit"
-        await db_mod.close_db()
     finally:
+        await _fecha(db_mod)
         os.environ.pop("COCKPIT_DB", None)
 
 
@@ -74,8 +86,8 @@ async def test_ack_sobrevive_ao_ciclo_do_motor(tmp_path):
         assert await db_mod.get_findings(status="open") == [], "ack revertido pelo motor"
         atual = await db_mod.get_finding(FINDING_ID)
         assert atual["status"] == "acked"
-        await db_mod.close_db()
     finally:
+        await _fecha(db_mod)
         os.environ.pop("COCKPIT_DB", None)
 
 

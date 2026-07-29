@@ -197,8 +197,8 @@ def _populate_v1_to_v5(path):
     conn.close()
 
 
-def test_migration_v8_fresh_db():
-    """init_db sobre banco vazio cria todas as tabelas e schema v8."""
+def test_migration_v9_fresh_db():
+    """init_db sobre banco vazio cria todas as tabelas e schema v9."""
     fd, path = tempfile.mkstemp(suffix=".db")
     os.close(fd)
     _reset_db(path)
@@ -212,9 +212,9 @@ def test_migration_v8_fresh_db():
             conn.row_factory = sqlite3.Row
 
             cur = conn.execute("SELECT MAX(version) as v FROM schema_version")
-            assert cur.fetchone()["v"] == 8
+            assert cur.fetchone()["v"] == 9
 
-            for tbl in ("findings", "audit_log", "unlock_state", "host_samples", "container_samples", "api_telemetry"):
+            for tbl in ("findings", "audit_log", "unlock_state", "host_samples", "container_samples", "api_telemetry", "tasks"):
                 cur = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (tbl,))
                 assert cur.fetchone() is not None, f"Tabela {tbl} nao criada"
 
@@ -293,9 +293,9 @@ def test_migration_v6_banco_populado():
                 )
                 assert row["first_seen"] is not None
 
-            # Schema agora em v8
+            # Schema agora em v9 (init_db aplica todas as pendentes)
             cur = conn.execute("SELECT MAX(version) as v FROM schema_version")
-            assert cur.fetchone()["v"] == 8
+            assert cur.fetchone()["v"] == 9
 
             # Novas tabelas existem
             for tbl in ("host_samples", "container_samples", "api_telemetry"):

@@ -5,7 +5,9 @@ import re
 import time
 from datetime import datetime, timezone
 from sampler import get_container_inspects, get_last_sample
-from db import upsert_finding, resolve_finding, get_findings, get_finding
+from db import (upsert_finding, resolve_finding, get_findings, get_finding,
+                create_task_from_finding, resolve_task_for_finding,
+                reopen_task_for_finding)
 
 _rules = []
 _last_run = {}
@@ -106,6 +108,31 @@ def _reset_debounce(rule_name, target):
     _debounce_state.pop(key, None)
 
 
+async def _sync_task(mod, finding, payload, estado):
+    """Espelha o achado no board, para regras que declaram AUTO_TASK = True.
+
+    `estado` vem do upsert: "created" | "reopened" | "updated".
+
+    - created  -> abre o cartao (idempotente; o indice unico parcial protege)
+    - reopened -> o achado voltou dentro dos 30 min: tira o cartao de done em vez
+                  de abrir um segundo. Sem isto o cartao ficaria orfao em done com
+                  o problema vivo.
+    - updated  -> nada; e so mais uma observacao do mesmo achado.
+    """
+    if not getattr(mod, "AUTO_TASK", False):
+        return
+    dados = dict(finding)
+    dados["title"] = payload.get("title") or finding.get("rule")
+    dados["recommendation"] = payload.get("recommendation") or ""
+    if estado == "created":
+        await create_task_from_finding(dados)
+    elif estado == "reopened":
+        movidos = await reopen_task_for_finding(finding["id"])
+        if not movidos:
+            # cartao nunca existiu (regra ganhou AUTO_TASK depois do achado)
+            await create_task_from_finding(dados)
+
+
 async def _run_cycle():
     containers_map = get_container_inspects()
     host = get_last_sample()
@@ -184,7 +211,8 @@ async def _run_cycle():
                     "caused_by": res.get("caused_by"),
                     "payload": json.dumps(payload, ensure_ascii=False, default=str),
                 }
-                await upsert_finding(finding)
+                estado = await upsert_finding(finding)
+                await _sync_task(mod, finding, payload, estado)
                 supersedes = res.get("supersedes")
                 if supersedes:
                     targets = supersedes if isinstance(supersedes, list) else [supersedes]
@@ -222,13 +250,17 @@ async def _run_cycle():
                 "payload": json.dumps(payload, ensure_ascii=False, default=str),
             }
 
-            await upsert_finding(finding)
+            estado = await upsert_finding(finding)
+            await _sync_task(mod, finding, payload, estado)
 
             supersedes = res.get("supersedes")
             if supersedes:
                 targets = supersedes if isinstance(supersedes, list) else [supersedes]
                 pending_supersedes.extend(targets)
 
+    # Supersede NAO fecha cartao. `oom` suplantar `restart_loop` significa que os
+    # dois sao sintoma do mesmo problema — que continua vivo. Fechar o cartao aqui
+    # marcaria como feito um trabalho que ninguem fez.
     for sid in pending_supersedes:
         if sid in history_by_id or sid in seen_ids:
             await resolve_finding(sid)
@@ -246,6 +278,9 @@ async def _run_cycle():
             else:
                 _reset_debounce(rule_of, "_")
             await resolve_finding(h_id)
+            # Unico ponto que fecha cartao: o achado sumiu do ciclo por conta
+            # propria. Distinto do supersede acima, de proposito.
+            await resolve_task_for_finding(h_id)
 
 
 async def findings_loop(interval=10.0):

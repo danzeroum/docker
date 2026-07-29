@@ -82,6 +82,29 @@ export async function apiPost(key, url, options = {}) {
   }
 }
 
+export async function apiPatch(key, url, body = {}) {
+  const signal = getSignal(key);
+  const unlockHeader = getUnlockHeader();
+  try {
+    const res = await fetch(url, {
+      method: 'PATCH',
+      signal,
+      body: JSON.stringify(body),
+      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', ...unlockHeader },
+    });
+    if (!res.ok) {
+      let detail = '';
+      try { const j = await res.json(); detail = j.detail || ''; } catch {}
+      return { error: detail || `HTTP ${res.status}` };
+    }
+    const data = res.status === 204 ? { ok: true } : await res.json();
+    return { data };
+  } catch (err) {
+    if (err.name === 'AbortError') return { error: 'abortado' };
+    return { error: err.message || 'Erro de rede' };
+  }
+}
+
 export async function apiDelete(key, url) {
   const signal = getSignal(key);
   const unlockHeader = getUnlockHeader();

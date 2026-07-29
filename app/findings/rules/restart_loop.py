@@ -2,6 +2,10 @@ SEVERITY = "critical"
 SCOPE = "container"
 MIN_INTERVAL = 10
 DEBOUNCE = {"window_min": 30, "count": 3}
+# Gera cartao no board: exige trabalho humano (ler log, corrigir a causa) e nao
+# se conserta sozinho. `oom` de proposito NAO declara AUTO_TASK — ele suplanta
+# esta regra, e dois cartoes para o mesmo problema e o que SUPERSEDES evita.
+AUTO_TASK = True
 
 # In-memory tracking of restart count per container between cycles
 _prev_restart = {}

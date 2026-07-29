@@ -185,6 +185,31 @@ async def init_db():
             ")",
             "CREATE INDEX IF NOT EXISTS idx_unlock_expires ON unlock_state(expires_at)",
         ]),
+        # v9 — tarefas (board do diagnostico).
+        # `origem` e COLUNA, nao inferida de finding_id IS NULL: uma tarefa manual
+        # pode legitimamente apontar para um achado, e e `origem` que decide se o
+        # motor tem permissao de mover o cartao.
+        (9, [
+            "CREATE TABLE IF NOT EXISTS tasks ("
+            "id TEXT PRIMARY KEY,"
+            "title TEXT NOT NULL,"
+            "detail TEXT NOT NULL DEFAULT '',"
+            "col TEXT NOT NULL DEFAULT 'todo',"
+            "origem TEXT NOT NULL DEFAULT 'manual',"
+            "finding_id TEXT,"
+            "target TEXT,"
+            "owner TEXT NOT NULL DEFAULT '',"
+            "due TEXT,"
+            "note TEXT NOT NULL DEFAULT '',"
+            "created_at TEXT NOT NULL,"
+            "updated_at TEXT NOT NULL"
+            ")",
+            "CREATE INDEX IF NOT EXISTS idx_tasks_col ON tasks(col, updated_at DESC)",
+            # No maximo UM cartao automatico por achado. E o que impede o ciclo de
+            # 10 s do motor de duplicar cartao a cada reabertura.
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_auto_finding "
+            "ON tasks(finding_id) WHERE origem = 'auto'",
+        ]),
     ]
     for ver, stmts in migrations:
         if ver > current:
@@ -202,7 +227,13 @@ async def close_db():
         await _connection.close()
         _connection = None
 
-async def upsert_finding(finding: dict) -> bool:
+async def upsert_finding(finding: dict) -> str:
+    """Devolve o que aconteceu: "created", "reopened" ou "updated".
+
+    O motor precisa distinguir os tres para sincronizar o cartao de tarefa:
+    "reopened" e o achado que voltou dentro da janela de 30 min e cujo cartao
+    tem de sair de done — nao um achado novo, nao mais uma observacao.
+    """
     db = await get_db()
     cur = await db.execute("SELECT * FROM findings WHERE id = ?", (finding["id"],))
     existing = await cur.fetchone()
@@ -228,7 +259,7 @@ async def upsert_finding(finding: dict) -> bool:
                         WHERE id = ?
                     """, (now, targets_json, target_val, finding["id"]))
                     await db.commit()
-                    return False
+                    return "reopened"
         await db.execute("""
             UPDATE findings SET
                 last_seen = ?, occurrences = occurrences + 1, payload = ?,
@@ -236,7 +267,7 @@ async def upsert_finding(finding: dict) -> bool:
             WHERE id = ?
         """, (now, finding.get("payload", "{}"), targets_json, target_val, finding["id"]))
         await db.commit()
-        return False
+        return "updated"
     else:
         await db.execute("""
             INSERT INTO findings (id, rule, target, targets, scope, severity, score,
@@ -248,7 +279,7 @@ async def upsert_finding(finding: dict) -> bool:
             finding.get("caused_by"), now, now, finding.get("payload", "{}"),
         ))
         await db.commit()
-        return True
+        return "created"
 
 async def resolve_finding(finding_id: str):
     db = await get_db()
@@ -520,3 +551,145 @@ async def get_telemetry_summary(hours: int = 1):
         d["error_rate"] = round((d["errors"] / n) * 100, 1) if n else 0
         result.append(d)
     return result
+
+
+# ---------------------------------------------------------------------------
+# Tarefas (v9) — board do diagnostico
+#
+# Regra de sincronia (01-contrato-de-dados.md §9): o motor so mexe em cartao
+# `origem = 'auto'`. Tarefa manual nunca e movida pelo sistema, mesmo quando
+# aponta para o mesmo achado.
+# ---------------------------------------------------------------------------
+
+TASK_COLUNAS = ("todo", "doing", "blocked", "done")
+
+
+async def create_task(title: str, detail: str = "", col: str = "todo",
+                      origem: str = "manual", finding_id: str = None,
+                      target: str = None, owner: str = "", due: str = None,
+                      note: str = "", task_id: str = None):
+    db = await get_db()
+    now = _now()
+    tid = task_id or f"task-{secrets.token_hex(8)}"
+    await db.execute(
+        "INSERT INTO tasks (id, title, detail, col, origem, finding_id, target, "
+        "owner, due, note, created_at, updated_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (tid, title, detail, col, origem, finding_id, target, owner, due, note, now, now),
+    )
+    await db.commit()
+    return await get_task(tid)
+
+
+async def get_task(task_id: str):
+    db = await get_db()
+    cur = await db.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
+    row = await cur.fetchone()
+    return _parse_row(row, cur.description)
+
+
+async def get_tasks(col: str = None, origem: str = None):
+    db = await get_db()
+    parts = ["SELECT * FROM tasks WHERE 1=1"]
+    params = []
+    if col:
+        parts.append("AND col = ?")
+        params.append(col)
+    if origem:
+        parts.append("AND origem = ?")
+        params.append(origem)
+    parts.append("ORDER BY updated_at DESC")
+    cur = await db.execute(" ".join(parts), params)
+    rows = await cur.fetchall()
+    return _parse_rows(rows, cur.description)
+
+
+async def update_task(task_id: str, **campos):
+    """Atualiza so os campos passados. Devolve a tarefa depois, ou None."""
+    permitidos = ("title", "detail", "col", "owner", "due", "note")
+    sets, params = [], []
+    for k, v in campos.items():
+        if k in permitidos and v is not None:
+            sets.append(f"{k} = ?")
+            params.append(v)
+    if not sets:
+        return await get_task(task_id)
+    db = await get_db()
+    sets.append("updated_at = ?")
+    params.append(_now())
+    params.append(task_id)
+    await db.execute(f"UPDATE tasks SET {', '.join(sets)} WHERE id = ?", params)
+    await db.commit()
+    return await get_task(task_id)
+
+
+async def get_auto_task_for_finding(finding_id: str):
+    db = await get_db()
+    cur = await db.execute(
+        "SELECT * FROM tasks WHERE finding_id = ? AND origem = 'auto'", (finding_id,)
+    )
+    row = await cur.fetchone()
+    return _parse_row(row, cur.description)
+
+
+async def create_task_from_finding(finding: dict):
+    """Cria o cartao automatico de um achado. Idempotente.
+
+    O motor chama isto a cada ciclo de 10 s; sem a guarda o board encheria de
+    cartoes iguais. O indice unico parcial e a rede: mesmo com corrida, so um
+    cartao 'auto' sobrevive por finding_id.
+    """
+    finding_id = finding.get("id")
+    if not finding_id:
+        return None
+    existente = await get_auto_task_for_finding(finding_id)
+    if existente:
+        return existente
+    try:
+        return await create_task(
+            title=finding.get("title") or finding.get("rule") or finding_id,
+            detail=finding.get("recommendation") or "",
+            col="todo",
+            origem="auto",
+            finding_id=finding_id,
+            target=finding.get("target"),
+        )
+    except aiosqlite.IntegrityError:
+        # perdeu a corrida do indice unico — o cartao do outro serve
+        return await get_auto_task_for_finding(finding_id)
+
+
+async def resolve_task_for_finding(finding_id: str, quando: str = None):
+    """Achado deixou de reincidir -> cartao automatico vai para done.
+
+    So 'auto', e so o cartao DESTE achado. Cartao manual do mesmo alvo fica
+    exatamente onde esta.
+    """
+    db = await get_db()
+    now = _now()
+    nota = f"resolvido: achado nao reincide desde {quando or now}"
+    cur = await db.execute(
+        "UPDATE tasks SET col = 'done', note = ?, updated_at = ? "
+        "WHERE finding_id = ? AND origem = 'auto' AND col != 'done'",
+        (nota, now, finding_id),
+    )
+    await db.commit()
+    return cur.rowcount
+
+
+async def reopen_task_for_finding(finding_id: str):
+    """Achado voltou dentro da janela de 30 min -> cartao sai de done.
+
+    Volta para `doing`, nao para `todo`: o trabalho ja tinha comecado, e um
+    cartao ressuscitado em todo perde essa informacao. Nunca duplica — mexe no
+    cartao que ja existe.
+    """
+    db = await get_db()
+    now = _now()
+    cur = await db.execute(
+        "UPDATE tasks SET col = 'doing', note = ?, updated_at = ? "
+        "WHERE finding_id = ? AND origem = 'auto' AND col = 'done'",
+        ("reaberto: o achado voltou a ocorrer", now, finding_id),
+    )
+    await db.commit()
+    return cur.rowcount
