@@ -10,6 +10,7 @@ import { renderProjects } from './screens/projects.js';
 import { renderAuditoria } from './screens/auditoria.js';
 import { renderCapacidade } from './screens/capacidade.js';
 import { renderBackend } from './screens/backend.js';
+import { renderTarefas } from './screens/tarefas.js';
 
 // --- Theme ---
 function applyTheme(tema) {
@@ -74,7 +75,7 @@ function renderScreen(screen) {
     case '#/ingress': dispose = renderIngress(container); break;
     case '#/topologia': renderPlaceholder(container, 'Topologia', '/api/topology', 'F3'); break;
     case '#/capacidade': dispose = renderCapacidade(container); break;
-    case '#/tarefas': renderPlaceholder(container, 'Tarefas', '/api/tasks', 'F5'); break;
+    case '#/tarefas': dispose = renderTarefas(container); break;
     case '#/executivo': renderPlaceholder(container, 'Executivo', '/api/executive', 'F5'); break;
     case '#/backend': dispose = renderBackend(container); break;
     case '#/projetos': dispose = renderProjects(container); break;

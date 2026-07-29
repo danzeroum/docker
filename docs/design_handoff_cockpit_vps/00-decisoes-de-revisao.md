@@ -103,6 +103,42 @@ booleana (`COCKPIT_READONLY=1`) que nega toda mutação — nunca um token em en
 configuração é credencial disfarçada de config, e é precisamente o que a v8 fechou. Hoje o
 fail-closed é o `TRUSTED_GATEWAY_CIDR`; a flag ainda não está implementada.
 
+## Tarefas (v9) — o ciclo achado→cartão
+
+`auto_task` e a tabela `tasks` **não existiam** — o handoff descrevia o comportamento, nada
+estava fiado. Construção nova, não ligação de pontas soltas.
+
+**`origem` é coluna, não inferência.** Tentar deduzir automático de `finding_id IS NULL` quebra
+no caso real: uma tarefa manual pode legitimamente apontar para um achado ("decidi tratar esse
+alerta na próxima janela"). É `origem` que decide se o motor tem permissão de mover o cartão.
+
+**Só um ponto do motor fecha cartão.** `resolve_finding` é chamado por dois caminhos diferentes
+e só um significa "o problema acabou":
+
+- `pending_supersedes` — `oom` suplanta `restart_loop`. Os dois são sintoma do mesmo problema,
+  que continua vivo. Fechar o cartão aqui marcaria como feito um trabalho que ninguém fez.
+- histórico sem `seen_ids` — o achado sumiu do ciclo por conta própria. **É este, e só este,
+  que fecha.**
+
+Os dois já eram distinguíveis no código (o suplantado permanece em `seen_ids`), então o gancho
+entrou no segundo laço sem precisar de flag nova.
+
+**Reabertura tira de `done`, não cria segundo cartão.** `upsert_finding` reabre achado resolvido
+há menos de 30 min; sem tratar isso, um achado oscilando deixaria o cartão órfão em `done` com o
+problema vivo. Para isso `upsert_finding` passou a devolver `"created" | "reopened" | "updated"`
+em vez de bool — nenhum chamador usava o retorno antigo. O cartão volta para `doing`, não para
+`todo`: o trabalho já tinha começado. Um índice único parcial
+(`ON tasks(finding_id) WHERE origem='auto'`) é a rede contra duplicação.
+
+**`AUTO_TASK` só em `restart_loop` por enquanto.** Declaração no módulo da regra, como
+`SEVERITY`/`AGGREGATE`. `oom` de propósito **não** declara: ele suplanta `restart_loop`, e dois
+cartões para o mesmo problema é exatamente o que `SUPERSEDES` existe para evitar.
+
+**Teste que trava sem mensagem.** Vários testes deixavam `close_db()` dentro do `try`; quando um
+assert falhava, a thread da aiosqlite sobrevivia e o pytest ficava pendurado no fim da suíte —
+sem erro, sem saída, só um processo parado. O sintoma parece hang de infraestrutura e é falha de
+teste. `close_db()` agora mora no `finally`, e conexões cruas abertas no meio do teste também.
+
 ---
 
 ## Correções à primeira versão do handoff

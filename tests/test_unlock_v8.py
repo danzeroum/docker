@@ -12,6 +12,18 @@ import pytest
 from unittest.mock import patch, AsyncMock
 from fastapi.testclient import TestClient
 
+
+async def _fecha(db_mod):
+    """Fecha a conexao mesmo quando o assert falha.
+
+    Sem isto a thread da aiosqlite sobrevive e o pytest trava no fim da
+    suite, sem mensagem de erro — o sintoma parece hang, nao falha."""
+    try:
+        await db_mod.close_db()
+    except Exception:
+        pass
+
+
 STATIC_ENV_TOKEN = "token-estatico-do-env-antigo"
 
 
@@ -39,8 +51,8 @@ async def test_token_estatico_nao_vale_como_sessao(tmp_path):
         token, _exp = await db_mod.create_unlock_session("admin", "172.19.0.9", "janela")
         assert await db_mod.get_valid_unlock_session(token) is not None
         assert await db_mod.get_valid_unlock_session(STATIC_ENV_TOKEN) is None
-        await db_mod.close_db()
     finally:
+        await _fecha(db_mod)
         os.environ.pop("UNLOCK_TOKEN", None)
         os.environ.pop("COCKPIT_DB", None)
 
@@ -66,6 +78,7 @@ async def test_banco_guarda_hash_e_nao_o_token(tmp_path):
         assert token not in rows
         assert len(rows) == 1 and len(rows[0]) == 64
     finally:
+        await _fecha(db_mod)
         os.environ.pop("COCKPIT_DB", None)
 
 
@@ -82,8 +95,8 @@ async def test_token_e_diferente_a_cada_unlock(tmp_path):
         # as duas sessoes convivem — unlock de um operador nao derruba o do outro
         assert await db_mod.get_valid_unlock_session(t1) is not None
         assert await db_mod.get_valid_unlock_session(t2) is not None
-        await db_mod.close_db()
     finally:
+        await _fecha(db_mod)
         os.environ.pop("COCKPIT_DB", None)
 
 
@@ -94,8 +107,8 @@ async def test_sessao_expirada_nao_valida(tmp_path):
         await db_mod.init_db()
         token, _ = await db_mod.create_unlock_session("admin", "172.19.0.9", "x", ttl_seconds=-1)
         assert await db_mod.get_valid_unlock_session(token) is None
-        await db_mod.close_db()
     finally:
+        await _fecha(db_mod)
         os.environ.pop("COCKPIT_DB", None)
 
 
@@ -108,8 +121,8 @@ async def test_revoke_encerra_a_sessao(tmp_path):
         assert await db_mod.get_valid_unlock_session(token) is not None
         await db_mod.revoke_unlock_session(token)
         assert await db_mod.get_valid_unlock_session(token) is None
-        await db_mod.close_db()
     finally:
+        await _fecha(db_mod)
         os.environ.pop("COCKPIT_DB", None)
 
 
@@ -132,11 +145,12 @@ def test_http_com_token_estatico_e_negado():
                     json={"reason": "monitorando"},
                 )
                 assert r.status_code in (401, 403), f"{url} devolveu {r.status_code}"
-        r = client.delete(
-            "/api/containers/docker-cockpit",
-            headers={"X-Cockpit-Unlock": STATIC_ENV_TOKEN},
-        )
-        assert r.status_code in (401, 403)
+            # DELETE dentro do mesmo patch: fora dele a rota chega no banco real
+            r = client.delete(
+                "/api/containers/docker-cockpit",
+                headers={"X-Cockpit-Unlock": STATIC_ENV_TOKEN},
+            )
+            assert r.status_code in (401, 403)
     finally:
         os.environ.pop("UNLOCK_TOKEN", None)
 
@@ -229,8 +243,21 @@ async def test_v8_sobre_banco_populado_preserva_dado(tmp_path):
         await db_mod.close_db()
 
         conn = await aiosqlite.connect(db_path)
+        # try/finally: assert falhando aqui deixaria a conexao aberta e o
+        # pytest travaria no fim da suite sem mensagem nenhuma.
+        try:
+            await _checa_v8(conn)
+        finally:
+            await conn.close()
+    finally:
+        await _fecha(db_mod)
+        os.environ.pop("COCKPIT_DB", None)
+
+
+async def _checa_v8(conn):
         cur = await conn.execute("SELECT MAX(version) FROM schema_version")
-        assert (await cur.fetchone())[0] == 8
+        # init_db aplica todas as migrations pendentes, nao para na v8
+        assert (await cur.fetchone())[0] == 9
 
         cur = await conn.execute(
             "SELECT first_seen, last_seen, occurrences, severity FROM findings WHERE id = ?",
@@ -251,9 +278,6 @@ async def test_v8_sobre_banco_populado_preserva_dado(tmp_path):
 
         cur = await conn.execute("SELECT COUNT(*) FROM host_samples")
         assert (await cur.fetchone())[0] == 1
-        await conn.close()
-    finally:
-        os.environ.pop("COCKPIT_DB", None)
 
 
 @pytest.mark.asyncio
@@ -274,4 +298,5 @@ async def test_v8_descarta_sessoes_do_token_estatico(tmp_path):
         assert (await cur.fetchone())[0] == 0, "sessao do token estatico sobreviveu a v8"
         await conn.close()
     finally:
+        await _fecha(db_mod)
         os.environ.pop("COCKPIT_DB", None)
