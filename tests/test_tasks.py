@@ -369,3 +369,111 @@ async def test_indice_unico_impede_dois_cartoes_auto(tmp_path):
     finally:
         await _fecha(db_mod)
         os.environ.pop("COCKPIT_DB", None)
+
+
+# ---------------------------------------------------------------------------
+# reabertura depois dos 30 min — o achado sumia da fila para sempre
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_achado_reabre_mesmo_depois_de_30_min(tmp_path):
+    """Encontrado em producao: 22 achados de ingress presos em `resolved`.
+
+    A regra voltou a emitir, last_seen e occurrences avancavam, e o status
+    ficava `resolved` — o problema era atual e invisivel na fila.
+    """
+    db_mod = await _fresh_db(tmp_path)
+    try:
+        f = _achado("http_plain.exemplo.com", "http_plain", "exemplo.com")
+        await db_mod.upsert_finding(f)
+        await db_mod.resolve_finding("http_plain.exemplo.com")
+
+        # empurra o resolved_at para duas horas atras
+        conn = await db_mod.get_db()
+        antigo = "2020-01-01T00:00:00Z"
+        await conn.execute(
+            "UPDATE findings SET resolved_at = ? WHERE id = ?",
+            (antigo, "http_plain.exemplo.com"),
+        )
+        await conn.commit()
+
+        estado = await db_mod.upsert_finding(f)
+        assert estado == "reopened", f"voltou como {estado}, nao reabriu"
+        atual = await db_mod.get_finding("http_plain.exemplo.com")
+        assert atual["status"] == "open", "achado seguiu resolved com o problema vivo"
+        assert atual["resolved_at"] is None
+        assert [x["id"] for x in await db_mod.get_findings(status="open")] == ["http_plain.exemplo.com"]
+    finally:
+        await _fecha(db_mod)
+        os.environ.pop("COCKPIT_DB", None)
+
+
+@pytest.mark.asyncio
+async def test_reabertura_longe_reinicia_first_seen(tmp_path):
+    """Incidente novo: dizer que existe 'desde ha duas semanas' inventa duracao."""
+    db_mod = await _fresh_db(tmp_path)
+    try:
+        f = _achado("oom.painel", "oom", "painel")
+        await db_mod.upsert_finding(f)
+        primeiro = (await db_mod.get_finding("oom.painel"))["first_seen"]
+        await db_mod.resolve_finding("oom.painel")
+        conn = await db_mod.get_db()
+        await conn.execute("UPDATE findings SET resolved_at = ? WHERE id = ?",
+                           ("2020-01-01T00:00:00Z", "oom.painel"))
+        await conn.commit()
+
+        await db_mod.upsert_finding(f)
+        atual = await db_mod.get_finding("oom.painel")
+        assert atual["first_seen"] != primeiro, "first_seen do incidente antigo sobreviveu"
+        assert atual["occurrences"] == 1, "contagem do incidente antigo sobreviveu"
+    finally:
+        await _fecha(db_mod)
+        os.environ.pop("COCKPIT_DB", None)
+
+
+@pytest.mark.asyncio
+async def test_reabertura_perto_preserva_first_seen(tmp_path):
+    """Oscilacao do mesmo problema: a duracao segue contando do inicio."""
+    db_mod = await _fresh_db(tmp_path)
+    try:
+        f = _achado("unhealthy.api", "unhealthy", "api")
+        await db_mod.upsert_finding(f)
+        primeiro = (await db_mod.get_finding("unhealthy.api"))["first_seen"]
+        await db_mod.resolve_finding("unhealthy.api")
+
+        estado = await db_mod.upsert_finding(f)
+        assert estado == "reopened"
+        atual = await db_mod.get_finding("unhealthy.api")
+        assert atual["first_seen"] == primeiro, "oscilacao reiniciou a duracao"
+        assert atual["status"] == "open"
+    finally:
+        await _fecha(db_mod)
+        os.environ.pop("COCKPIT_DB", None)
+
+
+@pytest.mark.asyncio
+async def test_cartao_volta_quando_o_achado_reabre_tarde(tmp_path):
+    """O ciclo da v9 depende de "reopened"; sem ele o cartao ficava orfao."""
+    db_mod = await _fresh_db(tmp_path)
+    try:
+        import findings.engine as eng
+        importlib.reload(eng)
+        f = _achado(RESTART_ID, "restart_loop", "painel-x")
+        estado = await db_mod.upsert_finding(f)
+        await eng._sync_task(_mod_falso(True), f, {"title": "t"}, estado)
+        await db_mod.resolve_finding(RESTART_ID)
+        await db_mod.resolve_task_for_finding(RESTART_ID)
+
+        conn = await db_mod.get_db()
+        await conn.execute("UPDATE findings SET resolved_at = ? WHERE id = ?",
+                           ("2020-01-01T00:00:00Z", RESTART_ID))
+        await conn.commit()
+
+        estado = await db_mod.upsert_finding(f)
+        await eng._sync_task(_mod_falso(True), f, {"title": "t"}, estado)
+        cartoes = await db_mod.get_tasks()
+        assert len(cartoes) == 1
+        assert cartoes[0]["col"] == "doing", "cartao ficou em done com o problema vivo"
+    finally:
+        await _fecha(db_mod)
+        os.environ.pop("COCKPIT_DB", None)
