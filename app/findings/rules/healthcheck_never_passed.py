@@ -21,6 +21,11 @@ def evaluate(ctx):
         if not isinstance(c, dict):
             continue
         state = c.get("State", {})
+        # O inventario inclui parados. Sonda de container morto ha 30h e
+        # arqueologia apresentada como incidente aberto — a mesma licao que a
+        # regra de OOM ja tinha aprendido, e esta nao.
+        if not state.get("Running"):
+            continue
         health = state.get("Health")
         if not health:
             continue
