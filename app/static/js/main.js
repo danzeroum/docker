@@ -217,9 +217,9 @@ function renderContainerList() {
   }).forEach(([stack, ctrs]) => {
     if (hasGroups && stack !== '__ungrouped__') {
       const running = ctrs.filter(c => c.State === 'running').length;
-      html += `<div class="stack-header" data-stack="${escapeHtml(stack)}">
+      html += `<button type="button" class="stack-header" data-stack="${escapeHtml(stack)}" aria-expanded="true">
         <span class="stack-toggle">▼</span><span class="stack-name">${escapeHtml(stack)}</span>
-        <span class="stack-count">${running}/${ctrs.length}</span></div>`;
+        <span class="stack-count">${running}/${ctrs.length}</span></button>`;
     }
     html += `<div class="stack-group" data-stack="${escapeHtml(stack)}">`;
     ctrs.forEach(c => {
@@ -227,13 +227,13 @@ function renderContainerList() {
       const name = (c.Names && c.Names[0] || '').replace(/^\//, '');
       let statusCls = c.State || 'unknown';
       if (c.Status && c.Status.includes('unhealthy')) statusCls = 'unhealthy';
-      html += `<div class="list-item ${id === selId ? 'active' : ''}" data-id="${id}">
+      html += `<button type="button" class="list-item ${id === selId ? 'active' : ''}" data-id="${id}"${id === selId ? ' aria-current="true"' : ''}>
         <div class="item-status ${statusCls}"></div>
         <div class="item-info">
           <div class="item-name" title="${escapeHtml(name)}">${escapeHtml(name)}</div>
           <div class="item-image" title="${escapeHtml(c.Image || '')}">${escapeHtml(c.Image || '')}</div>
         </div>
-      </div>`;
+      </button>`;
     });
     html += '</div>';
   });
@@ -390,10 +390,10 @@ function renderDossie(container) {
           <div class="kpi kpi-bad"><div class="kpi-label">Exit Code</div><div class="kpi-value" style="font-size:1.2rem">${c.state.exitCode ?? '—'}</div></div>
         </div>
         <div class="action-bar">
-          <button class="action-btn start" data-action="start" ${c.state.running?'disabled':''}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Iniciar</button>
-          <button class="action-btn stop" data-action="stop" ${!c.state.running?'disabled':''}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="12" height="16"/></svg> Parar</button>
-          <button class="action-btn restart" data-action="restart" ${!c.state.running?'disabled':''}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 23 20"/></svg> Reiniciar</button>
-          <button class="action-btn remove" data-action="remove"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Remover</button>
+          <button type="button" class="action-btn start" data-action="start" ${c.state.running?'disabled':''}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Iniciar</button>
+          <button type="button" class="action-btn stop" data-action="stop" ${!c.state.running?'disabled':''}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="12" height="16"/></svg> Parar</button>
+          <button type="button" class="action-btn restart" data-action="restart" ${!c.state.running?'disabled':''}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 23 20"/></svg> Reiniciar</button>
+          <button type="button" class="action-btn remove" data-action="remove"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Remover</button>
         </div>
       </div>
       <div class="section"><div class="section-head"><div class="section-num">02</div><div><h2 class="section-title">Estado</h2></div></div>
@@ -488,11 +488,11 @@ function renderLogs(container) {
     <div class="section">
       <div class="section-head"><div><h2 class="section-title">Logs</h2></div></div>
       <div style="display:flex;gap:.5rem;margin-bottom:1rem">
-        <button class="action-btn" data-lines="100" style="background:var(--accent)">100 linhas</button>
-        <button class="action-btn" data-lines="500" style="background:var(--accent)">500 linhas</button>
-        <button class="action-btn" data-lines="2000" style="background:var(--accent)">2000 linhas</button>
-        <button class="action-btn start" data-action="stream">▶ Stream</button>
-        <button class="action-btn stop" data-action="stop-stream" disabled>■ Parar</button>
+        <button type="button" class="action-btn" data-lines="100" style="background:var(--accent)">100 linhas</button>
+        <button type="button" class="action-btn" data-lines="500" style="background:var(--accent)">500 linhas</button>
+        <button type="button" class="action-btn" data-lines="2000" style="background:var(--accent)">2000 linhas</button>
+        <button type="button" class="action-btn start" data-action="stream">▶ Stream</button>
+        <button type="button" class="action-btn stop" data-action="stop-stream" disabled>■ Parar</button>
       </div>
       <pre id="logOutput" style="background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:1rem;font-family:'JetBrains Mono',monospace;font-size:.75rem;line-height:1.6;overflow:auto;max-height:70vh;margin:0;white-space:pre-wrap;word-break:break-all"></pre>
     </div>

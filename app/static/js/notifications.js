@@ -14,12 +14,61 @@ export function showToast(message, type = 'info') {
   toast.innerHTML = `
     <svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${icons[type] || icons.info}</svg>
     <div class="toast-message">${escapeHtml(message)}</div>
-    <button class="toast-close" data-action="close">✕</button>
+    <button type="button" class="toast-close" data-action="close">✕</button>
   `;
   toast.querySelector('[data-action="close"]').onclick = () => toast.remove();
   container.appendChild(toast);
   requestAnimationFrame(() => toast.classList.add('show'));
   setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 4000);
+}
+
+// --- Foco preso no modal ---------------------------------------------------
+// Modal aberto com o Tab escapando para o fundo e uma armadilha classica: o
+// teclado sai da caixa, mexe no que esta atras e o usuario nao ve onde esta.
+// Os tres modais compartilham o mesmo overlay, entao o controle e um so.
+
+const FOCAVEIS = 'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+let soltarFocoAtual = null;
+
+function prenderFoco(overlay) {
+  const anterior = document.activeElement;
+
+  const aoTeclar = (e) => {
+    if (e.key !== 'Tab') return;
+    const alvos = Array.from(overlay.querySelectorAll(FOCAVEIS))
+      .filter(el => el.offsetParent !== null || el === document.activeElement);
+    if (!alvos.length) {
+      e.preventDefault();
+      return;
+    }
+    const primeiro = alvos[0];
+    const ultimo = alvos[alvos.length - 1];
+    if (e.shiftKey && document.activeElement === primeiro) {
+      e.preventDefault();
+      ultimo.focus();
+    } else if (!e.shiftKey && document.activeElement === ultimo) {
+      e.preventDefault();
+      primeiro.focus();
+    }
+  };
+
+  overlay.addEventListener('keydown', aoTeclar);
+  const primeiro = overlay.querySelector(FOCAVEIS);
+  if (primeiro) primeiro.focus();
+
+  soltarFocoAtual = () => {
+    overlay.removeEventListener('keydown', aoTeclar);
+    // Devolve o foco a quem abriu o modal, nao ao topo da pagina.
+    if (anterior && typeof anterior.focus === 'function') anterior.focus();
+  };
+}
+
+function soltarFoco() {
+  if (soltarFocoAtual) {
+    soltarFocoAtual();
+    soltarFocoAtual = null;
+  }
 }
 
 let modalResolve = null;
@@ -57,12 +106,14 @@ export function showConfirmModal(opts) {
   }
 
   overlay.classList.add('open');
+  prenderFoco(overlay);
 
   return new Promise((resolve) => {
     modalResolve = resolve;
 
     const cleanup = () => {
       overlay.classList.remove('open');
+      soltarFoco();
       document.getElementById('modalCancel').removeEventListener('click', onCancel);
       confirmBtn.removeEventListener('click', onConfirm);
       inputEl.removeEventListener('keydown', onKeydown);
@@ -108,9 +159,11 @@ export function showUnlockModal() {
     document.getElementById('modalText').innerHTML = '<div style="margin-bottom:.5rem;color:var(--text-dim);font-size:.85rem">Confirme para destravar mutações por 30 minutos.</div>';
 
     overlay.classList.add('open');
+  prenderFoco(overlay);
 
     const cleanup = () => {
       overlay.classList.remove('open');
+      soltarFoco();
       document.getElementById('modalCancel').removeEventListener('click', onCancel);
       confirmBtn.removeEventListener('click', onConfirm);
       inputEl.removeEventListener('keydown', onKeydown);
@@ -189,10 +242,10 @@ export function showAckModal(finding) {
       <div style="margin-bottom:.5rem">
         <label style="display:block;font-size:.8rem;color:var(--text-dim);margin-bottom:.25rem">Silenciar por</label>
         <div style="display:flex;gap:.35rem;flex-wrap:wrap">
-          <button class="ack-dur" data-dur="4h" style="padding:.3rem .6rem;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text-dim);cursor:pointer;font-family:inherit;font-size:.8rem">4h</button>
-          <button class="ack-dur active" data-dur="24h" style="padding:.3rem .6rem;border-radius:6px;border:1px solid var(--border);background:var(--accent);color:#fff;cursor:pointer;font-family:inherit;font-size:.8rem">24h</button>
-          <button class="ack-dur" data-dur="7d" style="padding:.3rem .6rem;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text-dim);cursor:pointer;font-family:inherit;font-size:.8rem">7d</button>
-          <button class="ack-dur" data-dur="30d" style="padding:.3rem .6rem;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text-dim);cursor:pointer;font-family:inherit;font-size:.8rem">30d</button>
+          <button type="button" class="ack-dur" data-dur="4h" style="padding:.3rem .6rem;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text-dim);cursor:pointer;font-family:inherit;font-size:.8rem">4h</button>
+          <button type="button" class="ack-dur active" data-dur="24h" style="padding:.3rem .6rem;border-radius:6px;border:1px solid var(--border);background:var(--accent);color:#fff;cursor:pointer;font-family:inherit;font-size:.8rem">24h</button>
+          <button type="button" class="ack-dur" data-dur="7d" style="padding:.3rem .6rem;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text-dim);cursor:pointer;font-family:inherit;font-size:.8rem">7d</button>
+          <button type="button" class="ack-dur" data-dur="30d" style="padding:.3rem .6rem;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text-dim);cursor:pointer;font-family:inherit;font-size:.8rem">30d</button>
         </div>
       </div>
     `;
@@ -221,9 +274,11 @@ export function showAckModal(finding) {
     });
 
     overlay.classList.add('open');
+  prenderFoco(overlay);
 
     const cleanup = () => {
       overlay.classList.remove('open');
+      soltarFoco();
       document.getElementById('modalCancel').removeEventListener('click', onCancel);
       confirmBtn.removeEventListener('click', onConfirm2);
     };
@@ -240,6 +295,9 @@ export function showAckModal(finding) {
       cleanup();
       resolve({ reason, note: noteEl.value, until });
     };
+    // Escape fecha, como nos outros dois modais. Faltava so neste.
+    const onKeydownAck = (e) => { if (e.key === 'Escape') onCancel(); };
+    overlay.addEventListener('keydown', onKeydownAck);
     document.getElementById('modalCancel').addEventListener('click', onCancel);
     confirmBtn.addEventListener('click', onConfirm2);
   });

@@ -91,21 +91,21 @@
     </div>
 
     <div class="filters" id="filters">
-      <div class="filter-pill active" data-filter="all">Todos</div>
-      <div class="filter-pill" data-filter="running">Rodando</div>
-      <div class="filter-pill" data-filter="exited">Parados</div>
-      <div class="filter-pill" data-filter="unhealthy">Unhealthy</div>
+      <button type="button" class="filter-pill active" data-filter="all">Todos</button>
+      <button type="button" class="filter-pill" data-filter="running">Rodando</button>
+      <button type="button" class="filter-pill" data-filter="exited">Parados</button>
+      <button type="button" class="filter-pill" data-filter="unhealthy">Unhealthy</button>
     </div>
 
     <div style="display:flex;padding:.5rem 1rem;border-bottom:1px solid var(--border);gap:.5rem;flex-wrap:wrap">
-      <button id="unlockBtn" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:.35rem .6rem;cursor:pointer;color:var(--text-dim);font-size:.7rem;font-family:inherit;display:flex;align-items:center;gap:.35rem" title="Destravar para mutações">
+      <button type="button" id="unlockBtn" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:.35rem .6rem;cursor:pointer;color:var(--text-dim);font-size:.7rem;font-family:inherit;display:flex;align-items:center;gap:.35rem" title="Destravar para mutações">
         <svg id="unlockIcon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
         <span id="unlockLabel">Destravar</span>
       </button>
-      <button id="depthToggle" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:.35rem .6rem;cursor:pointer;color:var(--text-dim);font-size:.7rem;font-family:inherit;display:flex;align-items:center;gap:.35rem" title="Profundidade de análise">
+      <button type="button" id="depthToggle" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:.35rem .6rem;cursor:pointer;color:var(--text-dim);font-size:.7rem;font-family:inherit;display:flex;align-items:center;gap:.35rem" title="Profundidade de análise">
         <span style="font-size:.6rem;font-weight:600" id="depthLabel">DADO</span>
       </button>
-      <button id="themeToggle" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:.35rem .6rem;cursor:pointer;color:var(--text-dim);font-size:.7rem;font-family:inherit;display:flex;align-items:center;gap:.35rem" title="Alternar tema">
+      <button type="button" id="themeToggle" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:.35rem .6rem;cursor:pointer;color:var(--text-dim);font-size:.7rem;font-family:inherit;display:flex;align-items:center;gap:.35rem" title="Alternar tema">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
         Tema
       </button>
@@ -155,8 +155,8 @@
       </label>
     </div>
     <div class="modal-actions">
-      <button class="modal-btn cancel" id="modalCancel">Cancelar</button>
-      <button class="modal-btn confirm" id="modalConfirm">Confirmar</button>
+      <button type="button" class="modal-btn cancel" id="modalCancel">Cancelar</button>
+      <button type="button" class="modal-btn confirm" id="modalConfirm">Confirmar</button>
     </div>
   </div>
 </div>

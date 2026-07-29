@@ -29,10 +29,10 @@ export function renderAttention(container) {
     <div class="section">
       <div class="section-head"><div><h2 class="section-title">Aten\u00e7\u00e3o</h2></div></div>
       <div id="atnFilters" style="display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap">
-        <button class="filter-pill active" data-sev="all">Todos</button>
-        <button class="filter-pill" data-sev="critical" style="border-color:var(--bad)">Cr\u00edtico</button>
-        <button class="filter-pill" data-sev="high" style="border-color:var(--warn)">Alto</button>
-        <button class="filter-pill" data-sev="medium" style="border-color:var(--accent)">M\u00e9dio</button>
+        <button type="button" class="filter-pill active" data-sev="all">Todos</button>
+        <button type="button" class="filter-pill" data-sev="critical" style="border-color:var(--bad)">Cr\u00edtico</button>
+        <button type="button" class="filter-pill" data-sev="high" style="border-color:var(--warn)">Alto</button>
+        <button type="button" class="filter-pill" data-sev="medium" style="border-color:var(--accent)">M\u00e9dio</button>
       </div>
       <div id="atnList"><div class="skeleton" style="height:400px"></div></div>
     </div>
@@ -76,6 +76,7 @@ export function renderAttention(container) {
       const targetLabel = isAgg ? `${f.targets.length} hosts` : escapeHtml(f.target || '');
       const targetsAttr = isAgg ? JSON.stringify(f.targets) : '';
       return `<div class="atn-card" data-id="${escapeHtml(f.id)}" data-scope="${escapeHtml(f.scope || 'container')}" data-target="${escapeHtml(f.target || '')}" data-targets="${escapeHtml(targetsAttr)}" style="border-left:3px solid ${color}">
+      <button type="button" class="card-open" data-open="${escapeHtml(f.id)}"><span class="sr-only">Abrir achado</span></button>
         <div class="atn-head">
           <span class="atn-sev" style="background:${color};color:#fff">${severityLabel(f.severity)}</span>
           <span class="atn-score">${f.score}</span>
@@ -88,7 +89,7 @@ export function renderAttention(container) {
         ${f.recommendation ? `<div class="atn-reco">${escapeHtml(f.recommendation)}</div>` : ''}
         ${rel ? `<div style="margin-top:.3rem"><a href="#/dossie?c=${encodeURIComponent(rel)}" style="font-size:.7rem;color:var(--accent);text-decoration:none" onclick="event.stopPropagation()">→ Dossiê: ${escapeHtml(rel)}</a></div>` : ''}
         <div style="margin-top:.5rem;display:flex;gap:.35rem">
-          <button class="ack-btn" data-finding-id="${escapeHtml(f.id)}" style="font-size:.7rem;padding:.2rem .5rem;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text-dim);cursor:pointer;font-family:inherit" onclick="event.stopPropagation()">Silenciar</button>
+          <button type="button" class="ack-btn" data-finding-id="${escapeHtml(f.id)}" style="font-size:.7rem;padding:.2rem .5rem;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text-dim);cursor:pointer;font-family:inherit" onclick="event.stopPropagation()">Silenciar</button>
         </div>
       </div>`;
     }).join('');
@@ -121,8 +122,9 @@ export function renderAttention(container) {
       });
     });
 
-    list.querySelectorAll('.atn-card').forEach(card => {
-      card.addEventListener('click', (e) => {
+    list.querySelectorAll('.atn-card .card-open').forEach(botao => {
+      const card = botao.closest('.atn-card');
+      botao.addEventListener('click', (e) => {
         if (e.target.closest('a')) return;
         const scope = card.dataset.scope;
         const target = card.dataset.target;
