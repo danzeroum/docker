@@ -109,6 +109,18 @@ def _catalog_to_public(cat):
     }
 
 
+@router.get("/ingress/hosts")
+async def ingress_hosts():
+    from ingress.parser import parse_file
+    if not os.path.isfile(NGINX_CONFIG):
+        return {"hosts": []}
+    cat = parse_file(NGINX_CONFIG)
+    if cat is None:
+        return {"hosts": []}
+    hosts_list = [{"server_name": s.primary_name, "name": s.primary_name} for s in cat.servers if s.primary_name != "_"]
+    return {"hosts": hosts_list}
+
+
 @router.get("/ingress")
 async def get_ingress():
     from ingress.parser import parse_file

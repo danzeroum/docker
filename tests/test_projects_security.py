@@ -5,8 +5,7 @@ import httpx
 from unittest.mock import patch, MagicMock, AsyncMock
 from fastapi.testclient import TestClient
 
-os.environ.setdefault("UNLOCK_TOKEN", "test-token-123")
-
+os.environ["UNLOCK_TOKEN"] = "test-token-123"
 from app import app
 from routers._proxy import SOCKET_PROXY
 
@@ -15,6 +14,13 @@ client = TestClient(app)
 FAKE_PROJECTS = {
     "meu-app": {"path": "/opt/btv/meu-app", "compose_file": "/opt/btv/meu-app/docker-compose.yml"},
 }
+
+
+@pytest.fixture(autouse=True)
+def set_env():
+    os.environ["UNLOCK_TOKEN"] = "test-token-123"
+    yield
+    os.environ.pop("UNLOCK_TOKEN", None)
 
 
 @pytest.fixture(autouse=True)

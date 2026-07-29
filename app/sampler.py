@@ -10,6 +10,7 @@ _last_sample = None
 _container_stats = {}
 _container_stats_as_of = None
 _last_container_collection = 0.0
+_last_persist = 0.0
 _SEM_STATS = asyncio.Semaphore(4)
 
 
@@ -158,10 +159,31 @@ async def _fetch_all_container_stats():
     _container_stats_as_of = now
 
 
+async def _persist_samples():
+    global _last_persist
+    now = time.monotonic()
+    if now - _last_persist < 60:
+        return
+    _last_persist = now
+    sample = _last_sample
+    if not sample:
+        return
+    try:
+        from db import insert_host_sample, insert_container_samples, purge_samples
+        await insert_host_sample(sample)
+        if _container_stats:
+            await insert_container_samples(_container_stats)
+        await purge_samples()
+    except Exception:
+        import traceback
+        traceback.print_exc()
+
+
 async def sampler_loop(interval: float = 5.0, container_interval: float = 10.0):
     global _last_container_collection
     await take_sample()
     await _fetch_all_container_stats()
+    await _persist_samples()
     _last_container_collection = time.monotonic()
     while True:
         try:
@@ -170,6 +192,7 @@ async def sampler_loop(interval: float = 5.0, container_interval: float = 10.0):
                 await _fetch_all_container_stats()
                 _last_container_collection = now
             await take_sample()
+            await _persist_samples()
             await asyncio.sleep(interval)
         except asyncio.CancelledError:
             break
