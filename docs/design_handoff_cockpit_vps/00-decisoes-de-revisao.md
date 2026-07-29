@@ -173,6 +173,13 @@ não vale uma segunda janela de manutenção.
 **Montagem do ingress: `/opt/btv/ingress/nginx`, nunca o diretório pai.** O pai contém o
 `.htpasswd` do gateway e do squad.
 
+**Confiança do Remote-User por CIDR, não por IP fixo.** O header `Remote-User` é texto livre
+que qualquer container em `btv-prod-net` pode forjar (`curl app:8000 -H "Remote-User: admin"`).
+A correção original (exigir `X-Forwarded-For` junto) é igualmente forjável — o cliente escreve
+os dois headers. A decisão: validar `request.client.host` contra o **CIDR da rede do ingress**
+(`TRUSTED_GATEWAY_CIDR`). O IP do gateway muda a cada recriação do container; CIDR da rede
+Docker é estável. Sem a env configurada o unlock nega com 403 (fail-closed) e loga o motivo.
+
 **Certificados: job no host escrevendo metadados**, em vez de montar `/etc/letsencrypt` no
 container. O cockpit nunca precisa de acesso de leitura a chave privada.
 

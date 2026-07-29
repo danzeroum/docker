@@ -44,7 +44,13 @@ function getUnlockHeader() {
     const raw = sessionStorage.getItem('cockpit-unlock');
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed.token) return { 'X-Cockpit-Unlock': parsed.token };
+      if (parsed.token && parsed.expiresAt) {
+        if (Date.now() >= new Date(parsed.expiresAt).getTime()) {
+          sessionStorage.removeItem('cockpit-unlock');
+          return {};
+        }
+        return { 'X-Cockpit-Unlock': parsed.token };
+      }
     }
   } catch {}
   return {};

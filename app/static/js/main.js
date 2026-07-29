@@ -389,10 +389,8 @@ function renderDossie(container) {
           let { error } = await apiDelete('remove', `/api/containers/${id}${qs}`);
           if (error && (error.includes('403') || error.includes('Unlock') || error.includes('ausente'))) {
             const { showUnlockModal } = await import('./notifications.js');
-            if (!getState().unlock?.token) {
-              const token = await showUnlockModal();
-              if (!token) return;
-            }
+            const result = await showUnlockModal();
+            if (!result) return;
             const retry = await apiDelete('remove-retry', `/api/containers/${id}${qs}`);
             if (retry.error) { showToast(retry.error, 'error'); return; }
             showToast('Container removido', 'success');
@@ -409,10 +407,8 @@ function renderDossie(container) {
           let { error } = await apiPost(action, `/api/containers/${id}/${action}`);
           if (error && (error.includes('403') || error.includes('Unlock') || error.includes('ausente'))) {
             const { showUnlockModal } = await import('./notifications.js');
-            if (!getState().unlock?.token) {
-              const token = await showUnlockModal();
-              if (!token) { btn.disabled = false; return; }
-            }
+            const result = await showUnlockModal();
+            if (!result) { btn.disabled = false; return; }
             btn.disabled = false;
             const retry = await apiPost(action + '-retry', `/api/containers/${id}/${action}`);
             if (retry.error) { showToast(retry.error, 'error'); return; }
@@ -543,6 +539,11 @@ document.getElementById('depthToggle')?.addEventListener('click', () => {
 
 // --- Unlock ---
 function updateUnlockUI() {
+  const unlock = getState().unlock;
+  if (unlock?.token && unlock?.expiresAt && Date.now() >= new Date(unlock.expiresAt).getTime()) {
+    setState({ unlock: { token: null, expiresAt: null } });
+    return;
+  }
   const token = getState().unlock?.token;
   const icon = document.getElementById('unlockIcon');
   const label = document.getElementById('unlockLabel');
@@ -561,9 +562,8 @@ subscribe((s) => {
 
 document.getElementById('unlockBtn')?.addEventListener('click', async () => {
   const { showUnlockModal } = await import('./notifications.js');
-  const token = await showUnlockModal();
-  if (token) {
-    setState({ unlock: { token, expiresAt: null } });
+  const result = await showUnlockModal();
+  if (result) {
     showToast('Destravado com sucesso', 'success');
   }
 });
