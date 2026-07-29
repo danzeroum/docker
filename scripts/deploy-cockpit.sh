@@ -301,7 +301,7 @@ checa_schema() {
 # ---------------------------------------------------------------------------
 codigo_http_interno() {
   # metodo, caminho, header extra -> imprime so o status
-  docker exec "$CONTAINER" python3 - "$1" "$2" "${3:-}" <<'PY'
+  docker exec -i "$CONTAINER" python3 - "$1" "$2" "${3:-}" <<'PY'
 import sys, urllib.request as u
 metodo, caminho, header = sys.argv[1], sys.argv[2], sys.argv[3]
 h = {}
@@ -583,8 +583,16 @@ if [ "$MODO" = "validacao" ]; then
   titulo "3b · Schema"
   checa_schema
 fi
-validar
-validar_board
+if [ "$MODO" = "dry-run" ]; then
+  titulo "4 · Validacao"
+  printf '  [dry-run] pulada por inteiro.\n'
+  printf '  Os aceites afirmam estado POS-deploy (schema v9, token antigo negado,\n'
+  printf '  unlock pelo ingress, SSE aberto). Rodar isso antes da janela so\n'
+  printf '  produziria falhas que significam "ainda nao subiu".\n'
+else
+  validar
+  validar_board
+fi
 if [ "$MODO" = "completo" ]; then
   fumaca
 fi
