@@ -103,10 +103,18 @@ export function renderAttention(container) {
         if (!ack) return;
         btn.disabled = true;
         btn.textContent = '...';
-        const body = { reason: ack.reason };
-        if (ack.note) body.note = ack.note;
-        if (ack.until) body.until = ack.until;
-        const { error } = await apiPost('ack-' + findingId, `/api/findings/${findingId}/ack`, body);
+        const payload = { reason: ack.reason };
+        if (ack.note) payload.note = ack.note;
+        if (ack.until) payload.until = ack.until;
+        const send = () => apiPost('ack-' + findingId, `/api/findings/${findingId}/ack`, {
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        let { error } = await send();
+        if (error && (error.includes('403') || error.includes('Unlock') || error.includes('ausente') || error.includes('destravamento'))) {
+          const { showUnlockModal } = await import('../notifications.js');
+          if (await showUnlockModal()) ({ error } = await send());
+        }
         if (error) { showToast(error, 'error'); btn.disabled = false; btn.textContent = 'Silenciar'; return; }
         showToast('Achado silenciado', 'success');
         fetchFindings();

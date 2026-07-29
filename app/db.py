@@ -1,12 +1,33 @@
+import hashlib
 import os
+import secrets
 import aiosqlite
 from datetime import datetime, timedelta, timezone
 
 _DB_PATH = os.getenv("COCKPIT_DB", "/data/cockpit.db")
 _connection = None
 
+# TTL da sessao de destravamento (F5). Unico lugar que define os 30 min.
+UNLOCK_TTL_SECONDS = 1800
+
 def _now():
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+def _iso(dt):
+    return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+def _parse_iso(value):
+    """ISO com Z ou offset -> datetime aware. None se ilegivel."""
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
+
+def _hash_token(token: str) -> str:
+    """So o hash vai para o banco — vazamento do arquivo nao devolve token usavel."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 def _parse_row(row, desc):
     if row is None:
@@ -146,6 +167,24 @@ async def init_db():
             "PRIMARY KEY (route, hour)"
             ")",
         ]),
+        # v8 — unlock_state deixa de ser chaveada pelo token em texto claro.
+        # As linhas antigas sao chaveadas pelo UNLOCK_TOKEN estatico: carrega-las
+        # para a frente preservaria exatamente a credencial que esta migracao revoga.
+        # Por isso a tabela e recriada VAZIA, de proposito — nao e perda acidental
+        # de dado (cf. v3/v5 e first_seen). Janela aberta no deploy fecha; o
+        # operador refaz o unlock e a linha nova ja nasce com usuario e prazo.
+        (8, [
+            "DROP TABLE IF EXISTS unlock_state",
+            "CREATE TABLE unlock_state ("
+            "token_hash TEXT PRIMARY KEY,"
+            "remote_user TEXT NOT NULL DEFAULT '',"
+            "ip TEXT NOT NULL DEFAULT '',"
+            "motivo TEXT NOT NULL DEFAULT '',"
+            "created_at TEXT NOT NULL,"
+            "expires_at TEXT NOT NULL"
+            ")",
+            "CREATE INDEX IF NOT EXISTS idx_unlock_expires ON unlock_state(expires_at)",
+        ]),
     ]
     for ver, stmts in migrations:
         if ver > current:
@@ -269,40 +308,69 @@ async def get_audit_log(limit: int = 100):
     return _parse_rows(rows, cur.description)
 
 async def cleanup_expired_sessions():
+    """Housekeeping. Nao e o gate: a validade e reconferida em Python no read."""
     db = await get_db()
-    cutoff = (datetime.now(timezone.utc) - timedelta(minutes=30)).isoformat().replace("+00:00", "Z")
-    await db.execute("DELETE FROM unlock_state WHERE created_at < ?", (cutoff,))
-    await db.commit()
+    cur = await db.execute("SELECT token_hash, expires_at FROM unlock_state")
+    rows = await cur.fetchall()
+    now = datetime.now(timezone.utc)
+    dead = []
+    for row in rows:
+        expires = _parse_iso(dict(row)["expires_at"])
+        if expires is None or expires <= now:
+            dead.append(dict(row)["token_hash"])
+    for token_hash in dead:
+        await db.execute("DELETE FROM unlock_state WHERE token_hash = ?", (token_hash,))
+    if dead:
+        await db.commit()
 
-async def set_unlock_state(token: str, remote_user: str, ip: str, motivo: str):
+async def create_unlock_session(remote_user: str, ip: str, motivo: str,
+                                ttl_seconds: int = UNLOCK_TTL_SECONDS):
+    """Cria uma sessao de destravamento e devolve (token, expires_at).
+
+    O token e gerado aqui, aleatorio por sessao, e devolvido UMA vez — o banco
+    guarda so o hash. Nao existe token derivado de configuracao.
+    """
+    token = secrets.token_urlsafe(32)
     db = await get_db()
-    now = _now()
     await cleanup_expired_sessions()
+    now = datetime.now(timezone.utc)
+    expires_at = _iso(now + timedelta(seconds=ttl_seconds))
     await db.execute(
-        "INSERT OR REPLACE INTO unlock_state (token, remote_user, ip, motivo, created_at) VALUES (?, ?, ?, ?, ?)",
-        (token, remote_user, ip, motivo, now),
+        "INSERT OR REPLACE INTO unlock_state "
+        "(token_hash, remote_user, ip, motivo, created_at, expires_at) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (_hash_token(token), remote_user, ip, motivo, _iso(now), expires_at),
     )
     await db.commit()
+    return token, expires_at
 
 async def get_valid_unlock_session(token: str):
+    """Devolve a sessao viva do token apresentado, ou None.
+
+    Unico caminho de validacao de escrita. Comparacao pelo hash, o que ja e
+    de tempo constante no lookup por chave primaria.
+    """
+    if not token:
+        return None
     await cleanup_expired_sessions()
     db = await get_db()
     cur = await db.execute(
-        "SELECT * FROM unlock_state WHERE token = ?",
-        (token,),
+        "SELECT * FROM unlock_state WHERE token_hash = ?",
+        (_hash_token(token),),
     )
     row = await cur.fetchone()
     if not row:
         return None
     session = dict(row)
-    try:
-        created = datetime.fromisoformat(session["created_at"].replace("Z", "+00:00"))
-        now = datetime.now(timezone.utc)
-        if (now - created).total_seconds() > 1800:
-            return None
-    except Exception:
+    expires = _parse_iso(session.get("expires_at"))
+    if expires is None or expires <= datetime.now(timezone.utc):
         return None
     return session
+
+async def revoke_unlock_session(token: str):
+    db = await get_db()
+    await db.execute("DELETE FROM unlock_state WHERE token_hash = ?", (_hash_token(token),))
+    await db.commit()
 
 
 async def insert_host_sample(sample: dict):

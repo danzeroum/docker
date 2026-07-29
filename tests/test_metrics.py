@@ -7,10 +7,8 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture(autouse=True)
 def set_env():
-    os.environ["UNLOCK_TOKEN"] = "test-token"
     os.environ["TRUSTED_GATEWAY_CIDR"] = "172.19.0.0/16"
     yield
-    os.environ.pop("UNLOCK_TOKEN", None)
     os.environ.pop("TRUSTED_GATEWAY_CIDR", None)
 
 

@@ -59,12 +59,15 @@ function getUnlockHeader() {
 export async function apiPost(key, url, options = {}) {
   const signal = getSignal(key);
   const unlockHeader = getUnlockHeader();
+  // headers por ultimo: com `...options` depois, um options.headers apagaria
+  // o X-Cockpit-Unlock e toda mutacao com corpo cairia em 403.
+  const { headers: extraHeaders, ...rest } = options;
   try {
     const res = await fetch(url, {
       method: 'POST',
       signal,
-      headers: { 'Accept': 'application/json', ...unlockHeader, ...(options.headers || {}) },
-      ...options,
+      ...rest,
+      headers: { 'Accept': 'application/json', ...unlockHeader, ...(extraHeaders || {}) },
     });
     if (!res.ok) {
       let detail = '';

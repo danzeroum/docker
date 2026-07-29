@@ -54,6 +54,55 @@ alcançável de dentro da rede interna sem credencial.
 - `stream_timeout` no `docker.danzeroum.com` é auto-diagnóstico: `proxy_read_timeout 60`
   corta o SSE de logs e o WS de stats do próprio cockpit.
 
+## O `UNLOCK_TOKEN` estático era o furo, e o furo era maior que a env
+
+O token de sessão da F5 **era** o `UNLOCK_TOKEN`: `POST /api/session/unlock` devolvia
+`os.environ["UNLOCK_TOKEN"]` e `require_unlock` comparava o header com essa mesma env. Três
+consequências que o diagnóstico "remova a env" não cobre sozinho:
+
+- **O TTL de 30 min não protegia o token, só a janela.** Quem lesse a env uma vez (`docker
+  inspect`, `/proc/1/environ`, backup do `.env`) tinha a credencial **para sempre** — bastava
+  esperar qualquer operador destravar para ter 30 min de escrita em produção.
+- **`unlock_state` nunca teve mais de uma linha.** `PRIMARY KEY (token)` + `INSERT OR REPLACE`
+  sobre um valor constante = flag global liga/desliga, não sessão. Unlock de um operador
+  reiniciava o prazo do outro.
+- **A auditoria não sabia quem agiu.** Toda mutação gravava a string literal `"unlock"` em
+  `token_label`, então a tela Auditoria mostrava "unlock" na coluna "quem" — o campo que o
+  `06-telas-operacao.md` define como "usuário do basic auth do ingress".
+
+Correção (**migration v8**): o token nasce em `secrets.token_urlsafe(32)` por sessão, o banco
+guarda só `sha256` + `expires_at` explícito, e `require_unlock` valida **exclusivamente** contra
+`unlock_state` — não existe mais comparação com configuração. Sessões concorrentes coexistem, e
+`remote_user` da sessão vira o "quem" da auditoria.
+
+**A v8 recria `unlock_state` vazia de propósito.** Migrar as linhas antigas preservaria
+exatamente a credencial que a migração revoga. Isso é o oposto do defeito de v3/v5 (que
+perderam `first_seen` sem querer) e por isso o teste de banco populado afirma as duas coisas ao
+mesmo tempo: `findings`/`audit_log`/`host_samples` intactos, `unlock_state` zerada.
+
+Achados de borda encontrados no mesmo caminho, todos com teste:
+
+- `POST /findings/{id}/ack` era mutação **sem guard e sem auditoria** — violava a regra "toda
+  mutação atrás de destravamento + auditoria". Agora exige unlock, valida `reason` contra as 3
+  opções do modal e grava `motivo · prazo` na auditoria.
+- `apiPost` montava `headers` **antes** de `...options`, então qualquer chamada que passasse
+  `headers` apagava o `X-Cockpit-Unlock` e caía em 403.
+- A tela Atenção chamava `apiPost(key, url, body)` passando o corpo como *options* do `fetch`:
+  o ack ia sem corpo nenhum e voltava 422. O modal de silenciar nunca funcionou de ponta a ponta.
+- O bloco nginx gerado por `setup-ingress.sh` nunca teve `proxy_set_header Remote-User` — com
+  ele ausente o unlock responde 401 mesmo com CIDR correto. O script também não reescreve bloco
+  existente (correto), então em produção o `proxy_read_timeout 60s` continuava lá: agora ele
+  **diagnostica** o bloco existente em vez de passar em silêncio.
+
+Runbook da janela em `08-janela-de-deploy.md` (encapsulado em `scripts/deploy-v8.sh`), com a
+separação verificação × validação.
+
+**Kill switch não volta como token.** Remover `UNLOCK_TOKEN` também removeu o efeito colateral
+de "env vazia = ninguém escreve". Se essa capacidade for necessária de novo, ela é uma flag
+booleana (`COCKPIT_READONLY=1`) que nega toda mutação — nunca um token em env. Um segredo em
+configuração é credencial disfarçada de config, e é precisamente o que a v8 fechou. Hoje o
+fail-closed é o `TRUSTED_GATEWAY_CIDR`; a flag ainda não está implementada.
+
 ---
 
 ## Correções à primeira versão do handoff

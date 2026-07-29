@@ -186,16 +186,16 @@ async def container_stats_ws(websocket: WebSocket, container_id: str):
 # Lifecycle
 # ---------------------------------------------------------------------------
 
-async def _mutate_container(ctid: str, action: str, ip: str, proxy_fn, *args, **kwargs):
+async def _mutate_container(ctid: str, action: str, ip: str, ator: str, proxy_fn, *args, **kwargs):
     try:
         result = await proxy_fn(*args, **kwargs)
-        await add_audit_entry(action, ctid, "success", "unlock", ip)
+        await add_audit_entry(action, ctid, "success", ator, ip)
         return result
     except HTTPException as exc:
-        await add_audit_entry(action, ctid, f"error: {exc.status_code} {exc.detail}", "unlock", ip)
+        await add_audit_entry(action, ctid, f"error: {exc.status_code} {exc.detail}", ator, ip)
         raise
     except Exception as e:
-        await add_audit_entry(action, ctid, f"error: {e}", "unlock", ip)
+        await add_audit_entry(action, ctid, f"error: {e}", ator, ip)
         raise
 
 
@@ -203,12 +203,13 @@ async def _mutate_container(ctid: str, action: str, ip: str, proxy_fn, *args, **
 async def stop_container(
     container_id: str,
     request: Request,
-    token: str = Depends(require_unlock),
+    session: dict = Depends(require_unlock),
     t: int = 10,
 ):
     ip = request.client.host if request.client else ""
+    ator = session.get("remote_user") or "—"
     return await _mutate_container(
-        container_id, "container_stop", ip,
+        container_id, "container_stop", ip, ator,
         proxy_post, f"/containers/{container_id}/stop", params={"t": t},
     )
 
@@ -217,11 +218,12 @@ async def stop_container(
 async def start_container(
     container_id: str,
     request: Request,
-    token: str = Depends(require_unlock),
+    session: dict = Depends(require_unlock),
 ):
     ip = request.client.host if request.client else ""
+    ator = session.get("remote_user") or "—"
     return await _mutate_container(
-        container_id, "container_start", ip,
+        container_id, "container_start", ip, ator,
         proxy_post, f"/containers/{container_id}/start",
     )
 
@@ -230,12 +232,13 @@ async def start_container(
 async def restart_container(
     container_id: str,
     request: Request,
-    token: str = Depends(require_unlock),
+    session: dict = Depends(require_unlock),
     t: int = 10,
 ):
     ip = request.client.host if request.client else ""
+    ator = session.get("remote_user") or "—"
     return await _mutate_container(
-        container_id, "container_restart", ip,
+        container_id, "container_restart", ip, ator,
         proxy_post, f"/containers/{container_id}/restart", params={"t": t},
     )
 
@@ -244,13 +247,14 @@ async def restart_container(
 async def remove_container(
     container_id: str,
     request: Request,
-    token: str = Depends(require_unlock),
+    session: dict = Depends(require_unlock),
     v: bool = False,
     force: bool = False,
 ):
     ip = request.client.host if request.client else ""
+    ator = session.get("remote_user") or "—"
     return await _mutate_container(
-        container_id, "container_remove", ip,
+        container_id, "container_remove", ip, ator,
         proxy_delete, f"/containers/{container_id}", params={"v": v, "force": force},
     )
 
