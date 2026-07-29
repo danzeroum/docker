@@ -84,14 +84,43 @@ def test_nao_dispara_para_ferramentas_conhecidas(imagem):
     assert no_backup.evaluate(Ctx([_container("web"), _container("b", imagem)])) is None
 
 
-def test_nao_dispara_com_rotulo_de_backup():
-    ctx = Ctx([_container("web", rotulos={"com.docker.compose.project": "backup-noturno"})])
-    assert no_backup.evaluate(ctx) is None
+# ---------------------------------------------------------------------------
+# sinal fraco: nome/rotulo NAO silenciam mais
+# ---------------------------------------------------------------------------
+
+def test_dump_de_um_servico_nao_silencia_a_regra():
+    """Caso real: prompte-db-backup rodando postgres:16-alpine.
+
+    Casava pelo nome e calava a regra inteira — a VPS sem backup nenhum de
+    volume aparecia como coberta. E o achado mais grave da maquina.
+    """
+    ctx = Ctx([
+        _container("web"),
+        _container("prompte-db-backup", "postgres:16-alpine"),
+    ])
+    r = no_backup.evaluate(ctx)
+    assert r is not None, "um dump de banco silenciou o achado de backup"
+    assert "prompte-db-backup" in r["interpretation"], \
+        "o achado nao diz o que existe de parcial"
+    assert "prompte-db-backup" in r["evidence"]
 
 
-def test_nao_dispara_com_nome_de_backup():
-    ctx = Ctx([_container("web"), _container("btv-backup-diario")])
-    assert no_backup.evaluate(ctx) is None
+def test_rotulo_de_backup_nao_silencia_mas_entra_no_texto():
+    ctx = Ctx([_container("web", rotulos={"com.docker.compose.service": "db-backup"})])
+    r = no_backup.evaluate(ctx)
+    assert r is not None
+    assert "web" in r["interpretation"]
+
+
+def test_nome_de_backup_nao_silencia():
+    r = no_backup.evaluate(Ctx([_container("web"), _container("btv-backup-diario")]))
+    assert r is not None, "nome com 'backup' nao pode calar a regra sozinho"
+
+
+def test_sem_parcial_o_texto_nao_inventa_ressalva():
+    r = no_backup.evaluate(Ctx([_container("web")]))
+    assert "cobre um serviço" not in r["interpretation"]
+    assert "parcial" not in r["evidence"]
 
 
 def test_cala_se_sem_leitura_do_daemon():
