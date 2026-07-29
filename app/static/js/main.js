@@ -160,8 +160,9 @@ function disconnectSSE() {
 }
 
 // --- Shared polling (30s reconciliation, paused when tab hidden) ---
-let pollTimer = null;
-
+// pollTimer ja e declarado junto de pollAll(), acima. Redeclarar com `let` no
+// mesmo escopo de modulo e SyntaxError: o main.js inteiro deixa de carregar e
+// a interface fica no "carregando" para sempre, sem pintar nada.
 function startPolling() {
   pollAll();
   pollTimer = setInterval(pollAll, 30000);
