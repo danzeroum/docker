@@ -1,6 +1,9 @@
 import json
-from fastapi import APIRouter, Query, HTTPException, Body
-from db import get_findings, get_finding, ack_finding
+from fastapi import APIRouter, Query, HTTPException, Body, Depends, Request
+from auth import require_unlock
+from db import get_findings, get_finding, ack_finding, add_audit_entry
+
+ACK_REASONS = ("aceito_estrutural", "monitorando", "falso_positivo")
 
 router = APIRouter(prefix="/api", tags=["findings"])
 
@@ -73,16 +76,30 @@ async def get_finding_detail(finding_id: str):
 @router.post("/findings/{finding_id}/ack")
 async def ack_finding_endpoint(
     finding_id: str,
+    request: Request,
     reason: str = Body(..., embed=True),
     note: str = Body("", embed=True),
     until: str = Body("", embed=True),
+    session: dict = Depends(require_unlock),
 ):
+    """Silenciar e mutacao: passa pelo destravamento e deixa linha de auditoria."""
+    ip = request.client.host if request.client else ""
+    ator = session.get("remote_user") or "—"
     if not reason:
         raise HTTPException(status_code=400, detail="reason é obrigatório")
+    if reason not in ACK_REASONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"reason inválido — use um de {', '.join(ACK_REASONS)}",
+        )
     r = await get_finding(finding_id)
     if not r:
+        await add_audit_entry("ack", finding_id, "error: 404 nao encontrado", ator, ip)
         raise HTTPException(status_code=404, detail="Finding não encontrado")
     if r["status"] == "resolved":
+        await add_audit_entry("ack", finding_id, "error: 400 ja resolvido", ator, ip)
         raise HTTPException(status_code=400, detail="Finding já resolvido")
     await ack_finding(finding_id, reason, note, until)
+    # Resultado carrega o prazo — e o que a tela Auditoria mostra na coluna resultado.
+    await add_audit_entry("ack", finding_id, f"{reason} · {until or 'sem prazo'}", ator, ip)
     return {"status": "acked", "id": finding_id, "reason": reason, "until": until}

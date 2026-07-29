@@ -197,8 +197,8 @@ def _populate_v1_to_v5(path):
     conn.close()
 
 
-def test_migration_v7_fresh_db():
-    """init_db sobre banco vazio cria todas as tabelas e schema v7."""
+def test_migration_v8_fresh_db():
+    """init_db sobre banco vazio cria todas as tabelas e schema v8."""
     fd, path = tempfile.mkstemp(suffix=".db")
     os.close(fd)
     _reset_db(path)
@@ -212,7 +212,7 @@ def test_migration_v7_fresh_db():
             conn.row_factory = sqlite3.Row
 
             cur = conn.execute("SELECT MAX(version) as v FROM schema_version")
-            assert cur.fetchone()["v"] == 7
+            assert cur.fetchone()["v"] == 8
 
             for tbl in ("findings", "audit_log", "unlock_state", "host_samples", "container_samples", "api_telemetry"):
                 cur = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (tbl,))
@@ -231,7 +231,11 @@ def test_migration_v7_fresh_db():
 
 
 def test_migration_v6_banco_populado():
-    """init_db sobre banco v5 populado preserva 12 findings + 8 audit + 1 unlock."""
+    """init_db sobre banco v5 populado preserva 12 findings + 8 audit.
+
+    A unlock_state NAO e preservada: a v8 a recria vazia porque as linhas
+    antigas sao chaveadas pelo UNLOCK_TOKEN estatico. Descarte proposital.
+    """
     fd, path = tempfile.mkstemp(suffix=".db")
     os.close(fd)
     _populate_v1_to_v5(path)
@@ -273,8 +277,13 @@ def test_migration_v6_banco_populado():
             cur = conn.execute("SELECT COUNT(*) as cnt FROM audit_log")
             assert cur.fetchone()["cnt"] == audit_before, "audit_log perdido na migracao"
 
+            # v8 revoga as sessoes antigas — manter uma linha aqui seria manter
+            # viva a credencial estatica que a migracao existe para matar.
             cur = conn.execute("SELECT COUNT(*) as cnt FROM unlock_state")
-            assert cur.fetchone()["cnt"] == unlock_before, "unlock_state perdido na migracao"
+            assert cur.fetchone()["cnt"] == 0, "sessao do token estatico sobreviveu a v8"
+            cur = conn.execute("PRAGMA table_info(unlock_state)")
+            cols = {r["name"] for r in cur.fetchall()}
+            assert "token" not in cols and "token_hash" in cols
 
             # first_seen preservado
             cur = conn.execute("SELECT id, first_seen FROM findings ORDER BY id")
@@ -284,9 +293,9 @@ def test_migration_v6_banco_populado():
                 )
                 assert row["first_seen"] is not None
 
-            # Schema agora em v7
+            # Schema agora em v8
             cur = conn.execute("SELECT MAX(version) as v FROM schema_version")
-            assert cur.fetchone()["v"] == 7
+            assert cur.fetchone()["v"] == 8
 
             # Novas tabelas existem
             for tbl in ("host_samples", "container_samples", "api_telemetry"):
@@ -317,19 +326,26 @@ def test_cleanup_expired_sessions():
             await init_db()
 
             db = await get_db()
-            old_ts = (datetime.now(timezone.utc) - timedelta(minutes=45)).isoformat().replace("+00:00", "Z")
-            mid_ts = (datetime.now(timezone.utc) - timedelta(minutes=35)).isoformat().replace("+00:00", "Z")
-            fresh_ts = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat().replace("+00:00", "Z")
-            for ts, lbl in [(old_ts, "expired-45"), (mid_ts, "expired-35"), (fresh_ts, "valid")]:
+            now = datetime.now(timezone.utc)
+            # expires_at e o que manda agora, nao created_at + 30
+            venc = [
+                (now - timedelta(minutes=15), "expired-45"),
+                (now - timedelta(minutes=5), "expired-35"),
+                (now + timedelta(minutes=25), "valid"),
+            ]
+            for exp, lbl in venc:
                 await db.execute(
-                    "INSERT INTO unlock_state (token, remote_user, ip, motivo, created_at) VALUES (?, ?, ?, ?, ?)",
-                    (f"token-{lbl}", "admin", "", lbl, ts),
+                    "INSERT INTO unlock_state (token_hash, remote_user, ip, motivo, created_at, expires_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    (f"hash-{lbl}", "admin", "", lbl,
+                     (exp - timedelta(minutes=30)).isoformat().replace("+00:00", "Z"),
+                     exp.isoformat().replace("+00:00", "Z")),
                 )
             await db.commit()
 
             await cleanup_expired_sessions()
 
-            cur = await db.execute("SELECT motivo FROM unlock_state ORDER BY created_at DESC")
+            cur = await db.execute("SELECT motivo FROM unlock_state ORDER BY expires_at DESC")
             rows = await cur.fetchall()
             motivos = [dict(r)["motivo"] for r in rows]
             assert motivos == ["valid"], f"Expected only 'valid', got {motivos}"

@@ -40,7 +40,28 @@ docker run --rm \
 echo "[3/4] Adicionando bloco server{} em $INGRESS_CONF..."
 
 if grep -q "server_name ${DOMAIN}" "$INGRESS_CONF"; then
-  echo "  Bloco para $DOMAIN ja existe em nginx.conf — pulando."
+  echo "  Bloco para $DOMAIN ja existe em nginx.conf — nao vou reescrever."
+  echo "  Conferindo se o bloco existente sustenta unlock e SSE:"
+  PENDENTE=0
+  if grep -qE 'proxy_read_timeout\s+60s' "$INGRESS_CONF"; then
+    echo "    [!] proxy_read_timeout 60s presente — corta o SSE da F6 a cada minuto."
+    echo "        troque por: proxy_read_timeout 3600s;"
+    PENDENTE=1
+  fi
+  if ! grep -q 'proxy_buffering off' "$INGRESS_CONF"; then
+    echo "    [!] falta proxy_buffering off — o SSE chega em blocos, nao em tempo real."
+    PENDENTE=1
+  fi
+  if ! grep -q 'proxy_set_header Remote-User' "$INGRESS_CONF"; then
+    echo "    [!] falta proxy_set_header Remote-User \$remote_user;"
+    echo "        sem isso POST /api/session/unlock responde 401 e nada e mutavel."
+    PENDENTE=1
+  fi
+  if [ "$PENDENTE" -eq 0 ]; then
+    echo "    ok — bloco existente ja atende."
+  else
+    echo "  Ajuste o bloco a mao em $INGRESS_CONF e rode: docker exec btv-nginx-prod nginx -t"
+  fi
 else
   # Gera o bloco num arquivo temporario para evitar problemas de escaping
   TMPBLOCK=$(mktemp)
@@ -67,7 +88,23 @@ else
         location / {
             set \$upstream "http://docker-cockpit:8000";
             proxy_pass \$upstream;
-            proxy_read_timeout 60s;
+
+            proxy_set_header Host              \$host;
+            proxy_set_header X-Real-IP         \$remote_addr;
+            proxy_set_header X-Forwarded-For   \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto \$scheme;
+            # Identidade do basic auth acima. Sem isto POST /api/session/unlock
+            # responde 401 e nenhuma mutacao e possivel pelo painel.
+            proxy_set_header Remote-User       \$remote_user;
+
+            # SSE da F6 (/events): sem isto o stream morre a cada 60s e o
+            # proprio cockpit dispara o achado stream_timeout contra si mesmo.
+            proxy_http_version 1.1;
+            proxy_set_header Connection "";
+            proxy_buffering off;
+            proxy_cache off;
+            proxy_read_timeout 3600s;
+            proxy_send_timeout 3600s;
         }
     }
 NGINX
