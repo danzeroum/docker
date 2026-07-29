@@ -39,6 +39,12 @@ services:
     environment:
       SOCKET_PROXY: http://docker-cockpit-proxy:2375
       DOCKER_HOST: tcp://docker-cockpit-proxy:2375
+      # Caminho do nginx.conf do ingress DENTRO do container. E consequencia
+      # direta do volume logo abaixo, entao mora aqui e nao no .env: separar os
+      # dois deixa o padrao do codigo (/etc/nginx/nginx.conf) valer em silencio.
+      # Sem isto o parser nao acha o arquivo, as 11 regras de ingress nunca
+      # rodam e a tela Ingress & TLS fica vazia — sem erro nenhum.
+      NGINX_CONFIG_PATH: /etc/nginx-ingress/nginx.conf
       # TRUSTED_GATEWAY_CIDR: 172.x.0.0/16
       # Descubra com: docker network inspect btv-prod-net --format '{{range .IPAM.Config}}{{.Subnet}}{{end}}'
       # Se ausente, /session/unlock retorna 403 (fail-closed) e loga warning.
