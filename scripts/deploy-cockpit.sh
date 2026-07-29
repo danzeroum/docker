@@ -1,14 +1,19 @@
 #!/usr/bin/env bash
 #
-# Janela de deploy: producao pre-F5 -> F0..F6 acumuladas + migration v8.
+# Janela de deploy do cockpit: producao pre-F5 -> F0..F6 acumuladas,
+# com as migrations v8 (token de sessao) e v9 (tarefas) na MESMA janela.
 # Roda NA VPS srv1351082, no diretorio do compose do cockpit.
 #
-#   bash scripts/deploy-v8.sh              janela completa (deploy + validacao)
-#   bash scripts/deploy-v8.sh --validate   so revalida, nao mexe em nada
-#   bash scripts/deploy-v8.sh --dry-run    mostra o que faria, sem executar
+#   bash scripts/deploy-cockpit.sh              janela completa (deploy + validacao)
+#   bash scripts/deploy-cockpit.sh --validate   so revalida, nao mexe em nada
+#   bash scripts/deploy-cockpit.sh --dry-run    mostra o que faria, sem escrever nada
 #
 # Ordem fixa: CIDR no .env -> bloco nginx -> compose config -q -> up -d --build app
-#             -> validacao dos 4 aceites.
+#             -> validacao dos aceites da v8 -> validacao do board da v9.
+#
+# init_db aplica as duas migrations de uma vez. Por isso o passo de subida exige
+# schema 9 E a tabela tasks: parar na v8 significa migration incompleta, e o
+# board falharia depois por um motivo que nao e dele.
 #
 # REGRA DURA: se a validacao de rede falhar, o conserto e o CIDR ou o bloco nginx.
 # NUNCA restaure o backup do banco para "resolver" — o esquema antigo devolve o furo
@@ -33,6 +38,7 @@ if [ "${1:-}" = "--dry-run" ]; then MODO="dry-run"; fi
 
 FALHAS=0
 TOKEN_ANTIGO=""
+TOKEN_SESSAO=""
 
 c_ok()   { printf '  \033[32mok\033[0m    %s\n' "$1"; }
 c_bad()  { printf '  \033[31mFALHA\033[0m %s\n' "$1"; FALHAS=$((FALHAS + 1)); }
@@ -45,6 +51,26 @@ executa() {
     return 0
   fi
   "$@"
+}
+
+# Validar de verdade escreve: unlock cria sessao, ack mexe em achado, PATCH move
+# cartao — os tres deixam linha de auditoria. Em --dry-run nada disso pode rodar,
+# entao os checks que escrevem sao anunciados e pulados.
+escreve_ok() {
+  if [ "$MODO" = "dry-run" ]; then
+    return 1
+  fi
+  return 0
+}
+
+pula_dry_run() {
+  printf '  [dry-run] pularia: %s\n' "$1"
+}
+
+# Consulta o banco do cockpit de dentro do container.
+sql() {
+  docker exec "$CONTAINER" python3 -c \
+    "import sqlite3;print(sqlite3.connect('/data/cockpit.db').execute(\"$1\").fetchone()[0])" 2>/dev/null
 }
 
 # ---------------------------------------------------------------------------
@@ -70,8 +96,13 @@ preflight() {
   if grep -q '^UNLOCK_TOKEN=' "$ENV_FILE"; then
     TOKEN_ANTIGO="$(grep '^UNLOCK_TOKEN=' "$ENV_FILE" | head -1 | cut -d= -f2- | tr -d '"'"'"'')"
     c_warn "UNLOCK_TOKEN presente no $ENV_FILE — furo confirmado, sera removido"
-    printf '%s' "$TOKEN_ANTIGO" > .unlock-token-antigo.tmp
-    chmod 600 .unlock-token-antigo.tmp
+    # Guardar em disco e escrita, e escrita de um segredo: nao acontece em dry-run.
+    if escreve_ok; then
+      printf '%s' "$TOKEN_ANTIGO" > .unlock-token-antigo.tmp
+      chmod 600 .unlock-token-antigo.tmp
+    else
+      pula_dry_run "gravar o token antigo em .unlock-token-antigo.tmp"
+    fi
   else
     c_ok "UNLOCK_TOKEN ausente do $ENV_FILE"
     if [ -f .unlock-token-antigo.tmp ]; then
@@ -83,8 +114,8 @@ preflight() {
   # de validacao — ver o cabecalho.
   if [ "$MODO" = "completo" ]; then
     if docker ps --format '{{.Names}}' | grep -qx "$CONTAINER"; then
-      executa docker cp "$CONTAINER:/data/cockpit.db" ./cockpit-pre-v8.db
-      c_ok "backup em ./cockpit-pre-v8.db (so para cockpit inoperante)"
+      executa docker cp "$CONTAINER:/data/cockpit.db" ./cockpit-pre-v8v9.db
+      c_ok "backup em ./cockpit-pre-v8v9.db (so para cockpit inoperante)"
     else
       c_warn "$CONTAINER nao esta rodando — sem backup, seguindo"
     fi
@@ -229,12 +260,39 @@ passo_subir() {
     exit 1
   fi
 
-  VERSAO="$(docker exec "$CONTAINER" python3 -c \
-    "import sqlite3;print(sqlite3.connect('/data/cockpit.db').execute('SELECT MAX(version) FROM schema_version').fetchone()[0])" 2>/dev/null; true)"
-  if [ "$VERSAO" = "8" ]; then
-    c_ok "schema em v8"
+  checa_schema
+}
+
+# ---------------------------------------------------------------------------
+# 3b · Schema: as duas migrations da janela
+#
+# Roda ANTES de qualquer check do board. Se a v9 nao subiu, o board vai falhar
+# em cascata por um motivo que nao e dele — e o diagnostico util e a migration.
+# ---------------------------------------------------------------------------
+checa_schema() {
+  VERSAO="$(sql 'SELECT MAX(version) FROM schema_version'; true)"
+  if [ "$VERSAO" = "9" ]; then
+    c_ok "schema em v9 (v8 + v9 aplicadas)"
   else
-    c_bad "schema em ${VERSAO:-?}, esperado 8"
+    c_bad "schema em ${VERSAO:-?}, esperado 9"
+    printf '    a janela sobe DUAS migrations: v8 (sessao) e v9 (tarefas).\n'
+    printf '    parar em 8 e migration incompleta — veja: docker compose logs app\n'
+    return 0
+  fi
+
+  TEM_TASKS="$(sql "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='tasks'"; true)"
+  if [ "$TEM_TASKS" = "1" ]; then
+    c_ok "tabela tasks existe"
+  else
+    c_bad "tabela tasks AUSENTE — a v9 nao aplicou"
+    printf '    nao e problema do board: e a migration. docker compose logs app\n'
+  fi
+
+  UM_OITO="$(sql 'SELECT COUNT(*) FROM schema_version WHERE version = 8'; true)"
+  if [ "$UM_OITO" = "1" ]; then
+    c_ok "um unico schema_version 8"
+  else
+    c_bad "schema_version 8 aparece ${UM_OITO:-?} vezes — merge fora de ordem"
   fi
 }
 
@@ -251,7 +309,8 @@ if header:
     k, _, v = header.partition(":")
     h[k.strip()] = v.strip()
 h.setdefault("Content-Type", "application/json")
-req = u.Request("http://localhost:8000" + caminho, method=metodo, data=b"{}", headers=h)
+corpo = None if metodo == "GET" else b"{}"
+req = u.Request("http://localhost:8000" + caminho, method=metodo, data=corpo, headers=h)
 try:
     print(u.urlopen(req, timeout=10).status)
 except Exception as e:
@@ -263,7 +322,7 @@ validar() {
   titulo "4 · Validacao — os 4 aceites (o que so a rede real prova)"
 
   if [ -z "${BASIC_AUTH:-}" ]; then
-    USUARIO="$(grep '^BASIC_AUTH_USER=' "$ENV_FILE" | cut -d= -f2- | tr -d '"'"'"'')"
+    USUARIO="$(grep '^BASIC_AUTH_USER=' "$ENV_FILE" | cut -d= -f2- | tr -d '"'"'"''; true)"
     printf '  usuario do ingress: %s\n' "${USUARIO:-?}"
     printf '  exporte BASIC_AUTH="usuario:senha" para os testes via ingress\n'
   fi
@@ -294,12 +353,11 @@ validar() {
     c_bad "esperado 401, veio $ST_DIRETO"
   fi
 
-  TOKEN_SESSAO=""
-  if [ -n "${BASIC_AUTH:-}" ]; then
+  if [ -n "${BASIC_AUTH:-}" ] && escreve_ok; then
     RESP="$(curl -s -u "$BASIC_AUTH" -X POST "https://${DOMINIO}/api/session/unlock" \
-            -H 'Content-Type: application/json' -d '{"motivo":"janela de deploy"}')"
+            -H 'Content-Type: application/json' -d '{"motivo":"janela de deploy"}'; true)"
     ST_ING="$(curl -s -o /dev/null -w '%{http_code}' -u "$BASIC_AUTH" -X POST "https://${DOMINIO}/api/session/unlock" \
-            -H 'Content-Type: application/json' -d '{"motivo":"janela de deploy"}')"
+            -H 'Content-Type: application/json' -d '{"motivo":"janela de deploy"}'; true)"
     printf '      via ingress -> %s\n' "$ST_ING"
     if [ "$ST_ING" = "200" ]; then
       c_ok "unlock via ingress autorizado"
@@ -318,7 +376,11 @@ validar() {
       printf '      NAO restaure o backup do banco — o conserto e config de rede.\n'
     fi
   else
-    c_warn "BASIC_AUTH nao exportado — pulei o teste via ingress"
+    if escreve_ok; then
+      c_warn "BASIC_AUTH nao exportado — pulei o teste via ingress"
+    else
+      pula_dry_run "unlock via ingress (criaria sessao em unlock_state)"
+    fi
   fi
 
   # --- aceite 3: ack sai da fila e audita o OPERADOR ----------------------
@@ -349,7 +411,11 @@ validar() {
       c_warn "nenhum healthcheck_never_passed aberto — nada a silenciar"
     fi
   else
-    c_warn "sem token de sessao — pulei o ack"
+    if escreve_ok; then
+      c_warn "sem token de sessao — pulei o ack"
+    else
+      pula_dry_run "ack de achado (mexeria em findings e audit_log)"
+    fi
   fi
 
   # --- aceite 4: SSE aberto por mais de 2 min -----------------------------
@@ -366,6 +432,112 @@ validar() {
     fi
   else
     c_warn "BASIC_AUTH nao exportado — pulei o teste de SSE"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# 4b · Board de Tarefas (v9)
+#
+# O board e a unica tela nova que ESCREVE. O que precisa de rede real aqui e o
+# mesmo do resto: o guard de escrita so vale se o unlock funcionar de verdade.
+# ---------------------------------------------------------------------------
+validar_board() {
+  titulo "4b · Board de Tarefas (v9)"
+
+  # Sem a tabela nao ha o que validar — e o diagnostico e a migration, nao o board.
+  TEM_TASKS="$(sql "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='tasks'"; true)"
+  if [ "$TEM_TASKS" != "1" ]; then
+    c_bad "tabela tasks ausente — a v9 nao aplicou; nada do board e conclusivo"
+    printf '    docker compose logs app | grep -i migration\n'
+    return 0
+  fi
+
+  # --- leitura livre ------------------------------------------------------
+  printf '\n  [5] GET /api/tasks (leitura livre)\n'
+  ST="$(codigo_http_interno GET /api/tasks)"
+  printf '      /api/tasks -> %s\n' "$ST"
+  if [ "$ST" = "200" ]; then
+    c_ok "board responde"
+  else
+    c_bad "esperado 200, veio $ST"
+  fi
+
+  # --- guard de escrita ---------------------------------------------------
+  printf '\n  [6] PATCH /api/tasks sem unlock\n'
+  ST="$(codigo_http_interno PATCH /api/tasks/nao-existe)"
+  printf '      PATCH sem X-Cockpit-Unlock -> %s\n' "$ST"
+  if [ "$ST" = "403" ]; then
+    c_ok "escrita negada sem destravamento"
+  else
+    c_bad "esperado 403, veio $ST — o board esta escrevendo sem guard"
+  fi
+
+  # --- escrita autorizada + auditoria -------------------------------------
+  printf '\n  [7] PATCH com unlock -> 200 e linha em /api/audit\n'
+  if [ -n "$TOKEN_SESSAO" ]; then
+    ID_CARTAO="$(curl -s -u "$BASIC_AUTH" "https://${DOMINIO}/api/tasks" \
+      | python3 -c 'import sys,json; c=json.load(sys.stdin)["columns"]; t=[x for col in c for x in col["tasks"]]; print(t[0]["id"] if t else "")' 2>/dev/null; true)"
+    if [ -n "$ID_CARTAO" ]; then
+      COL_ANTES="$(curl -s -u "$BASIC_AUTH" "https://${DOMINIO}/api/tasks" \
+        | python3 -c "import sys,json; c=json.load(sys.stdin)['columns']; print([x['col'] for col in c for x in col['tasks'] if x['id']=='$ID_CARTAO'][0])" 2>/dev/null; true)"
+      DESTINO="doing"
+      if [ "$COL_ANTES" = "doing" ]; then DESTINO="todo"; fi
+      ST="$(curl -s -o /dev/null -w '%{http_code}' -u "$BASIC_AUTH" \
+        -X PATCH "https://${DOMINIO}/api/tasks/${ID_CARTAO}" \
+        -H "X-Cockpit-Unlock: ${TOKEN_SESSAO}" -H 'Content-Type: application/json' \
+        -d "{\"col\":\"${DESTINO}\"}"; true)"
+      printf '      PATCH %s %s -> %s -> %s\n' "$ID_CARTAO" "$COL_ANTES" "$DESTINO" "$ST"
+      if [ "$ST" = "200" ]; then
+        c_ok "movimento autorizado persiste"
+      else
+        c_bad "esperado 200, veio $ST"
+      fi
+      QUEM="$(curl -s -u "$BASIC_AUTH" "https://${DOMINIO}/api/audit?limit=10" \
+        | python3 -c 'import sys,json; a=[l for l in json.load(sys.stdin) if l["action"]=="task_move"]; print(a[0]["token_label"] if a else "")' 2>/dev/null; true)"
+      printf '      auditoria diz quem: %s\n' "${QUEM:-<vazio>}"
+      if [ -n "$QUEM" ] && [ "$QUEM" != "unlock" ]; then
+        c_ok "task_move auditado com o operador"
+      else
+        c_bad "task_move sem operador na auditoria (veio '${QUEM}')"
+      fi
+    else
+      c_warn "board vazio — nenhum cartao para mover"
+    fi
+  else
+    if escreve_ok; then
+      c_warn "sem token de sessao — pulei o PATCH autorizado"
+    else
+      pula_dry_run "PATCH de cartao (moveria tarefa e gravaria auditoria)"
+    fi
+  fi
+
+  # --- ciclo achado -> cartao ---------------------------------------------
+  printf '\n  [8] cartao automatico a partir de achado\n'
+  N_AUTO="$(sql "SELECT COUNT(*) FROM tasks WHERE origem='auto'"; true)"
+  N_RESTART="$(sql "SELECT COUNT(*) FROM tasks WHERE origem='auto' AND finding_id LIKE 'restart_loop.%'"; true)"
+  printf '      cartoes automaticos: %s (restart_loop: %s)\n' "${N_AUTO:-?}" "${N_RESTART:-?}"
+  if [ "${N_RESTART:-0}" -gt 0 ]; then
+    c_ok "restart_loop real gerou cartao"
+  else
+    c_warn "nenhum restart_loop aberto agora — sem cartao automatico a conferir"
+    printf '        esperado numa VPS saudavel; nao e falha.\n'
+  fi
+
+  # oom NAO declara AUTO_TASK: ele suplanta restart_loop, e dois cartoes para o
+  # mesmo problema e o que SUPERSEDES existe para evitar.
+  N_OOM="$(sql "SELECT COUNT(*) FROM tasks WHERE origem='auto' AND finding_id LIKE 'oom.%'"; true)"
+  if [ "${N_OOM:-0}" -eq 0 ]; then
+    c_ok "achado supersedente (oom) nao gerou segundo cartao"
+  else
+    c_bad "existe cartao automatico de oom — AUTO_TASK ligado onde nao devia"
+  fi
+
+  # O indice unico parcial e a rede contra duplicacao no ciclo de 10s.
+  DUP="$(sql "SELECT COUNT(*) FROM (SELECT finding_id FROM tasks WHERE origem='auto' AND finding_id IS NOT NULL GROUP BY finding_id HAVING COUNT(*) > 1)"; true)"
+  if [ "${DUP:-0}" -eq 0 ]; then
+    c_ok "nenhum achado com dois cartoes automaticos"
+  else
+    c_bad "${DUP} achado(s) com cartao duplicado — indice unico parcial nao pegou"
   fi
 }
 
@@ -399,7 +571,7 @@ fumaca() {
 
 # ---------------------------------------------------------------------------
 
-printf '\033[1mJanela de deploy v8 — modo: %s\033[0m\n' "$MODO"
+printf '\033[1mJanela de deploy do cockpit (v8 + v9) — modo: %s\033[0m\n' "$MODO"
 
 preflight
 if [ "$MODO" != "validacao" ]; then
@@ -407,8 +579,13 @@ if [ "$MODO" != "validacao" ]; then
   passo_nginx
   passo_subir
 fi
+if [ "$MODO" = "validacao" ]; then
+  titulo "3b · Schema"
+  checa_schema
+fi
 validar
-if [ "$MODO" != "validacao" ]; then
+validar_board
+if [ "$MODO" = "completo" ]; then
   fumaca
 fi
 
@@ -421,6 +598,6 @@ fi
 
 printf '  \033[31m%s verificacao(oes) falharam\033[0m\n' "$FALHAS"
 printf '  Conserto de falha de rede = CIDR (passo 1) ou bloco nginx (passo 2).\n'
-printf '  NUNCA restaure cockpit-pre-v8.db para contornar: o esquema antigo devolve\n'
+printf '  NUNCA restaure cockpit-pre-v8v9.db para contornar: o esquema antigo devolve\n'
 printf '  o furo do token estatico junto. Reexecute com --validate apos consertar.\n'
 exit 1

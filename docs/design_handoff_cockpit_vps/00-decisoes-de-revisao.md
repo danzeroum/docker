@@ -94,7 +94,7 @@ Achados de borda encontrados no mesmo caminho, todos com teste:
   existente (correto), então em produção o `proxy_read_timeout 60s` continuava lá: agora ele
   **diagnostica** o bloco existente em vez de passar em silêncio.
 
-Runbook da janela em `08-janela-de-deploy.md` (encapsulado em `scripts/deploy-v8.sh`), com a
+Runbook da janela em `08-janela-de-deploy.md` (encapsulado em `scripts/deploy-cockpit.sh`), com a
 separação verificação × validação.
 
 **Kill switch não volta como token.** Remover `UNLOCK_TOKEN` também removeu o efeito colateral

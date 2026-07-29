@@ -1,7 +1,9 @@
-# 08 · Janela de deploy — pre-F5 → F6 + v8
+# 08 · Janela de deploy — pre-F5 → F6 + v8 + v9
 
 Producao esta pre-F5 e o `.env` de producao ainda tem `UNLOCK_TOKEN`. Uma janela resolve
-as duas coisas. Nomes: servico compose = `app`, container = `docker-cockpit`.
+tudo — e ela sobe **duas migrations de uma vez**: a **v8** (token de sessao) e a **v9**
+(tarefas). `init_db` aplica as duas no startup; por isso a validacao exige schema **9** e a
+tabela `tasks`, nao 8. Nomes: servico compose = `app`, container = `docker-cockpit`.
 
 **Verificacao** (os 125+13 testes passam) ja esta feita no CI e nao diz nada sobre a rede real.
 **Validacao** (o gate de escrita e seguro na rede de producao) so acontece aqui, na VPS, e e
@@ -9,7 +11,7 @@ o que esta seccao cobre. Nao pule a parte 3.
 
 ---
 
-## Atalho: `scripts/deploy-v8.sh`
+## Atalho: `scripts/deploy-cockpit.sh`
 
 A janela inteira esta encapsulada, idempotente e na ordem certa:
 
@@ -17,9 +19,9 @@ A janela inteira esta encapsulada, idempotente e na ordem certa:
 cd /opt/btv/docker                       # diretorio do compose do cockpit
 export BASIC_AUTH="admin:SENHA"          # necessario para os testes via ingress
 
-bash scripts/deploy-v8.sh --dry-run      # mostra o que faria
-bash scripts/deploy-v8.sh                # janela completa
-bash scripts/deploy-v8.sh --validate     # so revalida, sem tocar em nada
+bash scripts/deploy-cockpit.sh --dry-run      # mostra o que faria
+bash scripts/deploy-cockpit.sh                # janela completa
+bash scripts/deploy-cockpit.sh --validate     # so revalida, sem tocar em nada
 ```
 
 O script para antes de subir se o bloco nginx nao atender, e nunca reescreve o `nginx.conf`
@@ -32,7 +34,7 @@ manual equivalente, para quando voce quiser conduzir a mao.
 
 ```bash
 # backup do banco — a v8 recria unlock_state e nao ha volta automatica
-docker cp docker-cockpit:/data/cockpit.db ./cockpit-pre-v8.db
+docker cp docker-cockpit:/data/cockpit.db ./cockpit-pre-v8v9.db
 
 # estado atual, para comparar depois
 docker exec docker-cockpit env | grep -E 'UNLOCK|TRUSTED'
@@ -137,11 +139,11 @@ docker exec btv-nginx-prod nginx -s reload
 ```bash
 docker compose config -q
 docker compose up -d --build app
-docker compose logs -f app | head -40      # a v8 aplica no startup
+docker compose logs -f app | head -40      # v8 e v9 aplicam no startup
 ```
 
 `init_db` falha alto de proposito: se a migration quebrar, o container reinicia em laco em vez
-de subir com banco meio migrado. Nesse caso: restaure `pre-v8.db` e volte a imagem anterior
+de subir com banco meio migrado. Nesse caso: restaure `cockpit-pre-v8v9.db` e volte a imagem anterior
 antes de diagnosticar.
 
 ---
@@ -216,6 +218,86 @@ A linha de auditoria tem de trazer **o usuario do basic auth** em `token_label` 
 
 ---
 
+### 5.5 Schema: as duas migrations subiram
+
+Roda **antes** de qualquer check do board. Se a v9 nao aplicou, o board falha em cascata por um
+motivo que nao e dele — e o diagnostico util e a migration.
+
+```bash
+docker exec docker-cockpit python3 -c "
+import sqlite3
+c = sqlite3.connect('/data/cockpit.db')
+print('MAX:', c.execute('SELECT MAX(version) FROM schema_version').fetchone()[0])
+print('oitos:', c.execute('SELECT COUNT(*) FROM schema_version WHERE version=8').fetchone()[0])
+print('tasks:', c.execute(\"SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='tasks'\").fetchone()[0])
+"
+```
+
+**Esperado: `MAX: 9`, `oitos: 1`, `tasks: 1`.** Parar em 8 e migration incompleta — veja
+`docker compose logs app`. Mais de um 8 significa merge fora de ordem no repositorio.
+
+---
+
+## 5b · Validacao do board de Tarefas (v9)
+
+O board e a **unica tela nova que escreve**, entao o que importa aqui e o mesmo limite do resto:
+o guard so vale se o unlock funcionar de verdade na rede real.
+
+```bash
+# leitura livre
+curl -s -o /dev/null -w '%{http_code}\n' -u admin:SENHA https://docker.danzeroum.com/api/tasks
+# esperado: 200
+
+# escrita sem destravar
+curl -s -o /dev/null -w '%{http_code}\n' -u admin:SENHA \
+  -X PATCH https://docker.danzeroum.com/api/tasks/qualquer \
+  -H 'Content-Type: application/json' -d '{"col":"doing"}'
+# esperado: 403
+```
+
+Com sessao destravada (o `$TOK` do passo 5.4):
+
+```bash
+ID=$(curl -s -u admin:SENHA https://docker.danzeroum.com/api/tasks \
+     | python3 -c 'import sys,json; c=json.load(sys.stdin)["columns"]; t=[x for col in c for x in col["tasks"]]; print(t[0]["id"] if t else "")')
+
+curl -s -o /dev/null -w '%{http_code}\n' -u admin:SENHA \
+  -X PATCH "https://docker.danzeroum.com/api/tasks/$ID" \
+  -H "X-Cockpit-Unlock: $TOK" -H 'Content-Type: application/json' -d '{"col":"doing"}'
+# esperado: 200
+
+curl -s -u admin:SENHA 'https://docker.danzeroum.com/api/audit?limit=5'
+# esperado: linha task_move com o OPERADOR do basic auth em token_label
+```
+
+### Ciclo achado → cartao
+
+```bash
+docker exec docker-cockpit python3 -c "
+import sqlite3
+c = sqlite3.connect('/data/cockpit.db')
+q = lambda s: c.execute(s).fetchone()[0]
+print('auto:', q(\"SELECT COUNT(*) FROM tasks WHERE origem='auto'\"))
+print('restart_loop:', q(\"SELECT COUNT(*) FROM tasks WHERE origem='auto' AND finding_id LIKE 'restart_loop.%'\"))
+print('oom:', q(\"SELECT COUNT(*) FROM tasks WHERE origem='auto' AND finding_id LIKE 'oom.%'\"))
+print('duplicados:', q(\"SELECT COUNT(*) FROM (SELECT finding_id FROM tasks WHERE origem='auto' AND finding_id IS NOT NULL GROUP BY finding_id HAVING COUNT(*)>1)\"))
+"
+```
+
+- **`restart_loop` > 0** → um achado real gerou cartao. Zero **nao e falha**: numa VPS saudavel
+  nao ha container em laco de reinicio; e so ausencia de caso para conferir.
+- **`oom` = 0** obrigatorio. `oom` suplanta `restart_loop` e de proposito **nao** declara
+  `AUTO_TASK` — dois cartoes para o mesmo problema e o que `SUPERSEDES` existe para evitar. Um
+  cartao de `oom` significa `AUTO_TASK` ligado onde nao devia.
+- **`duplicados` = 0** obrigatorio. O indice unico parcial
+  (`ON tasks(finding_id) WHERE origem='auto'`) e o que impede o ciclo de 10 s de acumular cartao
+  a cada reabertura.
+
+Na tela: cartao com etiqueta "do diagnostico" e automatico; "manual" nunca e movido pelo sistema,
+mesmo quando aponta para o mesmo alvo.
+
+---
+
 ## 6 · Testes de fumaca da F4/F6
 
 ```bash
@@ -262,13 +344,13 @@ a janela nao deve seguir.
 
 **Falha de validacao de rede nao e caso de rollback.** 401 no unlock via ingress e
 `Remote-User` (passo 3); 403 "origem nao autorizada" e o CIDR (passo 2). Conserte a config e
-rode `bash scripts/deploy-v8.sh --validate` de novo.
+rode `bash scripts/deploy-cockpit.sh --validate` de novo.
 
 Restaurar o banco so se o cockpit estiver **inoperante**:
 
 ```bash
 docker compose down app
-docker cp ./cockpit-pre-v8.db docker-cockpit:/data/cockpit.db
+docker cp ./cockpit-pre-v8v9.db docker-cockpit:/data/cockpit.db
 # suba a imagem anterior
 ```
 
