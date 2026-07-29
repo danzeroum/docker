@@ -49,8 +49,22 @@ case "$1" in
       cat >/dev/null
       CAMINHO="$4"
       HEADER="${5:-}"
+
+      # STUB_APP=fora  -> nada responde (app subindo ou caido)
+      # STUB_APP=furo   -> o gate ACEITA token invalido (PATCH devolve 404)
+      case "${STUB_APP:-ok}" in
+        fora)
+          printf 'sem-resposta\n'
+          exit 0
+          ;;
+        furo)
+          case "$CAMINHO" in
+            /api/tasks/cartao-que-nao-existe) printf '404\n'; exit 0 ;;
+          esac
+          ;;
+      esac
+
       case "$CAMINHO" in
-        */restart) printf '403\n' ;;
         /api/session/unlock) printf '401\n' ;;
         /api/tasks) printf '200\n' ;;
         /api/tasks/*) printf '403\n' ;;

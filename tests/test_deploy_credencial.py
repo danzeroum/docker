@@ -57,6 +57,8 @@ def rodar(tmp_path):
         env["STUB_CENARIO"] = cenario
         env["STUB_CRED_BOA"] = CRED_BOA
         env["DOMAIN"] = "cockpit.teste.invalido"
+        # nao ha app para esperar; 30s de espera real por teste estouraria tudo
+        env["ESPERA_APP_S"] = "2"
         env.pop("BASIC_AUTH", None)
         if basic_auth is not None:
             env["BASIC_AUTH"] = basic_auth
@@ -200,3 +202,107 @@ def test_dry_run_nao_toca_a_rede(rodar, tmp_path):
     assert "checa_credencial" not in antes, \
         "checa_credencial ficou no ramo de dry-run — faria requisicao autenticada"
     assert "checa_credencial" in depois
+
+
+# ---------------------------------------------------------------------------
+# App fora do ar: aceite inconclusivo nao e aceite reprovado
+#
+# Encontrado na VPS. Em --validate logo depois de `up -d --build app`, os dois
+# primeiros aceites deram:
+#
+#     [1] token estatico em X-Cockpit-Unlock
+#     FALHA esperado 403, veio erro
+#     [2] unlock via ingress 200 · direto no app 401
+#         direto em localhost:8000 -> erro
+#     FALHA esperado 401, veio erro
+#
+# "erro" era qualquer excecao sem `.code` — ou seja, ninguem respondeu. Mas a
+# mensagem lia como gate de escrita falhando, e a versao anterior chegava a
+# sugerir "imagem antiga ainda rodando?". Reprovar um aceite de seguranca por
+# app fora do ar manda consertar o lugar errado.
+# ---------------------------------------------------------------------------
+
+def test_app_fora_do_ar_nao_reprova_o_gate(rodar):
+    saida = rodar("ok", CRED_BOA, extra={"STUB_APP": "fora"})
+    assert "app nao respondeu em" in saida, saida
+    assert "isto NAO e falha do gate de escrita: nada foi exercitado" in saida
+
+
+def test_app_fora_do_ar_pula_os_aceites_internos(rodar):
+    saida = rodar("ok", CRED_BOA, extra={"STUB_APP": "fora"})
+    assert "pulei o aceite (nao ha o que concluir)" in saida
+    assert "pulei o teste direto em localhost:8000" in saida
+    assert "imagem antiga ainda rodando" not in saida, \
+        "a mensagem que culpava a imagem por app fora do ar continua viva"
+
+
+def test_sem_resposta_nunca_vira_erro_generico(rodar):
+    """'erro' nao distinguia nada. Agora ha palavra propria."""
+    saida = rodar("ok", CRED_BOA, extra={"STUB_APP": "fora"})
+    assert "veio erro" not in saida
+    assert "sem resposta do app" in saida or "app nao respondeu" in saida
+
+
+def test_board_sem_resposta_nao_acusa_falta_de_guard(rodar):
+    """'o board esta escrevendo sem guard' seria acusacao grave e errada."""
+    saida = rodar("ok", CRED_BOA, extra={"STUB_APP": "fora"})
+    assert "o board esta escrevendo sem guard" not in saida
+    assert "guard nao exercitado, aceite inconclusivo" in saida
+
+
+# ---------------------------------------------------------------------------
+# O aceite 1 nao pode mais reiniciar o cockpit que ele testa
+# ---------------------------------------------------------------------------
+
+def test_aceite_1_nao_reinicia_o_proprio_cockpit():
+    """No unico caso em que tinha algo a dizer, o teste destruia a evidencia.
+
+    Se o gate ACEITASSE o token, o cockpit reiniciava a si mesmo: a conexao
+    morria, o status virava erro de conexao e o aceite seguinte tambem falhava.
+    O furo aparecia como "sem resposta" e era atribuido a outra coisa.
+    """
+    fonte = SCRIPT.read_text()
+    corpo = fonte[fonte.index("# --- aceite 1:"):fonte.index("# --- aceite 2:")]
+    sem_comentario = "\n".join(
+        l for l in corpo.splitlines() if not l.strip().startswith("#")
+    )
+    assert "/restart" not in sem_comentario, \
+        "o aceite 1 voltou a reiniciar o container que esta validando"
+    assert "/api/tasks/cartao-que-nao-existe" in sem_comentario
+
+
+def test_gate_aceitando_token_invalido_dispara_alarme(rodar):
+    """404 na rota guardada = require_unlock deixou passar. E o furo da v8."""
+    saida = rodar("ok", CRED_BOA, extra={"STUB_APP": "furo"})
+    assert "o gate ACEITOU" in saida, saida
+    assert "404 = passou e so nao achou o cartao" in saida
+    assert "Nao siga com a janela" in saida
+
+
+def test_gate_recusando_passa_o_aceite(rodar):
+    saida = rodar("ok", CRED_BOA)
+    assert "token estatico negado pelo gate" in saida or \
+           "token arbitrario" in saida, saida
+    assert "o gate ACEITOU" not in saida
+
+
+# ---------------------------------------------------------------------------
+# Ordem: app ouvindo, depois credencial, depois aceites
+# ---------------------------------------------------------------------------
+
+def test_espera_do_app_vem_antes_da_credencial_e_dos_aceites(rodar):
+    saida = rodar("ok", CRED_BOA)
+    pos_3d = saida.index("3d · App ouvindo")
+    pos_3c = saida.index("3c · Credencial do ingress")
+    pos_4 = saida.index("4 · Validacao")
+    assert pos_3d < pos_3c < pos_4, \
+        "a ordem e app -> credencial -> aceites; cada passo torna o seguinte legivel"
+
+
+def test_espera_do_app_nao_roda_em_dry_run():
+    fonte = SCRIPT.read_text()
+    corpo = fonte[fonte.index('if [ "$MODO" = "dry-run" ]; then'):]
+    trecho = corpo[: corpo.index('titulo "Resultado"')]
+    antes, _, depois = trecho.partition("else")
+    assert "espera_app" not in antes
+    assert "espera_app" in depois
