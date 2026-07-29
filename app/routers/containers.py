@@ -1,6 +1,6 @@
 import asyncio
 import json
-from fastapi import APIRouter, HTTPException, Response, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Response, WebSocket, WebSocketDisconnect, Request, Depends
 from fastapi.responses import StreamingResponse
 import httpx
 
@@ -8,6 +8,8 @@ from routers._proxy import proxy_get, proxy_post, proxy_delete, SOCKET_PROXY, EN
 from masking import mask_inspect
 from cache import cached_or_fetch
 from stats_util import calc_cpu_percent
+from auth import require_unlock
+from db import add_audit_entry
 
 router = APIRouter(prefix="/api/containers", tags=["containers"])
 
@@ -184,24 +186,72 @@ async def container_stats_ws(websocket: WebSocket, container_id: str):
 # Lifecycle
 # ---------------------------------------------------------------------------
 
+async def _mutate_container(ctid: str, action: str, ip: str, proxy_fn, *args, **kwargs):
+    try:
+        result = await proxy_fn(*args, **kwargs)
+        await add_audit_entry(action, ctid, "success", "unlock", ip)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        await add_audit_entry(action, ctid, f"error: {e}", "unlock", ip)
+        raise
+
+
 @router.post("/{container_id}/stop")
-async def stop_container(container_id: str, t: int = 10):
-    return await proxy_post(f"/containers/{container_id}/stop", params={"t": t})
+async def stop_container(
+    container_id: str,
+    request: Request,
+    token: str = Depends(require_unlock),
+    t: int = 10,
+):
+    ip = request.client.host if request.client else ""
+    return await _mutate_container(
+        container_id, "container_stop", ip,
+        proxy_post, f"/containers/{container_id}/stop", params={"t": t},
+    )
 
 
 @router.post("/{container_id}/start")
-async def start_container(container_id: str):
-    return await proxy_post(f"/containers/{container_id}/start")
+async def start_container(
+    container_id: str,
+    request: Request,
+    token: str = Depends(require_unlock),
+):
+    ip = request.client.host if request.client else ""
+    return await _mutate_container(
+        container_id, "container_start", ip,
+        proxy_post, f"/containers/{container_id}/start",
+    )
 
 
 @router.post("/{container_id}/restart")
-async def restart_container(container_id: str, t: int = 10):
-    return await proxy_post(f"/containers/{container_id}/restart", params={"t": t})
+async def restart_container(
+    container_id: str,
+    request: Request,
+    token: str = Depends(require_unlock),
+    t: int = 10,
+):
+    ip = request.client.host if request.client else ""
+    return await _mutate_container(
+        container_id, "container_restart", ip,
+        proxy_post, f"/containers/{container_id}/restart", params={"t": t},
+    )
 
 
 @router.delete("/{container_id}")
-async def remove_container(container_id: str, v: bool = False, force: bool = False):
-    return await proxy_delete(f"/containers/{container_id}", params={"v": v, "force": force})
+async def remove_container(
+    container_id: str,
+    request: Request,
+    token: str = Depends(require_unlock),
+    v: bool = False,
+    force: bool = False,
+):
+    ip = request.client.host if request.client else ""
+    return await _mutate_container(
+        container_id, "container_remove", ip,
+        proxy_delete, f"/containers/{container_id}", params={"v": v, "force": force},
+    )
 
 
 # ---------------------------------------------------------------------------

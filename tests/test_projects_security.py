@@ -1,11 +1,14 @@
 import os
 import pytest
+import respx
+import httpx
 from unittest.mock import patch, MagicMock, AsyncMock
 from fastapi.testclient import TestClient
 
 os.environ.setdefault("UNLOCK_TOKEN", "test-token-123")
 
 from app import app
+from routers._proxy import SOCKET_PROXY
 
 client = TestClient(app)
 
@@ -18,7 +21,8 @@ FAKE_PROJECTS = {
 def mock_db():
     """Mock add_audit_entry to avoid needing a real database."""
     with patch("routers.projects.add_audit_entry", new=AsyncMock()):
-        yield
+        with patch("routers.containers.add_audit_entry", new=AsyncMock()):
+            yield
 
 
 def test_list_projects_sem_unlock():
@@ -131,3 +135,102 @@ def test_audit_log_mocked():
             )
     from routers.projects import add_audit_entry
     add_audit_entry.assert_awaited_with("start", "meu-app", "success", "unlock", "testclient")
+
+
+CONTAINER_ID = "abc123"
+
+
+@respx.mock
+def test_container_stop_sem_header():
+    """POST /api/containers/x/stop sem unlock → 403, nada no proxy."""
+    r = client.post(f"/api/containers/{CONTAINER_ID}/stop")
+    assert r.status_code == 403
+    assert len(respx.calls) == 0
+
+
+@respx.mock
+def test_container_stop_com_unlock():
+    """POST /api/containers/x/stop com unlock → 200."""
+    proxy_url = f"{SOCKET_PROXY}/containers/{CONTAINER_ID}/stop"
+    respx.post(proxy_url).mock(return_value=httpx.Response(204))
+
+    r = client.post(
+        f"/api/containers/{CONTAINER_ID}/stop",
+        headers={"X-Cockpit-Unlock": "test-token-123"},
+    )
+    assert r.status_code == 200
+
+
+@respx.mock
+def test_container_start_com_unlock():
+    """POST /api/containers/x/start com unlock → 200."""
+    proxy_url = f"{SOCKET_PROXY}/containers/{CONTAINER_ID}/start"
+    respx.post(proxy_url).mock(return_value=httpx.Response(204))
+
+    r = client.post(
+        f"/api/containers/{CONTAINER_ID}/start",
+        headers={"X-Cockpit-Unlock": "test-token-123"},
+    )
+    assert r.status_code == 200
+
+
+@respx.mock
+def test_container_restart_com_unlock():
+    """POST /api/containers/x/restart com unlock → 200."""
+    proxy_url = f"{SOCKET_PROXY}/containers/{CONTAINER_ID}/restart"
+    respx.post(proxy_url).mock(return_value=httpx.Response(204))
+
+    r = client.post(
+        f"/api/containers/{CONTAINER_ID}/restart",
+        headers={"X-Cockpit-Unlock": "test-token-123"},
+    )
+    assert r.status_code == 200
+
+
+@respx.mock
+def test_container_remove_com_unlock():
+    """DELETE /api/containers/x com unlock → 200."""
+    proxy_url = f"{SOCKET_PROXY}/containers/{CONTAINER_ID}"
+    respx.delete(proxy_url).mock(return_value=httpx.Response(204))
+
+    r = client.delete(
+        f"/api/containers/{CONTAINER_ID}",
+        headers={"X-Cockpit-Unlock": "test-token-123"},
+    )
+    assert r.status_code == 200
+
+
+@respx.mock
+def test_container_get_sem_unlock():
+    """GET /api/containers/x fica livre (sem unlock)."""
+    proxy_url = f"{SOCKET_PROXY}/containers/{CONTAINER_ID}/json"
+    respx.get(proxy_url).mock(return_value=httpx.Response(200, json={"Id": CONTAINER_ID, "Name": "/test", "Config": {"Labels": {}, "Env": [], "Cmd": [], "Entrypoint": None}, "State": {"Running": True}, "HostConfig": {}, "NetworkSettings": {"Networks": {}}, "Mounts": []}))
+
+    r = client.get(f"/api/containers/{CONTAINER_ID}")
+    assert r.status_code == 200
+
+
+def test_all_mutation_routes_have_guard():
+    """Verifica que toda POST/DELETE/PATCH de container tem Depends(require_unlock)."""
+    import inspect
+    from routers.containers import router
+
+    mutation_methods = {"POST", "DELETE"}
+    for route in router.routes:
+        if not hasattr(route, "methods"):
+            continue
+        methods = set(route.methods or set())
+        if not (methods & mutation_methods):
+            continue
+        route_str = f"{route.path} [{','.join(route.methods or [])}]"
+        sig = inspect.signature(route.endpoint)
+        params = list(sig.parameters.values())
+        has_depends = any(
+            "require_unlock" in str(p.default)
+            for p in params
+            if p.default is not inspect.Parameter.empty
+        )
+        if not has_depends:
+            import textwrap
+            src = textwrap.dedent(inspect.getsource(route.endpoint))
+            assert "require_unlock" in src, f"{route_str} falta require_unlock"
