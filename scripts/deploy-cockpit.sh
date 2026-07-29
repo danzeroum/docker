@@ -31,6 +31,8 @@ REDE="btv-prod-net"
 DOMINIO="${DOMAIN:-docker.danzeroum.com}"
 INGRESS_CONF="${INGRESS_CONF:-/opt/btv/ingress/nginx/nginx.conf}"
 ENV_FILE="${ENV_FILE:-.env}"
+# A rota real do SSE da F6. Era "/events" aqui e 404 na VPS.
+ROTA_SSE="/api/events/stream"
 
 MODO="completo"
 if [ "${1:-}" = "--validate" ]; then MODO="validacao"; fi
@@ -421,14 +423,23 @@ validar() {
   # --- aceite 4: SSE aberto por mais de 2 min -----------------------------
   printf '\n  [4] SSE aberto por >2 min (150s)\n'
   if [ -n "${BASIC_AUTH:-}" ]; then
-    INICIO="$(date +%s)"
-    curl -s -N -u "$BASIC_AUTH" --max-time 150 "https://${DOMINIO}/events" >/dev/null 2>&1; true
-    DUR=$(( $(date +%s) - INICIO ))
-    printf '      stream durou %ss\n' "$DUR"
-    if [ "$DUR" -ge 140 ]; then
-      c_ok "SSE nao caiu"
+    # Confere o status ANTES de medir. Stream que morre em 0s quase sempre e
+    # 404 ou 401, nao timeout do proxy — e culpar o nginx nesse caso manda o
+    # operador reeditar um bloco que estava certo.
+    ST_SSE="$(curl -s -o /dev/null -w '%{http_code}' -u "$BASIC_AUTH" \
+      --max-time 5 "https://${DOMINIO}${ROTA_SSE}"; true)"
+    if [ "$ST_SSE" != "200" ] && [ "$ST_SSE" != "000" ]; then
+      c_bad "${ROTA_SSE} respondeu ${ST_SSE} — nao e o proxy, e a rota ou a credencial"
     else
-      c_bad "SSE caiu em ${DUR}s — bloco nginx (passo 2)"
+      INICIO="$(date +%s)"
+      curl -s -N -u "$BASIC_AUTH" --max-time 150 "https://${DOMINIO}${ROTA_SSE}" >/dev/null 2>&1; true
+      DUR=$(( $(date +%s) - INICIO ))
+      printf '      stream durou %ss\n' "$DUR"
+      if [ "$DUR" -ge 140 ]; then
+        c_ok "SSE nao caiu"
+      else
+        c_bad "SSE caiu em ${DUR}s — bloco nginx (passo 2)"
+      fi
     fi
   else
     c_warn "BASIC_AUTH nao exportado — pulei o teste de SSE"
