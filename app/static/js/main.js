@@ -8,6 +8,8 @@ import { renderAttention } from './screens/attention.js';
 import { renderIngress } from './screens/ingress.js';
 import { renderProjects } from './screens/projects.js';
 import { renderAuditoria } from './screens/auditoria.js';
+import { renderCapacidade } from './screens/capacidade.js';
+import { renderBackend } from './screens/backend.js';
 
 // --- Theme ---
 function applyTheme(tema) {
@@ -71,10 +73,10 @@ function renderScreen(screen) {
     case '#/auditoria': dispose = renderAuditoria(container); break;
     case '#/ingress': dispose = renderIngress(container); break;
     case '#/topologia': renderPlaceholder(container, 'Topologia', '/api/topology', 'F3'); break;
-    case '#/capacidade': renderPlaceholder(container, 'Capacidade', '/api/metrics/history', 'F4'); break;
+    case '#/capacidade': dispose = renderCapacidade(container); break;
     case '#/tarefas': renderPlaceholder(container, 'Tarefas', '/api/tasks', 'F5'); break;
     case '#/executivo': renderPlaceholder(container, 'Executivo', '/api/executive', 'F5'); break;
-    case '#/backend': renderPlaceholder(container, 'Backend', '/api/backend', 'F6'); break;
+    case '#/backend': dispose = renderBackend(container); break;
     case '#/projetos': dispose = renderProjects(container); break;
     default: dispose = renderOverview(container); break;
   }
@@ -120,9 +122,47 @@ function pollAll() {
   });
 }
 
+// --- SSE events (real-time from daemon) ---
+let eventSource = null;
+let lastEventTime = null;
+
+function connectSSE() {
+  if (eventSource) eventSource.close();
+  eventSource = new EventSource('/api/events/stream');
+  eventSource.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data);
+      lastEventTime = new Date();
+      if (msg.type === 'invalidate') {
+        pollAll();
+      }
+      if (msg.type === 'docker_event') {
+        const ev = msg.data;
+        if (ev && ev.Type === 'container' && ['start', 'stop', 'die', 'restart', 'oom'].includes(ev.Action)) {
+          pollAll();
+        }
+      }
+      if (msg.type === 'error' && msg.detail) {
+        console.warn('SSE:', msg.detail);
+      }
+    } catch (_) {}
+  };
+  eventSource.onerror = () => {
+    eventSource.close();
+    setTimeout(connectSSE, 3000);
+  };
+}
+
+function disconnectSSE() {
+  if (eventSource) { eventSource.close(); eventSource = null; }
+}
+
+// --- Shared polling (30s reconciliation, paused when tab hidden) ---
+let pollTimer = null;
+
 function startPolling() {
   pollAll();
-  pollTimer = setInterval(pollAll, 5000);
+  pollTimer = setInterval(pollAll, 30000);
 }
 
 function stopPolling() {
@@ -130,8 +170,10 @@ function stopPolling() {
 }
 
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) { stopPolling(); } else { startPolling(); }
+  if (document.hidden) { stopPolling(); disconnectSSE(); } else { startPolling(); connectSSE(); }
 });
+
+
 
 function getStackName(c) {
   return (c.Labels && c.Labels['com.docker.compose.project']) || null;
@@ -589,6 +631,7 @@ function boot() {
   const hash = location.hash || '#/overview';
   setState({ screen: hash });
   startPolling();
+  connectSSE();
 
   initCommandPalette([
     { id: 'filter-all', label: 'Filtrar: Todos', icon: '⊞', action: () => setState({ filter: 'all' }) },

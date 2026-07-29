@@ -15,9 +15,14 @@ from routers.ingress import router as ingress_router
 from routers.projects import router as projects_router
 from routers.audit import router as audit_router
 from routers.session import router as session_router
+from routers.metrics import router as metrics_router
+from routers.events import router as events_router
+from routers.backend import router as backend_router
 from sampler import sampler_loop
 from findings.engine import findings_loop
 from db import init_db, close_db
+from telemetry import TelemetryMiddleware, flush_telemetry_loop
+from events import events_loop
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(APP_DIR, "static")
@@ -38,15 +43,27 @@ async def lifespan(app: FastAPI):
     sampler_task = asyncio.create_task(sampler_loop(interval, container_interval))
     findings_interval = float(os.getenv("FINDINGS_INTERVAL", "10"))
     findings_task = asyncio.create_task(findings_loop(findings_interval))
+    events_task = asyncio.create_task(events_loop())
+    telemetry_flush_task = asyncio.create_task(flush_telemetry_loop())
     yield
     sampler_task.cancel()
     findings_task.cancel()
+    events_task.cancel()
+    telemetry_flush_task.cancel()
     try:
         await sampler_task
     except asyncio.CancelledError:
         pass
     try:
         await findings_task
+    except asyncio.CancelledError:
+        pass
+    try:
+        await events_task
+    except asyncio.CancelledError:
+        pass
+    try:
+        await telemetry_flush_task
     except asyncio.CancelledError:
         pass
     await close_db()
@@ -61,6 +78,8 @@ app.add_middleware(
     allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["*"],
 )
+
+app.add_middleware(TelemetryMiddleware)
 
 
 # ---------- health ----------
@@ -87,3 +106,6 @@ app.include_router(ingress_router)
 app.include_router(projects_router)
 app.include_router(audit_router)
 app.include_router(session_router)
+app.include_router(metrics_router)
+app.include_router(events_router)
+app.include_router(backend_router)
