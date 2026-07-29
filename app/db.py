@@ -230,9 +230,20 @@ async def close_db():
 async def upsert_finding(finding: dict) -> str:
     """Devolve o que aconteceu: "created", "reopened" ou "updated".
 
-    O motor precisa distinguir os tres para sincronizar o cartao de tarefa:
-    "reopened" e o achado que voltou dentro da janela de 30 min e cujo cartao
-    tem de sair de done — nao um achado novo, nao mais uma observacao.
+    Achado observado de novo REABRE, sempre. A janela de 30 min decide se e o
+    mesmo incidente ou um novo, nao se ele volta para a fila:
+
+    - reaberto em menos de 30 min: oscilacao do mesmo problema, `first_seen`
+      preservado — a duracao continua contando de quando comecou.
+    - reaberto depois disso: incidente novo, `first_seen` recomeca. Dizer que o
+      problema existe "desde ha duas semanas" quando ele ficou resolvido no meio
+      inventa uma duracao que nunca houve.
+
+    Antes daqui, passados os 30 min o achado caia no UPDATE de baixo, que mexe
+    em last_seen e occurrences e NAO no status: ele ficava `resolved` para
+    sempre, sumido da fila, enquanto os proprios dados mostravam que a regra
+    seguia emitindo. Foi assim que 22 achados de ingress viraram invisiveis em
+    producao.
     """
     db = await get_db()
     cur = await db.execute("SELECT * FROM findings WHERE id = ?", (finding["id"],))
@@ -243,23 +254,33 @@ async def upsert_finding(finding: dict) -> str:
     if existing:
         existing = dict(existing)
         if existing["status"] == "resolved":
-            resolved_at = existing.get("resolved_at")
-            if resolved_at:
-                try:
-                    resolved_dt = datetime.fromisoformat(resolved_at.replace("Z", "+00:00"))
-                    now_dt = datetime.fromisoformat(now.replace("Z", "+00:00"))
-                    delta = (now_dt - resolved_dt).total_seconds()
-                except Exception:
-                    delta = 9999
-                if delta < 1800:
-                    await db.execute("""
-                        UPDATE findings SET
-                            last_seen = ?, status = 'open', resolved_at = NULL,
-                            targets = ?, target = ?
-                        WHERE id = ?
-                    """, (now, targets_json, target_val, finding["id"]))
-                    await db.commit()
-                    return "reopened"
+            resolved_dt = _parse_iso(existing.get("resolved_at"))
+            now_dt = _parse_iso(now)
+            if resolved_dt and now_dt:
+                delta = (now_dt - resolved_dt).total_seconds()
+            else:
+                delta = 9999
+            mesmo_incidente = delta < 1800
+            if mesmo_incidente:
+                await db.execute("""
+                    UPDATE findings SET
+                        last_seen = ?, status = 'open', resolved_at = NULL,
+                        targets = ?, target = ?, payload = ?
+                    WHERE id = ?
+                """, (now, targets_json, target_val,
+                      finding.get("payload", "{}"), finding["id"]))
+            else:
+                # Incidente novo: first_seen recomeca e a contagem zera.
+                await db.execute("""
+                    UPDATE findings SET
+                        first_seen = ?, last_seen = ?, status = 'open',
+                        resolved_at = NULL, occurrences = 1,
+                        targets = ?, target = ?, payload = ?
+                    WHERE id = ?
+                """, (now, now, targets_json, target_val,
+                      finding.get("payload", "{}"), finding["id"]))
+            await db.commit()
+            return "reopened"
         await db.execute("""
             UPDATE findings SET
                 last_seen = ?, occurrences = occurrences + 1, payload = ?,
