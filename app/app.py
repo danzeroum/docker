@@ -13,6 +13,7 @@ from routers.overview import router as overview_router
 from routers.findings import router as findings_router
 from routers.ingress import router as ingress_router
 from routers.projects import router as projects_router
+from routers.audit import router as audit_router
 from sampler import sampler_loop
 from findings.engine import findings_loop
 from db import init_db, close_db
@@ -83,3 +84,4 @@ app.include_router(overview_router)
 app.include_router(findings_router)
 app.include_router(ingress_router)
 app.include_router(projects_router)
+app.include_router(audit_router)

@@ -2,7 +2,9 @@ import os
 import json
 import subprocess
 import asyncio
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request, Depends
+from auth import require_unlock
+from db import add_audit_entry
 
 router = APIRouter(prefix="/api", tags=["projects"])
 
@@ -66,7 +68,7 @@ async def list_projects():
         else:
             running = sum(1 for s in services if s.get("State") == "running")
             total = len(services)
-            status = "running" if running == total else ("partial" if running > 0 else "stopped")
+            status = "running" if total > 0 and running == total else ("partial" if running > 0 else "stopped")
             result.append({
                 "name": name, "path": info["path"],
                 "status": status,
@@ -77,11 +79,16 @@ async def list_projects():
 
 
 @router.post("/projects/{name}/start")
-async def start_project(name: str):
+async def start_project(
+    name: str,
+    request: Request,
+    token: str = Depends(require_unlock),
+):
     projects = _find_projects()
     if name not in projects:
         raise HTTPException(status_code=404, detail=f"Projeto '{name}' nao encontrado")
     info = projects[name]
+    client_ip = request.client.host if request.client else ""
     try:
         proc = await asyncio.create_subprocess_exec(
             "docker", "compose", "-f", info["compose_file"], "up", "-d",
@@ -94,22 +101,33 @@ async def start_project(name: str):
             raise HTTPException(status_code=504, detail="Comando docker compose timed out")
         if proc.returncode != 0:
             detail = stderr.decode().strip() or stdout.decode().strip() or f"exit code {proc.returncode}"
+            await add_audit_entry("start", name, f"error: {detail}", "unlock", client_ip)
             raise HTTPException(status_code=502, detail=detail)
+        await add_audit_entry("start", name, "success", "unlock", client_ip)
         return {"status": "started", "name": name}
     except HTTPException:
         raise
     except FileNotFoundError:
-        raise HTTPException(status_code=500, detail="Docker compose nao disponivel no container")
+        msg = "Docker compose nao disponivel no container"
+        await add_audit_entry("start", name, f"error: {msg}", "unlock", client_ip)
+        raise HTTPException(status_code=500, detail=msg)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        msg = str(e)
+        await add_audit_entry("start", name, f"error: {msg}", "unlock", client_ip)
+        raise HTTPException(status_code=500, detail=msg)
 
 
 @router.post("/projects/{name}/stop")
-async def stop_project(name: str):
+async def stop_project(
+    name: str,
+    request: Request,
+    token: str = Depends(require_unlock),
+):
     projects = _find_projects()
     if name not in projects:
         raise HTTPException(status_code=404, detail=f"Projeto '{name}' nao encontrado")
     info = projects[name]
+    client_ip = request.client.host if request.client else ""
     try:
         proc = await asyncio.create_subprocess_exec(
             "docker", "compose", "-f", info["compose_file"], "down",
@@ -122,11 +140,17 @@ async def stop_project(name: str):
             raise HTTPException(status_code=504, detail="Comando docker compose timed out")
         if proc.returncode != 0:
             detail = stderr.decode().strip() or stdout.decode().strip() or f"exit code {proc.returncode}"
+            await add_audit_entry("stop", name, f"error: {detail}", "unlock", client_ip)
             raise HTTPException(status_code=502, detail=detail)
+        await add_audit_entry("stop", name, "success", "unlock", client_ip)
         return {"status": "stopped", "name": name}
     except HTTPException:
         raise
     except FileNotFoundError:
-        raise HTTPException(status_code=500, detail="Docker compose nao disponivel no container")
+        msg = "Docker compose nao disponivel no container"
+        await add_audit_entry("stop", name, f"error: {msg}", "unlock", client_ip)
+        raise HTTPException(status_code=500, detail=msg)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        msg = str(e)
+        await add_audit_entry("stop", name, f"error: {msg}", "unlock", client_ip)
+        raise HTTPException(status_code=500, detail=msg)

@@ -94,6 +94,17 @@ async def init_db():
             "ALTER TABLE findings_v3 RENAME TO findings",
             "CREATE INDEX IF NOT EXISTS idx_findings_status ON findings(status, score DESC)",
         ]),
+        (4, [
+            "CREATE TABLE IF NOT EXISTS audit_log ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "action TEXT NOT NULL,"
+            "project TEXT NOT NULL,"
+            "result TEXT NOT NULL,"
+            "token_label TEXT NOT NULL DEFAULT '',"
+            "ip TEXT NOT NULL DEFAULT '',"
+            "created_at TEXT NOT NULL"
+            ")",
+        ]),
     ]
     for ver, stmts in migrations:
         if ver > current:
@@ -188,3 +199,20 @@ async def get_finding(finding_id: str):
     cur = await db.execute("SELECT * FROM findings WHERE id = ?", (finding_id,))
     row = await cur.fetchone()
     return _parse_row(row, cur.description)
+
+async def add_audit_entry(action: str, project: str, result: str, token_label: str = "", ip: str = ""):
+    db = await get_db()
+    now = _now()
+    await db.execute(
+        "INSERT INTO audit_log (action, project, result, token_label, ip, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        (action, project, result, token_label, ip, now),
+    )
+    await db.commit()
+
+async def get_audit_log(limit: int = 100):
+    db = await get_db()
+    cur = await db.execute(
+        "SELECT * FROM audit_log ORDER BY created_at DESC LIMIT ?", (limit,)
+    )
+    rows = await cur.fetchall()
+    return _parse_rows(rows, cur.description)
