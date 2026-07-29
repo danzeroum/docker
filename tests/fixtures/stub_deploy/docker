@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Stub de docker para exercitar deploy-cockpit.sh sem daemon.
+#
+# Cobre so o que o script chama em --validate: network inspect, ps, e os dois
+# usos de exec (sql via -c, status HTTP interno via - com heredoc).
+#
+# O `-i` no exec importa: sem ele o heredoc nunca chega ao python e o script
+# antigo culpava "imagem antiga ainda rodando". O stub le a entrada padrao para
+# que a ausencia do -i apareca como saida vazia, igual ao docker de verdade.
+
+case "$1" in
+  network)
+    exit 0
+    ;;
+  ps)
+    printf 'docker-cockpit\n'
+    exit 0
+    ;;
+  cp)
+    exit 0
+    ;;
+  exec)
+    shift
+    INTERATIVO=0
+    if [ "$1" = "-i" ]; then INTERATIVO=1; shift; fi
+    shift  # nome do container
+    if [ "$1" = "python3" ] && [ "$2" = "-c" ]; then
+      # consulta sql: responde pelo texto da query
+      # A ordem importa: a consulta de duplicados tambem casa origem='auto',
+      # e responder 2 nela inventava uma falha que nao e do teste.
+      case "$3" in
+        *"MAX(version)"*) printf '9\n' ;;
+        *"name='tasks'"*) printf '1\n' ;;
+        *"version = 8"*) printf '1\n' ;;
+        *"HAVING COUNT(*) > 1"*) printf '0\n' ;;
+        *"origem='auto' AND finding_id LIKE 'restart_loop"*) printf '1\n' ;;
+        *"origem='auto' AND finding_id LIKE 'oom"*) printf '0\n' ;;
+        *"origem='auto'"*) printf '2\n' ;;
+        *"host_samples"*) printf "${STUB_AMOSTRAS:-5}\n" ;;
+        *) printf '0\n' ;;
+      esac
+      exit 0
+    fi
+    if [ "$1" = "python3" ] && [ "$2" = "-" ]; then
+      # status HTTP interno. Sem -i o heredoc nao chega: devolve vazio.
+      if [ "$INTERATIVO" = "0" ]; then
+        exit 0
+      fi
+      cat >/dev/null
+      CAMINHO="$4"
+      HEADER="${5:-}"
+      case "$CAMINHO" in
+        */restart) printf '403\n' ;;
+        /api/session/unlock) printf '401\n' ;;
+        /api/tasks) printf '200\n' ;;
+        /api/tasks/*) printf '403\n' ;;
+        *) printf '200\n' ;;
+      esac
+      exit 0
+    fi
+    exit 0
+    ;;
+  *)
+    exit 0
+    ;;
+esac

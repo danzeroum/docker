@@ -41,6 +41,8 @@ if [ "${1:-}" = "--dry-run" ]; then MODO="dry-run"; fi
 FALHAS=0
 TOKEN_ANTIGO=""
 TOKEN_SESSAO=""
+# sim | nao | ausente | indefinido — preenchido pelo passo 3c, lido por ingress_ok
+CRED_OK="indefinido"
 
 c_ok()   { printf '  \033[32mok\033[0m    %s\n' "$1"; }
 c_bad()  { printf '  \033[31mFALHA\033[0m %s\n' "$1"; FALHAS=$((FALHAS + 1)); }
@@ -67,6 +69,18 @@ escreve_ok() {
 
 pula_dry_run() {
   printf '  [dry-run] pularia: %s\n' "$1"
+}
+
+# Aceite que atravessa o ingress so vale se a credencial ja foi provada no 3c.
+# Sem isso, senha errada reprova o aceite e o diagnostico culpa o cabecalho.
+ingress_ok() {
+  if [ -z "${BASIC_AUTH:-}" ]; then
+    return 1
+  fi
+  if [ "$CRED_OK" != "sim" ]; then
+    return 1
+  fi
+  return 0
 }
 
 # Consulta o banco do cockpit de dentro do container.
@@ -320,13 +334,116 @@ except Exception as e:
 PY
 }
 
-validar() {
-  titulo "4 · Validacao — os 4 aceites (o que so a rede real prova)"
+# Status HTTP e presenca do desafio de basic auth, em uma linha "status|desafio".
+# O desafio (WWW-Authenticate) e o que separa 401 do nginx de 401 do app: o nginx
+# convida a autenticar, o app so nega.
+codigo_e_desafio() {
+  local cred="$1"
+  local resposta
+  resposta="$(curl -s -i --max-time 15 -u "$cred" "https://${DOMINIO}/api/system" 2>/dev/null; true)"
+  local status
+  status="$(printf '%s' "$resposta" | head -1 | awk '{print $2}'; true)"
+  local desafio="nao"
+  if printf '%s' "$resposta" | grep -qi '^WWW-Authenticate:'; then
+    desafio="sim"
+  fi
+  printf '%s|%s\n' "${status:-000}" "$desafio"
+}
+
+# ---------------------------------------------------------------------------
+# 3c · Credencial do ingress — ANTES dos aceites
+#
+# Por que antes: os aceites 2, 3, 4 e o board todos atravessam o basic auth. Se
+# a senha estiver errada, o nginx devolve 401 e o aceite 2 imprimia
+# "401 aqui = Remote-User (passo 2)" — mandando consertar o bloco nginx, que
+# estava certo. Aconteceu: BASIC_AUTH foi exportado com um SHA de git stash no
+# lugar da senha, e o diagnostico acusou o cabecalho.
+#
+# 401 do nginx e 401 do app sao o MESMO numero por caminhos diferentes. O que os
+# separa e o desafio WWW-Authenticate, que so o nginx manda. Este passo le isso
+# em uma rota de leitura livre — sem unlock, sem escrita — e so entao deixa os
+# aceites rodarem.
+# ---------------------------------------------------------------------------
+checa_credencial() {
+  titulo "3c · Credencial do ingress (antes dos aceites)"
 
   if [ -z "${BASIC_AUTH:-}" ]; then
     USUARIO="$(grep '^BASIC_AUTH_USER=' "$ENV_FILE" | cut -d= -f2- | tr -d '"'"'"''; true)"
     printf '  usuario do ingress: %s\n' "${USUARIO:-?}"
     printf '  exporte BASIC_AUTH="usuario:senha" para os testes via ingress\n'
+    c_warn "BASIC_AUTH nao exportado — os aceites via ingress serao pulados, nao reprovados"
+    CRED_OK="ausente"
+    return 0
+  fi
+
+  # A credencial nunca e impressa. So o usuario, que ja esta no .env.
+  printf '  usuario informado em BASIC_AUTH: %s\n' "${BASIC_AUTH%%:*}"
+
+  local r st desafio
+  r="$(codigo_e_desafio "$BASIC_AUTH")"
+  st="${r%%|*}"
+  desafio="${r##*|}"
+  printf '      GET /api/system com a credencial -> %s\n' "$st"
+
+  case "$st" in
+    200)
+      c_ok "credencial aceita pelo ingress"
+      ;;
+    401)
+      CRED_OK="nao"
+      c_bad "credencial REJEITADA pelo ingress — a senha (ou o usuario) esta errada"
+      if [ "$desafio" = "sim" ]; then
+        printf '      o 401 traz WWW-Authenticate: veio do nginx, nao do cockpit.\n'
+      fi
+      printf '      NAO e Remote-User e NAO e o CIDR: nada disso foi exercitado ainda.\n'
+      printf '      Confira o par usuario:senha em /opt/btv/ingress/.htpasswd.\n'
+      printf '      O arquivo e bind-mount: acrescente com >> para preservar o inode.\n'
+      printf '      Hash com: openssl passwd -apr1\n'
+      return 0
+      ;;
+    000)
+      CRED_OK="nao"
+      c_bad "https://${DOMINIO} nao respondeu — DNS, TLS ou o ingress fora do ar"
+      printf '      os aceites via ingress nao dizem nada enquanto isto nao resolver.\n'
+      return 0
+      ;;
+    502|503|504)
+      CRED_OK="nao"
+      c_bad "ingress respondeu $st — nginx de pe, cockpit atras dele nao"
+      printf '      passo 3 (subir o app) antes de qualquer aceite.\n'
+      return 0
+      ;;
+    *)
+      CRED_OK="nao"
+      c_bad "resposta inesperada ($st) na rota de leitura livre"
+      return 0
+      ;;
+  esac
+
+  # Credencial boa. Falta provar que o basic auth esta REALMENTE protegendo a
+  # rota — se estiver desligado, qualquer credencial passa e o 200 acima nao
+  # significa nada. Uma credencial deliberadamente falsa tem de ser recusada.
+  r="$(codigo_e_desafio 'cred-invalida-de-teste:senha-invalida-de-teste')"
+  st="${r%%|*}"
+  printf '      GET /api/system com credencial falsa -> %s\n' "$st"
+  if [ "$st" = "401" ]; then
+    c_ok "basic auth ativo: credencial falsa recusada"
+    CRED_OK="sim"
+  else
+    CRED_OK="nao"
+    c_bad "credencial falsa NAO foi recusada ($st) — basic auth nao protege esta rota"
+    printf '      o cockpit esta aberto a quem alcancar o dominio. Isto e mais grave\n'
+    printf '      que qualquer aceite abaixo: corrija o auth_basic antes de seguir.\n'
+  fi
+}
+
+validar() {
+  titulo "4 · Validacao — os 4 aceites (o que so a rede real prova)"
+
+  if [ "$CRED_OK" = "nao" ]; then
+    c_warn "credencial do ingress reprovada no 3c — pulando os aceites que passam por ela"
+    printf '  Rodar esses aceites agora produziria falhas que apontam para o lugar\n'
+    printf '  errado. Conserte a credencial e reexecute com --validate.\n'
   fi
 
   # --- aceite 1: token estatico antigo -> 403 -----------------------------
@@ -355,7 +472,7 @@ validar() {
     c_bad "esperado 401, veio $ST_DIRETO"
   fi
 
-  if [ -n "${BASIC_AUTH:-}" ] && escreve_ok; then
+  if ingress_ok && escreve_ok; then
     RESP="$(curl -s -u "$BASIC_AUTH" -X POST "https://${DOMINIO}/api/session/unlock" \
             -H 'Content-Type: application/json' -d '{"motivo":"janela de deploy"}'; true)"
     ST_ING="$(curl -s -o /dev/null -w '%{http_code}' -u "$BASIC_AUTH" -X POST "https://${DOMINIO}/api/session/unlock" \
@@ -374,14 +491,20 @@ validar() {
       fi
     else
       c_bad "esperado 200, veio $ST_ING"
-      printf '      401 aqui = Remote-User (passo 2). 403 = CIDR (passo 1).\n'
+      # A credencial ja passou no 3c, entao 401 aqui NAO e senha errada — e a
+      # unica leitura honesta que sobra e o cabecalho.
+      printf '      credencial ja validada no 3c, logo:\n'
+      printf '      401 = falta proxy_set_header Remote-User (passo 2).\n'
+      printf '      403 = TRUSTED_GATEWAY_CIDR nao cobre o ip do gateway (passo 1).\n'
       printf '      NAO restaure o backup do banco — o conserto e config de rede.\n'
     fi
   else
-    if escreve_ok; then
+    if ! escreve_ok; then
+      pula_dry_run "unlock via ingress (criaria sessao em unlock_state)"
+    elif [ "$CRED_OK" = "ausente" ]; then
       c_warn "BASIC_AUTH nao exportado — pulei o teste via ingress"
     else
-      pula_dry_run "unlock via ingress (criaria sessao em unlock_state)"
+      c_warn "credencial reprovada no 3c — pulei o teste via ingress"
     fi
   fi
 
@@ -413,23 +536,25 @@ validar() {
       c_warn "nenhum healthcheck_never_passed aberto — nada a silenciar"
     fi
   else
-    if escreve_ok; then
+    if ! escreve_ok; then
+      pula_dry_run "ack de achado (mexeria em findings e audit_log)"
+    elif [ "$CRED_OK" = "sim" ]; then
       c_warn "sem token de sessao — pulei o ack"
     else
-      pula_dry_run "ack de achado (mexeria em findings e audit_log)"
+      c_warn "credencial do ingress nao provada no 3c — pulei o ack"
     fi
   fi
 
   # --- aceite 4: SSE aberto por mais de 2 min -----------------------------
   printf '\n  [4] SSE aberto por >2 min (150s)\n'
-  if [ -n "${BASIC_AUTH:-}" ]; then
+  if ingress_ok; then
     # Confere o status ANTES de medir. Stream que morre em 0s quase sempre e
     # 404 ou 401, nao timeout do proxy — e culpar o nginx nesse caso manda o
     # operador reeditar um bloco que estava certo.
     ST_SSE="$(curl -s -o /dev/null -w '%{http_code}' -u "$BASIC_AUTH" \
       --max-time 5 "https://${DOMINIO}${ROTA_SSE}"; true)"
     if [ "$ST_SSE" != "200" ] && [ "$ST_SSE" != "000" ]; then
-      c_bad "${ROTA_SSE} respondeu ${ST_SSE} — nao e o proxy, e a rota ou a credencial"
+      c_bad "${ROTA_SSE} respondeu ${ST_SSE} — credencial ja validada no 3c, logo e a rota"
     else
       INICIO="$(date +%s)"
       curl -s -N -u "$BASIC_AUTH" --max-time 150 "https://${DOMINIO}${ROTA_SSE}" >/dev/null 2>&1; true
@@ -441,8 +566,10 @@ validar() {
         c_bad "SSE caiu em ${DUR}s — bloco nginx (passo 2)"
       fi
     fi
-  else
+  elif [ "$CRED_OK" = "ausente" ]; then
     c_warn "BASIC_AUTH nao exportado — pulei o teste de SSE"
+  else
+    c_warn "credencial reprovada no 3c — pulei o teste de SSE"
   fi
 }
 
@@ -515,10 +642,12 @@ validar_board() {
       c_warn "board vazio — nenhum cartao para mover"
     fi
   else
-    if escreve_ok; then
+    if ! escreve_ok; then
+      pula_dry_run "PATCH de cartao (moveria tarefa e gravaria auditoria)"
+    elif [ "$CRED_OK" = "sim" ]; then
       c_warn "sem token de sessao — pulei o PATCH autorizado"
     else
-      pula_dry_run "PATCH de cartao (moveria tarefa e gravaria auditoria)"
+      c_warn "credencial do ingress nao provada no 3c — pulei o PATCH autorizado"
     fi
   fi
 
@@ -601,6 +730,10 @@ if [ "$MODO" = "dry-run" ]; then
   printf '  unlock pelo ingress, SSE aberto). Rodar isso antes da janela so\n'
   printf '  produziria falhas que significam "ainda nao subiu".\n'
 else
+  # A credencial vem ANTES: todo aceite via ingress atravessa o basic auth, e
+  # senha errada la embaixo aparece como 401 que o script atribuia ao
+  # Remote-User. Ver o cabecalho do passo 3c.
+  checa_credencial
   validar
   validar_board
 fi
