@@ -24,17 +24,34 @@ existiam quando foram escritos, e alguns que nunca vao existir porque a ideia fo
 recusada. Varre-los produziria dezenas de achados corretos e inuteis — e a licao
 da Sprint 3 e que guarda barulhento e guarda desligado.
 
-## Allowlist
+## Allowlist — VISIVEL na renderizacao
 
-Por MARCADOR com motivo no proprio documento, no padrao do
-`# schema-literal-ok:` do guarda de schema:
+Uma linha propria, em codigo inline ou blockquote:
 
-    <!-- docs-ref-ok: motivo -->                     (mesma linha ou a de cima)
-    <!-- docs-ref-ok-bloco: motivo --> ... <!-- /docs-ref-ok-bloco -->
+    `guard-docs-ok: /api/capabilities — desenho recusado na 2a, a rota nunca existiu`
+
+Ate a PR #31 o marcador era comentario HTML. Funcionava para o guarda, que le o
+fonte — e falhava para o leitor, que e quem o motivo existe para servir: o
+GitHub OCULTA comentario HTML tanto no .md do repo quanto no corpo de PR. A
+pessoa lia a citacao de uma rota inexistente sem nada explicando por que ela
+esta ali. O marcador so cumpre a funcao se aparecer onde a citacao aparece.
+
+Comentario HTML na sintaxe antiga **nao conta como allowlist** — e denunciado,
+com a forma nova na mensagem.
+
+Duas propriedades que o formato novo permite e o antigo nao permitia:
+
+**O marcador nomeia o ALVO.** Isenta aquele alvo, e nao a linha inteira: uma
+linha com duas citacoes, uma marcada, continua reportando a outra.
+
+**Marcador orfao e falha.** Se o alvo nomeado nao e citado em ate %d linhas de
+distancia, o marcador esta morto — sobrou de uma edicao anterior. Allowlist
+morta acumula, e uma allowlist que ninguem poda vira a lista de tudo o que o
+guarda nao olha mais.
 
 Nunca por arquivo inteiro, e nunca implicitamente. Em particular, **bloco de
 codigo nao e excecao**: um prompt XML colado no doc citando uma rota futura
-precisa do marcador como qualquer outra linha. Isentar ``` por ser ``` abriria o
+precisa de marcador como qualquer outra linha. Isentar ``` por ser ``` abriria o
 buraco exato pelo qual a proxima mentira entraria — colada de outro lugar,
 dentro de uma cerca.
 """
@@ -69,9 +86,23 @@ RE_CAMINHO = re.compile(
     r"(?<![\w./])((?:app|tests|docs|scripts)/[A-Za-z0-9_\-./]*(?:\.[A-Za-z0-9]+|/\*|\*))"
 )
 
-RE_MARCADOR = re.compile(r"<!--\s*docs-ref-ok:\s*(?P<motivo>[^>]*?)\s*-->")
-RE_BLOCO_ABRE = re.compile(r"<!--\s*docs-ref-ok-bloco:\s*(?P<motivo>[^>]*?)\s*-->")
-RE_BLOCO_FECHA = re.compile(r"<!--\s*/docs-ref-ok-bloco\s*-->")
+# Distancia maxima entre o marcador e a citacao que ele isenta. Tres linhas
+# cobrem "logo antes" e "logo depois" com uma linha em branco no meio — o que
+# uma tabela ou um paragrafo produzem naturalmente — sem deixar um marcador
+# isentar algo do outro lado da secao.
+JANELA = 3
+
+# Linha PROPRIA, em codigo inline ou blockquote. `^...$` e o que garante o
+# "linha propria": marcador no fim de uma frase nao vale, porque ali ele volta a
+# competir com o texto em vez de anunciar-se.
+RE_MARCADOR = re.compile(
+    # `motivo` aceita vazio de proposito: um marcador pela metade tem de ser
+    # DENUNCIADO como marcador sem motivo, e nao virar prosa em silencio.
+    r"^\s*>?\s*`?\s*guard-docs-ok:\s*(?P<alvo>\S+)\s*(?:—|–|--)\s*(?P<motivo>.*?)\s*`?\s*$"
+)
+
+# A sintaxe antiga, so para DENUNCIAR: invisivel na renderizacao.
+RE_MARCADOR_ANTIGO = re.compile(r"<!--\s*/?docs-ref-ok(?:-bloco)?\s*:?[^>]*-->")
 
 
 # --- inventario de rotas: do app MONTADO, nao de grep -----------------------
@@ -118,51 +149,53 @@ def rotas_montadas() -> set:
 
 # --- leitura dos docs ------------------------------------------------------
 
-def _linhas_isentas(texto: str):
-    """`(isentas, aberto_em)` — linhas cobertas por marcador com motivo.
+def _alvo_verificavel(alvo: str) -> bool:
+    """O alvo tem de ser algo que o guarda saiba conferir: uma rota ou um caminho.
 
-    Marcador sem motivo nao isenta nada: a proxima pessoa precisa saber POR QUE
-    aquela citacao pode apontar para o vazio, e "ok" nao conta como resposta.
+    E o que separa marcador de PROSA SOBRE marcador. A propria secao do doc 00
+    que documenta esta sintaxe mostra `guard-docs-ok: <alvo> — <motivo>`, e sem
+    esta regra o `<alvo>` literal virava um marcador vivo, orfao por construcao —
+    o guarda acusava a documentacao de si mesmo.
 
-    `aberto_em` denuncia bloco que abriu e nunca fechou. Sem isso, um
-    `<!-- docs-ref-ok-bloco: ... -->` sem o fechamento — um typo, uma edicao pela
-    metade — desligaria o guarda do resto do arquivo em silencio, que e o modo
-    como um guarda morre sem ninguem notar.
+    Alvo que nao casa fica INERTE, e nao isenta nada: se alguem errar o alvo por
+    typo, a citacao que ele queria proteger volta a falhar, e o erro aparece.
     """
-    isentas = set()
-    dentro_de_bloco = False
-    aberto_em = 0
+    return bool(RE_ROTA.fullmatch(alvo) or RE_CAMINHO.fullmatch(alvo))
+
+
+def marcadores(texto: str):
+    """(linha, alvo, motivo) de cada marcador visivel e verificavel."""
+    achados = []
     for i, linha in enumerate(texto.splitlines(), 1):
-        if RE_BLOCO_FECHA.search(linha):
-            dentro_de_bloco = False
-            isentas.add(i)
+        m = RE_MARCADOR.match(linha)
+        if not m:
             continue
-        abre = RE_BLOCO_ABRE.search(linha)
-        if abre:
-            dentro_de_bloco = bool(abre.group("motivo"))
-            if dentro_de_bloco:
-                aberto_em = i
-            isentas.add(i)
+        alvo = m.group("alvo")
+        if not _alvo_verificavel(alvo):
             continue
-        if dentro_de_bloco:
-            isentas.add(i)
-            continue
-        m = RE_MARCADOR.search(linha)
-        if m and m.group("motivo"):
-            isentas.add(i)
-            # A linha de baixo tambem: numa celula de tabela ou numa linha
-            # longa, o comentario no fim fica ilegivel, e por-lo em cima e a
-            # forma que nao estraga o texto.
-            isentas.add(i + 1)
-    return isentas, (aberto_em if dentro_de_bloco else 0)
+        if alvo.startswith("/"):
+            alvo = _normaliza(alvo)
+        achados.append((i, alvo, m.group("motivo").strip()))
+    return achados
+
+
+def marcadores_antigos(texto: str):
+    """Linhas com a sintaxe de comentario HTML — invisivel, logo invalida."""
+    return [i for i, linha in enumerate(texto.splitlines(), 1)
+            if RE_MARCADOR_ANTIGO.search(linha)]
 
 
 def citacoes(texto: str):
-    """(linha, tipo, alvo) de cada citacao NAO isenta."""
-    isentas, _ = _linhas_isentas(texto)
+    """(linha, tipo, alvo) de cada citacao.
+
+    A linha do MARCADOR nao conta como citacao — se contasse, um marcador com
+    alvo inventado se auto-satisfaria e nunca seria denunciado como orfao. Foi a
+    primeira coisa que quebrou ao trocar o formato.
+    """
+    linhas_de_marcador = {i for i, _, _ in marcadores(texto)}
     achadas = []
     for i, linha in enumerate(texto.splitlines(), 1):
-        if i in isentas:
+        if i in linhas_de_marcador:
             continue
         for m in RE_ROTA.finditer(linha):
             achadas.append((i, "rota", _normaliza(m.group(1))))
@@ -183,16 +216,46 @@ def _caminho_existe(alvo: str) -> bool:
 def problemas(texto: str, rotas: set, rotulo: str = "doc"):
     """Lista de achados, cada um com doc:linha, alvo e sugestao."""
     saida = []
-    _, aberto_em = _linhas_isentas(texto)
-    if aberto_em:
+    todas = citacoes(texto)
+
+    for linha in marcadores_antigos(texto):
         saida.append({
-            "onde": f"{rotulo}:{aberto_em}",
-            "tipo": "bloco",
-            "alvo": "docs-ref-ok-bloco sem fechamento — isentaria o resto do arquivo",
-            "sugestao": "<!-- /docs-ref-ok-bloco -->",
+            "onde": f"{rotulo}:{linha}",
+            "tipo": "marcador-antigo",
+            "alvo": "comentario HTML nao vale como allowlist — o GitHub o oculta",
+            "sugestao": "`guard-docs-ok: <alvo> — <motivo>` numa linha propria",
         })
+
+    # Um marcador isenta o ALVO que nomeia, nas linhas vizinhas — nao a linha
+    # inteira, e nao o arquivo.
+    isentos = set()
+    for linha_marcador, alvo, motivo in marcadores(texto):
+        if not motivo:
+            saida.append({
+                "onde": f"{rotulo}:{linha_marcador}",
+                "tipo": "marcador-sem-motivo",
+                "alvo": alvo,
+                "sugestao": "`guard-docs-ok: <alvo> — <motivo>`",
+            })
+            continue
+        vizinhas = [(l, a) for (l, _t, a) in todas
+                    if a == alvo and abs(l - linha_marcador) <= JANELA]
+        if not vizinhas:
+            # Aponta o MARCADOR, e nao uma citacao: o problema e a allowlist
+            # morta, e a citacao que a justificava ja nao esta la.
+            saida.append({
+                "onde": f"{rotulo}:{linha_marcador}",
+                "tipo": "marcador-orfao",
+                "alvo": f"{alvo} (nao citado em {JANELA} linhas)",
+                "sugestao": "remova o marcador ou aproxime-o da citacao",
+            })
+            continue
+        isentos |= set(vizinhas)
+
     caminhos_conhecidos = None
-    for linha, tipo, alvo in citacoes(texto):
+    for linha, tipo, alvo in todas:
+        if (linha, alvo) in isentos:
+            continue
         if tipo == "rota":
             if alvo in rotas:
                 continue
@@ -227,13 +290,20 @@ def _inventario_de_caminhos():
 def _mensagem(achados):
     linhas = []
     for a in achados:
-        sug = f"  — mais proximo existente: {a['sugestao']}" if a["sugestao"] else ""
-        linhas.append(f"{a['onde']}  {a['tipo']} inexistente: {a['alvo']}{sug}")
+        rotulo = {
+            "rota": "rota inexistente",
+            "caminho": "caminho inexistente",
+            "marcador-orfao": "ALLOWLIST MORTA",
+            "marcador-antigo": "marcador em sintaxe antiga",
+            "marcador-sem-motivo": "marcador sem motivo",
+        }.get(a["tipo"], a["tipo"])
+        sug = f"  — {a['sugestao']}" if a["sugestao"] else ""
+        linhas.append(f"{a['onde']}  {rotulo}: {a['alvo']}{sug}")
     return (
         "\n\nDoc de registro citando alvo que nao existe:\n\n"
         + "\n".join(linhas)
-        + "\n\nCorrija a citacao, ou marque a linha com o motivo:\n"
-        "  <!-- docs-ref-ok: <motivo> -->\n"
+        + "\n\nCorrija a citacao, ou marque-a numa linha propria e VISIVEL:\n"
+        "  `guard-docs-ok: <alvo> — <motivo>`\n"
     )
 
 
@@ -318,50 +388,129 @@ def test_parametro_de_rota_casa_por_forma_e_nao_por_nome():
     assert problemas(texto, rotas, rotulo="fake.md") == []
 
 
-# --- allowlist -------------------------------------------------------------
+# --- allowlist visivel ------------------------------------------------------
 
-def test_marcador_na_mesma_linha_isenta():
-    texto = "um endpoint `/api/capabilities` custaria um fetch <!-- docs-ref-ok: desenho recusado -->\n"
+def test_marcador_antes_da_citacao_isenta():
+    texto = ("`guard-docs-ok: /api/capabilities — desenho recusado na 2a`\n"
+             "um endpoint `/api/capabilities` separado custaria um fetch por poll\n")
     assert problemas(texto, ROTAS_FALSAS, rotulo="fake.md") == []
 
 
-def test_marcador_na_linha_de_cima_isenta():
-    texto = ("<!-- docs-ref-ok: rota historica, removida na F5 -->\n"
-             "| `GET /api/antiga` | tabela longa demais para comentario no fim |\n")
+def test_marcador_depois_da_citacao_isenta():
+    texto = ("um endpoint `/api/capabilities` separado custaria um fetch por poll\n"
+             "`guard-docs-ok: /api/capabilities — desenho recusado na 2a`\n")
+    assert problemas(texto, ROTAS_FALSAS, rotulo="fake.md") == []
+
+
+def test_marcador_em_blockquote_isenta():
+    """Blockquote e a outra forma que RENDERIZA — e que destaca o motivo."""
+    texto = ("> guard-docs-ok: /api/capabilities — desenho recusado na 2a\n"
+             "`/api/capabilities` nunca existiu\n")
+    assert problemas(texto, ROTAS_FALSAS, rotulo="fake.md") == []
+
+
+def test_marcador_isenta_o_alvo_e_nao_a_linha_inteira():
+    """Uma linha com duas citacoes, uma marcada, continua reportando a outra —
+    o formato antigo isentava a linha e escondia a segunda."""
+    texto = ("`guard-docs-ok: /api/capabilities — desenho recusado`\n"
+             "`/api/capabilities` e `/api/tambem_inventada` na mesma linha\n")
+    achados = problemas(texto, ROTAS_FALSAS, rotulo="fake.md")
+    assert [a["alvo"] for a in achados] == ["/api/tambem_inventada"]
+
+
+def test_marcador_de_caminho_tambem_vale():
+    texto = ("`guard-docs-ok: app/routers/logs_busca.py — nunca existiu, e o exemplo do bug`\n"
+             "o `busca_router` nao morava em `app/routers/logs_busca.py`\n")
     assert problemas(texto, ROTAS_FALSAS, rotulo="fake.md") == []
 
 
 def test_marcador_sem_motivo_nao_isenta():
-    """`<!-- docs-ref-ok: -->` e o mesmo que nao explicar nada, e a proxima
-    pessoa fica sem saber por que aquilo aponta para o vazio."""
-    texto = "`/api/inventada` <!-- docs-ref-ok: -->\n"
+    """Sem motivo, a proxima pessoa fica sem saber por que aquilo aponta para o
+    vazio — e "ok" nao conta como resposta."""
+    texto = ("`guard-docs-ok: /api/inventada —`\n"
+             "`/api/inventada`\n")
+    tipos = [a["tipo"] for a in problemas(texto, ROTAS_FALSAS, rotulo="fake.md")]
+    assert "marcador-sem-motivo" in tipos, "marcador pela metade passou como prosa"
+    assert "rota" in tipos, "a citacao ficou isenta sem motivo"
+
+
+def test_placeholder_da_documentacao_nao_e_marcador_vivo():
+    """A secao do doc 00 que documenta esta sintaxe mostra `<alvo>` literal. Sem
+    a regra do alvo verificavel, ele virava marcador orfao por construcao — o
+    guarda acusava a documentacao de si mesmo, e foi o que aconteceu."""
+    texto = "`guard-docs-ok: <alvo> — <motivo>`\n"
+    assert problemas(texto, ROTAS_FALSAS, rotulo="fake.md") == []
+
+
+def test_alvo_com_typo_fica_inerte_e_a_citacao_volta_a_falhar():
+    """Inerte nao e perdao: o alvo errado nao isenta, entao a citacao que ele
+    queria proteger reaparece no relatorio."""
+    texto = ("`guard-docs-ok: api/capabilities — faltou a barra`\n"
+             "`/api/capabilities`\n")
     achados = problemas(texto, ROTAS_FALSAS, rotulo="fake.md")
-    assert len(achados) == 1
+    assert [a["tipo"] for a in achados] == ["rota"]
 
 
-def test_bloco_isenta_o_intervalo_e_so_ele():
-    texto = (
-        "`/api/fora_de_cima`\n"
-        "<!-- docs-ref-ok-bloco: prompt XML de bloco futuro -->\n"
-        "```xml\n"
-        "<task>GET `/api/futura` faz X</task>\n"
-        "```\n"
-        "<!-- /docs-ref-ok-bloco -->\n"
-        "`/api/fora_de_baixo`\n"
-    )
+# --- allowlist morta --------------------------------------------------------
+
+def test_marcador_orfao_e_falha_apontando_o_marcador():
+    """Aceite do delta: o problema e a allowlist morta, e a citacao que a
+    justificava ja nao esta la — apontar uma citacao seria apontar o lugar
+    errado."""
+    texto = ("`guard-docs-ok: /api/inventada — sobrou de uma edicao anterior`\n"
+             "linha 2\nlinha 3\nlinha 4\nlinha 5\n"
+             "`/api/inventada` longe demais para justificar o marcador\n")
     achados = problemas(texto, ROTAS_FALSAS, rotulo="fake.md")
-    assert [a["alvo"] for a in achados] == ["/api/fora_de_cima", "/api/fora_de_baixo"]
+    assert achados[0]["tipo"] == "marcador-orfao"
+    assert achados[0]["onde"] == "fake.md:1", "apontou a citacao em vez do marcador"
 
 
-def test_bloco_aberto_e_nunca_fechado_e_denunciado():
-    """Um typo no fechamento desligaria o guarda do resto do arquivo em
-    silencio, que e o modo como um guarda morre sem ninguem notar."""
-    texto = ("<!-- docs-ref-ok-bloco: prompt futuro -->\n"
-             "`/api/futura`\n"
-             "`/api/tambem_inventada`\n")
+def test_marcador_de_alvo_que_nao_existe_no_doc_e_orfao():
+    texto = "`guard-docs-ok: /api/fantasma — motivo qualquer`\ntexto sem citacao nenhuma\n"
     achados = problemas(texto, ROTAS_FALSAS, rotulo="fake.md")
-    assert achados[0]["tipo"] == "bloco"
-    assert achados[0]["onde"] == "fake.md:1"
+    assert [a["tipo"] for a in achados] == ["marcador-orfao"]
+
+
+def test_marcador_nao_se_auto_satisfaz():
+    """A linha do marcador CONTEM o alvo. Se ela contasse como citacao, um
+    marcador inventado se justificaria sozinho e nunca seria podado — foi a
+    primeira coisa que quebrou ao trocar o formato."""
+    texto = "`guard-docs-ok: /api/fantasma — motivo`\n"
+    achados = problemas(texto, ROTAS_FALSAS, rotulo="fake.md")
+    assert len(achados) == 1 and achados[0]["tipo"] == "marcador-orfao"
+
+
+def test_marcador_dentro_da_janela_de_tres_linhas_vale():
+    texto = ("`guard-docs-ok: /api/inventada — motivo`\n"
+             "linha 2\nlinha 3\n"
+             "`/api/inventada` a tres linhas\n")
+    assert problemas(texto, ROTAS_FALSAS, rotulo="fake.md") == []
+
+
+# --- a sintaxe antiga nao vale ---------------------------------------------
+
+def test_comentario_html_nao_conta_como_allowlist():
+    """Aceite do delta: funcionava para o guarda e falhava para o leitor — o
+    GitHub oculta comentario HTML no .md do repo e no corpo de PR."""
+    texto = ("<!-- docs-ref-ok: motivo que ninguem ve -->\n"
+             "`/api/inventada`\n")
+    achados = problemas(texto, ROTAS_FALSAS, rotulo="fake.md")
+    tipos = [a["tipo"] for a in achados]
+    assert "marcador-antigo" in tipos, "a sintaxe antiga passou em silencio"
+    assert "rota" in tipos, "a citacao ficou isenta por um marcador invisivel"
+
+
+def test_a_denuncia_da_sintaxe_antiga_traz_a_forma_nova():
+    texto = "<!-- docs-ref-ok: x -->\n"
+    achados = problemas(texto, ROTAS_FALSAS, rotulo="fake.md")
+    assert "guard-docs-ok:" in achados[0]["sugestao"]
+
+
+def test_bloco_antigo_tambem_e_denunciado():
+    texto = "<!-- docs-ref-ok-bloco: motivo -->\n`/api/inventada`\n<!-- /docs-ref-ok-bloco -->\n"
+    tipos = [a["tipo"] for a in problemas(texto, ROTAS_FALSAS, rotulo="fake.md")]
+    assert tipos.count("marcador-antigo") == 2
+    assert "rota" in tipos, "o bloco antigo ainda estava isentando"
 
 
 def test_bloco_de_codigo_sozinho_nao_isenta():
@@ -372,14 +521,15 @@ def test_bloco_de_codigo_sozinho_nao_isenta():
     assert [a["alvo"] for a in achados] == ["/api/inventada"]
 
 
-def test_allowlist_e_por_linha_e_nunca_por_arquivo():
-    """Um marcador nao pode calar o documento inteiro — foi a regra do guarda de
-    schema, e vale igual aqui."""
-    texto = ("<!-- docs-ref-ok: motivo bom -->\n"
-             "`/api/isenta`\n"
-             "`/api/nao_isenta`\n")
+def test_marcador_no_fim_de_uma_frase_nao_vale():
+    """"Linha propria" e requisito: no fim de uma frase o marcador volta a
+    competir com o texto em vez de anunciar-se."""
+    texto = "a rota `/api/inventada` sumiu `guard-docs-ok: /api/inventada — motivo`\n"
     achados = problemas(texto, ROTAS_FALSAS, rotulo="fake.md")
-    assert [a["alvo"] for a in achados] == ["/api/nao_isenta"]
+    # Nada isento: a linha nao e marcador, entao ela e varrida como qualquer
+    # outra — e a rota aparece nela duas vezes, na prosa e no pseudo-marcador.
+    assert achados and all(a["tipo"] == "rota" for a in achados)
+    assert all(a["alvo"] == "/api/inventada" for a in achados)
 
 
 # --- ausencia de ruido -----------------------------------------------------
