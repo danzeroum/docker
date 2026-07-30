@@ -16,7 +16,63 @@ outros documentos — vários pontos aqui **corrigem** a primeira versão deles.
 | F4 — capacidade | — | **concluída** (coletor 60s, history+OLS, capacity, tela real) |
 | F6 — tempo real | — | **concluída** (SSE /events fan-out único, telemetria por rota-template, ⌘K ampliada) |
 
+| Sprint 1 — B1/B2/B4 | [#25](https://github.com/danzeroum/docker/pull/25) | na `main` |
+| Sprint 2a — fundação do Cockpit Vivo | [#26](https://github.com/danzeroum/docker/pull/26) | na `main` |
+| Sprint 2b — B3 + B10 residuais | [#27](https://github.com/danzeroum/docker/pull/27) | na `main` |
+
 Pendências: deploy na VPS (validar `TRUSTED_GATEWAY_CIDR` real + `ack`/`unlock` end-to-end).
+
+## Decisões da Sprint 2b
+
+Quatro decisões que passam a valer como regra. Cada uma com o porquê em uma
+frase — quem ler isto daqui a seis meses não terá tido esta conversa.
+
+**(a) A auditoria-antes cobre também `projects.py`.** · dev, ratificado pelo
+revisor · 2026-07-30
+O bloco citava só `_mutate_container`, mas é `projects.py` que roda
+`docker compose up` com timeout de 60 s — o candidato número 1 a travar, e
+portanto o que mais precisa da linha `running` órfã. Cumprir a letra deixando-o
+de fora contradiria o motivo da regra.
+
+**(b) O prune remove SÓ imagem dangling.** · dev, elevado a princípio pelo
+revisor · 2026-07-30
+Recuperar espaço não pode destruir o que não se reconstrói: volume órfão guarda
+**dado** e container parado há 8 dias pode ser religado na segunda. Imagem sem
+tag é a única categoria em que a remoção é reversível na prática.
+**Remoção de volume ou container órfão é pedido próprio, opt-in, e fica fora de
+qualquer housekeeping automático.** Registrado aqui explicitamente porque sem
+isso algum "melhorar o prune" bem-intencionado de uma sprint futura reintroduz
+exatamente o que foi recusado com razão.
+
+**(c) `die` com exit 0 é `info`, não `warn`.** · dev · 2026-07-30
+`docker stop` emite `die` com exit 0 — parada limpa, pedida por alguém. Marcar
+isso como alerta encheria a timeline de alarme falso toda vez que o operador
+desliga um serviço, e alarme que sempre toca deixa de ser lido. Só `die` com
+exit != 0 e `oom` são críticos.
+
+**(d) Ao fechar a Sprint 3, executar o roteiro do doc 12 INTEIRO contra dados
+reais e registrar o resultado datado aqui.** · revisor · 2026-07-30
+É a primeira execução integral do critério de aceitação do conjunto: cenário API
+caindo → subtela → buscar `oom` → destravar → reiniciar → auditoria → chip Drift
+→ Personalizar. Até a Sprint 2b o roteiro fecha em tudo menos o `buscar oom`,
+que é o B5.
+
+## Regra nova: versão de schema não se escreve como literal em teste
+
+· dev + revisor · 2026-07-30
+
+O mesmo erro apareceu **três vezes em duas sprints** — a terceira num teste
+escrito por quem já o tinha corrigido nas outras duas. Quando um erro sobrevive
+a quem já o consertou, o problema não é atenção.
+
+`tests/test_guarda_schema_literal.py` é a versão executável da correção: varre
+`tests/` e falha apontando arquivo:linha, com a correção na mensagem. Fixture
+que monta banco numa versão antiga de propósito tem escape por marcador
+comentado **com motivo** (`# schema-literal-ok: <motivo>`) — por marcador e não
+por caminho, para a próxima fixture nascer documentando por que pode em vez de
+herdar isenção por morar na pasta certa.
+
+A quarta ocorrência morre no CI, não na revisão.
 
 ## Aprendido na revisão do unlock (migration v8)
 

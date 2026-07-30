@@ -259,7 +259,7 @@ def test_migration_v6_banco_populado():
     assert findings_before == 12
     assert audit_before == 8
     assert unlock_before == 1
-    assert version_before == 5
+    assert version_before == 5  # schema-literal-ok: a fixture monta o banco na v5 de proposito
 
     _reset_db(path)
 
