@@ -445,3 +445,108 @@ função pelo AST — só o código, sem a prosa que explica a regra.
 **Continua pendente:** o item (d) das decisões da 2b (rodar o roteiro do doc 12
 na VPS, com os 15 containers reais). É trabalho de quem opera a VPS, e o bloco
 `4-runbook` é dele.
+
+
+## Decisões da Sprint 5 — o plano B1–B11 fecha
+
+· dev · 2026-07-30 · pendentes de validação do revisor
+
+**(a) Drift é quase todo sobre o que NÃO é drift.** A comparação ingênua acusa
+divergência em 100% dos serviços no primeiro segundo, porque todo container
+carrega dezenas de variáveis vindas da imagem que nunca estiveram no YAML. Três
+regras fecham isso, e cada uma tem teste: só chave declarada entra na
+comparação; `${VAR}` sem o `.env` do projeto vira "não avaliada"; compose
+inacessível vira aviso no projeto.
+
+**(b) Uma porta não avaliada sai da checagem nos DOIS sentidos.** Foi o falso
+positivo que a primeira versão tinha: `- "80"` sai como efêmera do lado
+declarado, e a `49153` que o daemon escolheu voltava como "publicada, não
+declarada" — no mesmo serviço que acabáramos de marcar como não avaliado.
+Marcar de um lado só não resolve nada.
+
+**(c) O chip percorre três estados, e o `0` é uma afirmação.** `null` = sem
+fonte e o chip se cala; `0` = a fonte rodou e diz que está limpo; `N` = a fonte
+acusa. O contrato existia desde a 2a sem nome; o B8 é o primeiro a percorrê-lo
+inteiro. "Não avaliada" tem contagem própria e **não** soma ao drift: misturar
+as duas transformaria uma limitação da comparação em alarme sobre a
+infraestrutura.
+
+**(d) Valor de env sai mascarado dos dois lados do drift.** O achado é que a
+chave divergiu, não qual é a senha nova.
+
+**(e) A decisão pendente do `certs_expiring` fecha nos DOIS ramos.** Com o
+diretório montado read-only, a chave ganha fonte; sem ele, continua `null`,
+agora com `stale_since["certs"]` e um motivo na rota. `null` segue significando
+"não estou olhando", nunca "nenhum certificado está para vencer" — e a diferença
+entre as duas leituras é alguém ser acordado ou não. O `null` da 2a deixa de ser
+um pendente e passa a ser um estado documentado do contrato.
+
+**(f) `notAfter` vem do X.509, nunca do `certbot certificates`.** Parsear a saída
+de uma CLI amarraria o cockpit ao formato de texto de outro projeto, que muda
+entre versões sem aviso — e a quebra apareceria como "nenhum certificado
+expirando", a pior falha possível nesta medida. Symlink quebrado em `live/` é
+rotina do certbot e vira aviso; diretório ausente devolve `None`, porque
+instalação sem TLS local é legítima.
+
+**(g) Dias de certificado arredondam para BAIXO.** 13,9 tem 13. A direção do
+arredondamento importa quando o número decide se alguém é acordado.
+
+**(h) Dedup de cert é DIÁRIO, não os 30 min do padrão.** Certificado expira em
+dias; o mesmo aviso a cada meia hora sairia 48 vezes por dia sem informação nova
+— o caminho mais curto para o operador silenciar o canal inteiro justo antes do
+aviso que importa. Um teste garante que a janela diária não vazou para as outras
+regras.
+
+**(i) O IP do rate-limit é a origem real, e isso é o bloco inteiro.** Todo
+request chega do ingress: contar `request.client.host` daria uma chave só para o
+mundo inteiro, e o primeiro atacante trancaria todos os operadores junto com
+ele — um limitador que vira negação de serviço contra quem deveria proteger é
+pior que limitador nenhum, porque parece proteção. A origem sai do
+`X-Forwarded-For` e **só** quando o peer está dentro do
+`TRUSTED_GATEWAY_CIDR`; aceitar o cabeçalho de qualquer peer deixaria o atacante
+escolher a própria chave de contagem.
+
+**(j) Do `X-Forwarded-For` vale a entrada mais à DIREITA.** O nginx usa
+`$proxy_add_x_forwarded_for`, que anexa o peer ao que o cliente mandou: tudo à
+esquerda é texto que o cliente escreveu. Pegar a primeira é o erro clássico.
+
+**(k) Ingress sem `X-Forwarded-For` deixa o limitador INERTE, com aviso.** É a
+única alternativa honesta a contar todo mundo sob a chave do gateway. O aviso
+sai uma vez por processo, não por request.
+
+**(l) 503 de configuração faltando não conta contra o IP.** Configuração nossa
+ausente não é tentativa de acesso.
+
+**(m) O sentinela do `brute_force` saiu no MESMO commit que liga a regra.**
+Mesma disciplina do pin do `ENABLE_ACTIONS`: a bissecção nunca encontra um
+estado em que a regra existe e o teste a proíbe, nem o contrário. O teste que
+ficou no lugar afirma o oposto do que o antigo afirmava.
+
+**(n) Restart zerar a janela do rate-limit é aceitável** porque a notificação do
+B7 é persistida: o contador se perde, o fato não. É a divisão de trabalho entre
+os dois blocos, e trocá-la por uma tabela custaria uma migração para guardar
+dado que vale 60 segundos.
+
+**(o) Backup pela API do SQLite, jamais `cp`.** O sampler escreve
+continuamente, e uma cópia byte a byte pega o arquivo no meio de uma transação:
+o resultado abre normalmente e falha de forma arbitrária depois — a pior
+propriedade possível num backup, porque ele parece existir até a hora em que
+alguém precisa dele. Há teste que copia **durante** escrita concorrente e roda
+`PRAGMA integrity_check` no resultado. Falha na cópia remove o arquivo parcial:
+um truncado com nome de backup é o que faz alguém achar que tem cópia.
+
+**(p) Rotação por nome, não por mtime.** O nome carrega o instante em que o
+backup foi feito; o mtime muda quando alguém copia os arquivos para outro lugar
+— que é exatamente o que se faz com backup. A rotação também ignora o que não
+casa com o padrão, para nunca apagar o banco vivo.
+
+**(q) Gzip decide por content-type, não por caminho.** O cockpit tem duas rotas
+que transmitem (`/api/events` e o follow de logs, ambas `text/event-stream`), e
+gzip num stream põe buffer entre o evento acontecer e a tela mostrá-lo. Filtrar
+por caminho resolveria as duas rotas de hoje e quebraria na terceira. O
+middleware é a camada mais externa, e emite `Vary: Accept-Encoding` — sem ele um
+cache intermediário serve a resposta comprimida a quem não pediu gzip.
+
+**O que continua aberto, e não é do dev:** o item (d) das decisões da 2b — rodar
+o roteiro do doc 12 na VPS, com os 15 containers reais. Vale dobrado agora, que
+exercita drift e certificados recém-nascidos.

@@ -30,9 +30,10 @@ para quem passar.
 import hmac
 import os
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
+from hardening import LIMITE, bloqueado, origem, registra_e_notifica, zera
 from sampler import get_container_inspects, get_container_stats, get_last_sample
 
 router = APIRouter(tags=["metrics"])
@@ -45,22 +46,39 @@ _basic = HTTPBasic(auto_error=False)
 CABECALHO_401 = {"WWW-Authenticate": 'Basic realm="Docker Cockpit metrics"'}
 
 
-def _confere(credenciais: HTTPBasicCredentials = Depends(_basic)):
+def _confere(request: Request, credenciais: HTTPBasicCredentials = Depends(_basic)):
+    # 429 antes de tudo: "credenciais ausentes" e "credenciais invalidas" sao
+    # respostas diferentes, e responde-las a quem ja estourou o limite continua
+    # entregando o oraculo que o limite existe para calar. O B11 fecha esta
+    # superficie junto com o unlock porque as duas tem a mesma propriedade:
+    # errar custa nada e da para repetir para sempre.
+    if bloqueado(origem(request)):
+        raise HTTPException(
+            status_code=429,
+            detail=f"Muitas tentativas — aguarde antes de tentar de novo (limite: {LIMITE}/min)",
+            headers={"Retry-After": "60"},
+        )
+
     usuario = os.getenv("BASIC_AUTH_USER", "")
     senha = os.getenv("BASIC_AUTH_PASS", "")
     if not usuario or not senha:
+        # Configuracao NOSSA faltando, e nao tentativa de acesso: 503 nao conta
+        # contra o IP de um scraper que so encontrou a rota fechada.
         raise HTTPException(
             status_code=503,
             detail="BASIC_AUTH_USER/PASS nao configurados — /metrics fica fechado",
         )
     if credenciais is None:
+        registra_e_notifica(request, "/metrics")
         raise HTTPException(status_code=401, detail="credenciais ausentes", headers=CABECALHO_401)
     # compare_digest nos dois campos: comparação normal vaza o prefixo correto
     # pelo tempo de resposta, e um scraper pode tentar à vontade.
     ok_usuario = hmac.compare_digest(credenciais.username or "", usuario)
     ok_senha = hmac.compare_digest(credenciais.password or "", senha)
     if not (ok_usuario and ok_senha):
+        registra_e_notifica(request, "/metrics")
         raise HTTPException(status_code=401, detail="credenciais invalidas", headers=CABECALHO_401)
+    zera(origem(request))
     return credenciais.username
 
 
