@@ -205,6 +205,7 @@ def test_migration_v9_fresh_db():
 
     try:
         async def run():
+            import db as _db
             from db import init_db, close_db
             await init_db()
 
@@ -212,7 +213,7 @@ def test_migration_v9_fresh_db():
             conn.row_factory = sqlite3.Row
 
             cur = conn.execute("SELECT MAX(version) as v FROM schema_version")
-            assert cur.fetchone()["v"] == 9
+            assert cur.fetchone()["v"] == _db.SCHEMA_VERSION
 
             for tbl in ("findings", "audit_log", "unlock_state", "host_samples", "container_samples", "api_telemetry", "tasks"):
                 cur = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (tbl,))
@@ -264,6 +265,7 @@ def test_migration_v6_banco_populado():
 
     try:
         async def run():
+            import db as _db
             from db import init_db, close_db
             await init_db()
 
@@ -293,9 +295,9 @@ def test_migration_v6_banco_populado():
                 )
                 assert row["first_seen"] is not None
 
-            # Schema agora em v9 (init_db aplica todas as pendentes)
+            # Schema no topo da lista (init_db aplica todas as pendentes)
             cur = conn.execute("SELECT MAX(version) as v FROM schema_version")
-            assert cur.fetchone()["v"] == 9
+            assert cur.fetchone()["v"] == _db.SCHEMA_VERSION
 
             # Novas tabelas existem
             for tbl in ("host_samples", "container_samples", "api_telemetry"):

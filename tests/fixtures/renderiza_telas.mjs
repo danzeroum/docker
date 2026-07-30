@@ -67,16 +67,29 @@ const OVERVIEW = {
   counters: { total: 3, running: 2, exited: 1, attention: 1 },
 };
 
+/* Datas RELATIVAS ao instante do teste, nao literais.
+ *
+ * A versao anterior fixava '2026-07-28' e o teste cobrava o texto renderizado
+ * "há 1d": as duas coisas so concordam no dia em que a fixture foi escrita. O
+ * teste passou a falhar sozinho quando o calendario virou, sem ninguem mexer no
+ * frontend. Idade e derivada de `Date.now()` na tela, entao a fixture tem de
+ * ser derivada dele tambem. */
+const AGORA = Date.now();
+const atras = (ms) => new Date(AGORA - ms).toISOString().replace('.000Z', 'Z');
+const MIN = 60 * 1000;
+const HORA = 60 * MIN;
+const DIA = 24 * HORA;
+
 const FINDINGS = [
   { id: 'f1', rule: 'upstream_missing', severity: 'critical', target: 'fantasma', scope: 'ingress',
-    score: 80, status: 'open', occurrences: 12, first_seen: '2026-07-28T02:00:00Z', last_seen: '2026-07-29T11:00:00Z',
+    score: 80, status: 'open', occurrences: 12, first_seen: atras(DIA + HORA), last_seen: atras(HORA),
     title: 'upstream fantasma nao existe', title_plain: 'O site c.exemplo.com aponta para um serviço que não existe',
     recommendation: 'corrigir proxy_pass', recommendation_plain: 'Corrigir o endereço no nginx ou recriar o serviço' },
   { id: 'f2', rule: 'oom', severity: 'high', target: 'parado', scope: 'container',
-    score: 60, status: 'open', occurrences: 1, first_seen: '2026-07-29T11:30:00Z', last_seen: '2026-07-29T11:30:00Z',
+    score: 60, status: 'open', occurrences: 1, first_seen: atras(30 * MIN), last_seen: atras(30 * MIN),
     title: 'container morto por falta de memoria' },
   { id: 'f3', rule: 'http_plain', severity: 'medium', scope: 'ingress', score: 30, status: 'open',
-    occurrences: 3, first_seen: '2026-07-20T00:00:00Z', targets: ['x.exemplo.com', 'y.exemplo.com'],
+    occurrences: 3, first_seen: atras(10 * DIA), targets: ['x.exemplo.com', 'y.exemplo.com'],
     title: 'hosts sem TLS' },
 ];
 
