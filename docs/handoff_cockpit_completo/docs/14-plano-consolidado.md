@@ -69,7 +69,7 @@ botão de ação existe no DOM (não é `display:none`)"*. Para cumprir isso o f
 
 Menor esforço coerente com o resto: a flag entra no próprio `summary`
 (`summary.capabilities.actions_enabled`), junto com `unlock.active`. Um endpoint
-`/api/capabilities` separado custaria mais um fetch por poll, contra a economia que motiva o
+`/api/capabilities` separado custaria mais um fetch por poll, contra a economia que motiva o <!-- docs-ref-ok: desenho RECUSADO, citado para registrar por que a flag foi para dentro do summary; a rota nunca existiu -->
 `summary`.
 
 ---

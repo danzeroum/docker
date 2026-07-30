@@ -613,6 +613,56 @@ fora deste repositório.
   aqui, com data. As duas fecham; deixá-la sem decisão é a única saída que não
   fecha.
 
+## Regra nova: doc de registro não cita alvo que não existe
+
+· dev + revisor · 2026-07-30
+
+O script que conferiu a PR #31 antes do commit achou **duas afirmações falsas na
+primeira execução**: o `busca_router` do B5 não morava num
+<!-- docs-ref-ok: caminho que NUNCA existiu, citado como o exemplo do bug que criou este guarda -->
+`app/routers/logs_busca.py` — a busca é por host, não por container — e o screen
+map citava esse arquivo inexistente.
+
+Um script que alguém lembra de rodar não é guarda. `tests/test_guarda_docs_registro.py`
+é a versão executável: varre os quatro docs de registro (00, 14, `github.md`,
+`LEIA-ME.md`) e falha com **doc:linha → alvo ausente**, mais a rota ou o arquivo
+mais próximo existente como sugestão.
+
+Três decisões de desenho, e as três vieram de erro concreto:
+
+**O inventário de rotas vem do app MONTADO, não de grep no código.** Um
+`@router.get` comentado, ou um router que ninguém incluiu no `app.py`, some do
+inventário — como tem de sumir. A fonte da verdade é o que o FastAPI serve.
+
+**A sonda liga `ENABLE_ACTIONS` e `ENABLE_TERMINAL`.** Foi o segundo achado da
+primeira execução, e era bug do guarda: a suíte roda com a barreira do B10
+desligada, e nesse estado as rotas de mutação nem são registradas — o guarda
+acusava `POST /api/prune`, que existe em produção. Falso positivo do pior tipo,
+porque estava certo sobre o processo de teste e errado sobre o mundo.
+
+**Bloco de código não é exceção implícita.** Um prompt XML colado no doc,
+citando rota que nunca existiu, entraria exatamente por aí. Precisa de marcador
+como qualquer outra linha.
+
+Allowlist por marcador com motivo, no padrão do `# schema-literal-ok:`:
+
+    <!-- docs-ref-ok: motivo -->                      (mesma linha ou a de cima)
+    <!-- docs-ref-ok-bloco: motivo --> … <!-- /docs-ref-ok-bloco -->
+
+Marcador **sem** motivo não isenta nada. Nunca por arquivo inteiro.
+
+Escopo deliberadamente estreito: só os quatro docs de **registro**. Os docs 01 e
+08 a 13 são propostas e contratos — falam de endpoints que não existiam quando
+foram escritos, e de alguns que nunca vão existir porque a ideia foi recusada.
+Varrê-los produziria dezenas de achados corretos e inúteis, e a lição da Sprint 3
+é que guarda barulhento é guarda desligado.
+
+Um marcador já está em uso, no doc 14: o
+<!-- docs-ref-ok: desenho recusado na 2a; a rota nunca existiu, e a citacao registra a recusa -->
+`/api/capabilities` que a Sprint 2a
+**recusou** — a flag foi para dentro do `summary` em vez de virar rota, e a
+citação existe para registrar a recusa.
+
 ## O que o ciclo deixou como regra permanente
 
 Quatro coisas que nasceram de erro concreto e viraram prática, não conselho:
