@@ -10,6 +10,7 @@
 
 import { escapeHtml } from '../fmt.js';
 import { chipDoSummary } from '../kernel/regua.js';
+import { carregarUpdates, seloDeImagem } from '../updates.js';
 
 function saude(c) {
   // Mesma regra do campo Health explícito entregue no B4: sem healthcheck é
@@ -24,11 +25,29 @@ function linha(c, aoAbrir) {
   const estado = s === 'unhealthy' ? 'unhealthy' : (c.state || 'unknown');
   const selo = (s === 'unhealthy' || s === 'starting')
     ? `<span class="item-health ${s}">${s}</span>` : '';
-  return `<button type="button" class="mod-linha" data-abrir="${escapeHtml(c.name || '')}">
+  return `<button type="button" class="mod-linha" data-abrir="${escapeHtml(c.name || '')}"
+    data-imagem="${escapeHtml(c.image || '')}">
     <span class="item-status ${escapeHtml(estado)}"></span>
     <span class="mod-nome-cel">${escapeHtml(c.name || '')}${selo}</span>
     <span class="mod-meta">${escapeHtml(c.stack || '')}</span>
   </button>`;
+}
+
+/* O selo entra depois da lista, não junto: o estado das imagens vem de outra
+ * rota e chega mais tarde que o overview. Esperar por ele para desenhar a lista
+ * atrasaria os 15 containers por causa de um dado diário. */
+function pintarSelos(corpo, estado) {
+  corpo.querySelectorAll('[data-imagem]').forEach((el) => {
+    const selo = seloDeImagem(estado, el.dataset.imagem);
+    if (!selo) return;
+    const alvo = el.querySelector('.mod-nome-cel');
+    if (!alvo) return;
+    const marca = document.createElement('span');
+    marca.className = 'selo-update';
+    marca.textContent = selo.texto;
+    if (selo.titulo) marca.title = selo.titulo;
+    alvo.appendChild(marca);
+  });
 }
 
 export default {
@@ -71,6 +90,11 @@ export default {
         b.addEventListener('click', () => aoAbrir(b.dataset.abrir));
       });
     }
-    return null;
+
+    let vivo = true;
+    carregarUpdates().then((estado) => {
+      if (vivo) pintarSelos(corpo, estado);
+    });
+    return () => { vivo = false; };
   },
 };

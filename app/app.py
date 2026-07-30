@@ -23,6 +23,8 @@ from routers.executive import router as executive_router
 from routers.storage import router as storage_router
 from routers.security import router as security_router
 from routers.prune import router as prune_router
+from routers.metrics_prom import router as metrics_prom_router
+from routers.updates import router as updates_router
 from sampler import sampler_loop
 from findings.engine import findings_loop
 from db import init_db, close_db
@@ -30,6 +32,7 @@ from telemetry import TelemetryMiddleware, flush_telemetry_loop
 from events import events_loop
 from summary import aquecer_loop
 from logs_ingest import ingest_loop
+from updates import updates_loop
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(APP_DIR, "static")
@@ -81,7 +84,11 @@ async def lifespan(app: FastAPI):
     # Ingestao do indice de busca. Fora do caminho de request: montar o
     # indice custa uma chamada por container ao daemon.
     logs_task = asyncio.create_task(ingest_loop())
+    # Job diario de updates. O Hub tem rate limit anonimo apertado; uma VPS
+    # com 20 imagens o estoura facil se a consulta virar por request.
+    updates_task = asyncio.create_task(updates_loop())
     yield
+    updates_task.cancel()
     logs_task.cancel()
     summary_warm_task.cancel()
     sampler_task.cancel()
@@ -110,6 +117,10 @@ async def lifespan(app: FastAPI):
         pass
     try:
         await logs_task
+    except asyncio.CancelledError:
+        pass
+    try:
+        await updates_task
     except asyncio.CancelledError:
         pass
     await close_db()
@@ -161,3 +172,5 @@ app.include_router(backend_router)
 app.include_router(storage_router)
 app.include_router(security_router)
 app.include_router(prune_router)
+app.include_router(metrics_prom_router)
+app.include_router(updates_router)

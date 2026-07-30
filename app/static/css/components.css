@@ -96,6 +96,17 @@
 .item-health.unhealthy{background:rgba(239,68,68,.16);color:var(--bad)}
 .item-health.starting{background:rgba(245,158,11,.16);color:var(--warn)}
 
+/* Selo de imagem desatualizada (B6). Tom de aviso, nunca de erro: imagem velha
+   e uma pendencia de manutencao, e nao um incidente — pintar de vermelho
+   competiria com unhealthy pela mesma atencao. Sem `text-transform` porque o
+   selo carrega a hora da verificacao, e "VERIFICADO 03:14" grita sem informar
+   mais do que "verificado 03:14". */
+.selo-update{
+  margin-left:6px;padding:1px 5px;border-radius:3px;vertical-align:middle;
+  background:rgba(245,158,11,.14);color:var(--warn);
+  font-family:'JetBrains Mono',monospace;font-size:.6rem;font-weight:600
+}
+
 .topbar{
   height:60px;background:rgba(10,16,32,.85);backdrop-filter:blur(12px);
   border-bottom:1px solid var(--border);padding:0 1.5rem;
