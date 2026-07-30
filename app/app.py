@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 from routers._proxy import configure as configure_proxy
-from routers.containers import router as containers_router
+from routers.containers import router as containers_router, busca_router as logs_busca_router
 from routers.system import router as system_router
 from routers.overview import router as overview_router
 from routers.findings import router as findings_router
@@ -29,6 +29,7 @@ from db import init_db, close_db
 from telemetry import TelemetryMiddleware, flush_telemetry_loop
 from events import events_loop
 from summary import aquecer_loop
+from logs_ingest import ingest_loop
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(APP_DIR, "static")
@@ -77,7 +78,11 @@ async def lifespan(app: FastAPI):
     # nunca teria dado — ninguém dispararia a busca — e o invariante 3 do doc 10
     # ("módulo oculto não oculta o dado") viraria letra morta.
     summary_warm_task = asyncio.create_task(aquecer_loop())
+    # Ingestao do indice de busca. Fora do caminho de request: montar o
+    # indice custa uma chamada por container ao daemon.
+    logs_task = asyncio.create_task(ingest_loop())
     yield
+    logs_task.cancel()
     summary_warm_task.cancel()
     sampler_task.cancel()
     findings_task.cancel()
@@ -101,6 +106,10 @@ async def lifespan(app: FastAPI):
         pass
     try:
         await summary_warm_task
+    except asyncio.CancelledError:
+        pass
+    try:
+        await logs_task
     except asyncio.CancelledError:
         pass
     await close_db()
@@ -136,6 +145,7 @@ async def root():
 
 # ---------- routers ----------
 app.include_router(containers_router)
+app.include_router(logs_busca_router)
 app.include_router(system_router)
 app.include_router(overview_router)
 app.include_router(findings_router)

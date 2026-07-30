@@ -57,6 +57,33 @@ caindo → subtela → buscar `oom` → destravar → reiniciar → auditoria �
 → Personalizar. Até a Sprint 2b o roteiro fecha em tudo menos o `buscar oom`,
 que é o B5.
 
+## Sprint 3 — roteiro do doc 12, execução contra dados reais
+
+· dev · pendente de execução na VPS
+
+O item (d) das decisões da 2b. Com o B5 na tela, o roteiro executa inteiro pela
+primeira vez. Estado de cada passo **no código** (verificado por teste
+automatizado; a execução manual na VPS é o que falta):
+
+| Passo do roteiro | Estado |
+|---|---|
+| Cenário API caindo → faixa crítica + achado | ✅ |
+| Subtela do container → métricas em serra | ✅ sparklines de `/api/containers/{id}/history`, toggle 24h/7d |
+| Subtela → eventos die→start | ✅ timeline filtrada no servidor por container |
+| **Subtela → buscar `oom` nos logs** | ✅ **B5, esta sprint** — índice FTS5, highlight, `<script>` sai como texto |
+| Destravar → reiniciar → auditoria | ✅ com auditoria gravada antes de executar |
+| Esc → chip Drift na régua | ⏳ o chip se cala enquanto o B8 não tem fonte (`drift.count: null`) |
+| Personalizar → arrastar, presets, restaurar | ✅ |
+
+**O que falta para fechar o item (d):** rodar o roteiro na VPS, com os 15
+containers reais, e registrar aqui o resultado datado. Só isso transforma
+"passa nos testes" em "executa contra dados reais", que é o que o critério de
+aceitação do conjunto pede.
+
+O chip Drift é ausência esperada, não falha: ele não aparece porque não há
+fonte, e chip sem fonte seria dado inventado (doc 01). Fecha na Sprint 5 com o
+B8.
+
 ## Regra nova: versão de schema não se escreve como literal em teste
 
 · dev + revisor · 2026-07-30

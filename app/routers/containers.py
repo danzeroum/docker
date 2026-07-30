@@ -1,7 +1,7 @@
 import asyncio
 import json
 import re
-from fastapi import APIRouter, HTTPException, Response, WebSocket, WebSocketDisconnect, Request, Depends
+from fastapi import APIRouter, HTTPException, Query, Response, WebSocket, WebSocketDisconnect, Request, Depends
 from fastapi.responses import StreamingResponse
 import httpx
 
@@ -10,11 +10,17 @@ from masking import mask_inspect
 from cache import cached_or_fetch
 from stats_util import calc_cpu_percent
 from auth import require_unlock
-from db import audit_iniciar, audit_concluir, get_container_history, MAX_HISTORY_POINTS
+from db import (
+    audit_iniciar, audit_concluir, get_container_history, search_logs,
+    MAX_HISTORY_POINTS, BUSCA_MINIMA, MARCA_INICIO, MARCA_FIM,
+)
 from actions import habilitadas as acoes_habilitadas
 from sampler import get_container_inspects
 
 router = APIRouter(prefix="/api/containers", tags=["containers"])
+# A busca e por HOST, nao por container: `/api/logs/search` responde sobre o
+# indice inteiro e filtra por container via query param.
+busca_router = APIRouter(prefix="/api/logs", tags=["logs"])
 
 
 # ---------------------------------------------------------------------------
@@ -116,6 +122,41 @@ async def container_logs(container_id: str, tail: int = 500):
             idx += 8 + frame_size
         text = "".join(lines) if lines else raw.decode("utf-8", errors="replace")
         return Response(content=text, media_type="text/plain")
+
+
+# ---------------------------------------------------------------------------
+# Busca full-text (B5) — o follow continua direto do daemon, logo abaixo
+# ---------------------------------------------------------------------------
+
+@busca_router.get("/search")
+async def buscar_logs(
+    q: str = Query(..., description="termo; operadores FTS viram literal"),
+    container: str = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    """Trechos com o termo destacado, do indice FTS5.
+
+    Termo com menos de 3 caracteres e 400: num indice de milhoes de linhas ele
+    devolve tudo e nao responde nada, e o custo cai no SQLite.
+    """
+    if len((q or "").strip()) < BUSCA_MINIMA:
+        raise HTTPException(
+            status_code=400,
+            detail=f"termo precisa de pelo menos {BUSCA_MINIMA} caracteres",
+        )
+    linhas, expressao = await search_logs(q, container=container, limit=limit, offset=offset)
+    return {
+        "results": linhas,
+        "count": len(linhas),
+        # A expressao efetivamente usada volta no payload: o operador digitou
+        # `erro NEAR/2 falha` e precisa ver que virou busca por tres palavras
+        # literais, em vez de achar que o NEAR funcionou e o log e que nao tem.
+        "query": q,
+        "expression": expressao,
+        "marks": {"start": MARCA_INICIO, "end": MARCA_FIM},
+        "next_offset": (offset + len(linhas)) if len(linhas) == limit else None,
+    }
 
 
 # ---------------------------------------------------------------------------

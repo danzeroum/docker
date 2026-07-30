@@ -9,12 +9,18 @@
  *   tail: reler 80 linhas por segundo para descobrir que nada mudou é I/O
  *   jogado fora, e perde linha entre duas leituras.
  *
- * No escopo stack o protótipo faz merge dos containers da stack; isso chega com
- * o B5, que traz busca no servidor — fazer merge no cliente agora significaria
- * N fetches por render, o oposto da economia do doc 10 §3.
+ * A busca (B5) e do INDICE, nao do tail: ela responde sobre 7 dias de log de
+ * todos os containers, e o tail so tem as ultimas 80 linhas de um. Por isso o
+ * campo funciona nos dois escopos, e no de stack ele e o unico conteudo — o
+ * merge de tail por stack continua fora, porque seriam N fetches por render.
+ *
+ * Highlight NUNCA injeta HTML do log. O servidor devolve o trecho com
+ * marcadores que nao sao markup; aqui o texto e escapado e a marcacao entra por
+ * cima. Uma linha com `<script>` e DADO — e este e o unico lugar do cockpit que
+ * renderiza texto arbitrario vindo de dentro dos containers.
  */
 
-import { apiGetText } from '../data.js';
+import { apiGet, apiGetText } from '../data.js';
 import { escapeHtml } from '../fmt.js';
 
 const TETO_LINHAS = 400;
@@ -26,27 +32,27 @@ export default {
   span: 12,
 
   render: (escopo, dados, corpo) => {
-    if (escopo.t !== 'container') {
-      corpo.innerHTML = '<div class="empty">Busca de logs por stack chega com o B5 '
-        + '(FTS5 no servidor). Abra um container para ver o tail e o follow dele.</div>';
-      return null;
-    }
-
-    const id = escopo.id;
+    const soBusca = escopo.t !== 'container';
+    const id = soBusca ? null : escopo.id;
     let vivo = true;
     let fonte = null;
     let seguindo = false;
     const linhas = [];
 
     corpo.innerHTML = `<div class="logs-topo">
-        <button type="button" class="logs-follow" data-acao="follow" aria-pressed="false">&#9679; follow</button>
+        <input type="search" class="logs-busca" data-busca placeholder="buscar nos logs…"
+               aria-label="Buscar nos logs" />
+        ${soBusca ? '' : '<button type="button" class="logs-follow" data-acao="follow" aria-pressed="false">&#9679; follow</button>'}
         <span class="logs-nota" data-nota></span>
       </div>
-      <pre class="logs-pre" data-pre></pre>`;
+      <div data-resultados hidden></div>
+      ${soBusca ? '' : '<pre class="logs-pre" data-pre></pre>'}`;
 
     const pre = corpo.querySelector('[data-pre]');
     const nota = corpo.querySelector('[data-nota]');
     const btn = corpo.querySelector('[data-acao="follow"]');
+    const campo = corpo.querySelector('[data-busca]');
+    const painel = corpo.querySelector('[data-resultados]');
 
     function pintar() {
       if (!vivo || !pre) return;
@@ -108,7 +114,86 @@ export default {
       });
     }
 
-    fetchLines();
+    /* --- busca no indice (B5) -------------------------------------------- */
+
+    function trechoSeguro(texto, marcas) {
+      // Escapa PRIMEIRO, marca DEPOIS: os marcadores do servidor nao sao HTML,
+      // entao sobrevivem ao escape e so entao viram <mark>. Uma linha de log
+      // com `<script>alert(1)</script>` sai como texto visivel.
+      const escapado = escapeHtml(String(texto || ''));
+      const ini = escapeHtml(marcas.start);
+      const fim = escapeHtml(marcas.end);
+      return escapado.split(ini).join('<mark>').split(fim).join('</mark>');
+    }
+
+    function pintarResultados(data) {
+      if (!vivo || !painel) return;
+      painel.hidden = false;
+      if (pre) pre.hidden = true;
+      const achados = data.results || [];
+      if (!achados.length) {
+        painel.innerHTML = '<div class="empty">Nenhuma linha encontrada nos ultimos 7 dias</div>';
+        return;
+      }
+      painel.innerHTML = `<div class="mod-lista">${achados.map((r) =>
+        `<button type="button" class="log-achado" data-ir="${escapeHtml(r.container || '')}">
+          <span class="mod-tag">${escapeHtml(r.container || '')}</span>
+          <span class="log-trecho">${trechoSeguro(r.trecho, data.marks || {})}</span>
+          <span class="mod-meta">${escapeHtml(String(r.ts || '').slice(11, 19))}</span>
+        </button>`).join('')}</div>`;
+
+      const abrir = dados && dados.abrirContainer;
+      if (typeof abrir === 'function') {
+        painel.querySelectorAll('[data-ir]').forEach((b) => {
+          b.addEventListener('click', () => abrir(b.dataset.ir));
+        });
+      }
+    }
+
+    function limparBusca() {
+      if (painel) { painel.hidden = true; painel.innerHTML = ''; }
+      if (pre) pre.hidden = false;
+      if (nota && !seguindo) nota.textContent = '';
+    }
+
+    async function buscar(termo) {
+      if (termo.length < 3) {
+        // Mesmo piso do servidor, dito na tela antes de gastar a requisicao.
+        if (nota) nota.textContent = 'digite ao menos 3 caracteres';
+        limparBusca();
+        return;
+      }
+      if (nota) nota.textContent = 'buscando…';
+      // encodeURIComponent no operador FTS: defesa em profundidade com a
+      // sanitizacao do servidor, que e quem de fato garante.
+      const escopoQuery = id ? `&container=${encodeURIComponent(id)}` : '';
+      const { data, error } = await apiGet(
+        'logs_busca', `/api/logs/search?q=${encodeURIComponent(termo)}${escopoQuery}`
+      );
+      if (!vivo) return;
+      if (error) {
+        if (nota) nota.textContent = error;
+        return;
+      }
+      if (nota) {
+        // A expressao efetiva na tela: quem digitou `erro NEAR/2` precisa ver
+        // que virou busca por duas palavras, nao achar que o log e que nao tem.
+        nota.textContent = `${data.count} resultado(s) · ${data.expression}`;
+      }
+      pintarResultados(data);
+    }
+
+    if (campo) {
+      let debounce = null;
+      campo.addEventListener('input', () => {
+        clearTimeout(debounce);
+        const termo = campo.value.trim();
+        if (!termo) { if (nota) nota.textContent = ''; limparBusca(); return; }
+        debounce = setTimeout(() => buscar(termo), 300);
+      });
+    }
+
+    if (!soBusca) fetchLines();
 
     return () => {
       vivo = false;

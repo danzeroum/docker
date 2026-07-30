@@ -758,3 +758,29 @@
 :is(.stg-btn,.met-jan,.logs-follow):focus-visible{
   outline:2px solid var(--accent,#60a5fa);outline-offset:1px
 }
+
+/* --- B5: busca em logs ---------------------------------------------------- */
+.logs-busca{
+  flex:1;min-width:0;background:var(--bg);border:1px solid var(--border);
+  border-radius:5px;color:var(--text);font:inherit;font-size:.68rem;padding:.2rem .45rem
+}
+/* Suprimir o contorno de foco parece equivalente a trocar a borda, e nao e:
+   quem navega por teclado perde o unico sinal de onde esta. Aqui a borda muda
+   E o contorno fica. */
+.logs-busca:focus-visible{
+  border-color:var(--accent,#60a5fa);
+  outline:2px solid var(--accent,#60a5fa);outline-offset:1px
+}
+.log-achado{
+  display:flex;align-items:baseline;gap:.5rem;width:100%;text-align:left;
+  padding:.3rem 0;border:0;border-bottom:1px solid var(--border);
+  background:none;color:inherit;font:inherit;cursor:pointer
+}
+.log-achado:hover{background:var(--bg)}
+.log-trecho{
+  flex:1;min-width:0;font-family:'JetBrains Mono',monospace;font-size:.65rem;
+  line-height:1.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap
+}
+/* O highlight e marcacao NOSSA, por cima do texto ja escapado. */
+.log-trecho mark{background:rgba(96,165,250,.28);color:inherit;border-radius:2px;padding:0 1px}
+.log-achado:focus-visible{outline:2px solid var(--accent,#60a5fa);outline-offset:1px}

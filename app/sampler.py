@@ -176,6 +176,7 @@ async def _persist_samples():
             insert_container_samples,
             purge_samples,
             purge_events,
+            purge_logs,
             rollup_container_samples,
             RETENTION_RAW_HOURS,
         )
@@ -195,6 +196,7 @@ async def _persist_samples():
         # O ring de eventos entra no MESMO ciclo de retenção, não num mecanismo
         # próprio: já existe um lugar que roda a cada 60s e sabe expurgar.
         await purge_events()
+        await purge_logs()
     except Exception:
         import traceback
         traceback.print_exc()
