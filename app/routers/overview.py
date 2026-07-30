@@ -4,6 +4,7 @@ from fastapi import APIRouter
 from routers._proxy import proxy_get
 from cache import cached_or_fetch
 from sampler import get_last_sample, get_container_stats
+from summary import montar as montar_summary
 
 router = APIRouter(prefix="/api", tags=["overview"])
 
@@ -137,12 +138,23 @@ async def get_overview():
             if c["state"] == "restarting" or c["health"] == "unhealthy":
                 counters["attention"] += 1
 
+        # A régua do kernel lê SÓ este bloco (doc 09 §B): 1 chamada em vez de 6
+        # fetches por poll, e é o que mantém o chip vivo com o módulo oculto.
+        # `containers` entra por parâmetro para chip e módulo lerem o mesmo dado
+        # no mesmo request — "um dado, uma origem" (doc 10 §4).
+        try:
+            resumo = await montar_summary(containers)
+        except Exception:
+            # A régua degrada; a Visão geral não cai por causa dela.
+            resumo = None
+
         return {
             "host": host_info,
             "vitals": vitals,
             "stacks": stacks,
             "containers": containers,
             "counters": counters,
+            "summary": resumo,
             "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "cache_ttl_s": 5,
             "stats_as_of": stats_as_of,
