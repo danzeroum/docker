@@ -550,3 +550,83 @@ cache intermediário serve a resposta comprimida a quem não pediu gzip.
 **O que continua aberto, e não é do dev:** o item (d) das decisões da 2b — rodar
 o roteiro do doc 12 na VPS, com os 15 containers reais. Vale dobrado agora, que
 exercita drift e certificados recém-nascidos.
+
+
+---
+
+# Fechamento do plano B1–B11
+
+· dev + revisor · 2026-07-30 · **ratificado**
+
+## O ciclo, sprint a sprint
+
+Os commits individuais de cada sprint **não existem mais no remoto**: todo merge
+foi squash. O número da PR é o único índice permanente que sobrou — é por ele
+que se recupera o diff, a discussão e o corpo com o racional de cada decisão.
+
+| Sprint | Blocos | PR | Merge em `main` | Migrações |
+|---|---|---|---|---|
+| 1 | B1 storage · B2 retenção · B4 segurança | [#25](https://github.com/danzeroum/docker/pull/25) | `adfa88a` | v10 |
+| 2a | kernel de módulos + bloco `summary` | [#26](https://github.com/danzeroum/docker/pull/26) | `ddfec62` | — |
+| 2b | B3 eventos · B10 prune | [#27](https://github.com/danzeroum/docker/pull/27) | `e5f315b` | v11, v12 |
+| 3 | B5 busca em logs + guarda de schema | [#28](https://github.com/danzeroum/docker/pull/28) | `93efa5d` | v13 |
+| 4 | B6 updates · B7 notificações · B9 métricas | [#29](https://github.com/danzeroum/docker/pull/29) | `23d6b90` | v14, v15 |
+| 5 | B8 drift · B11 hardening · certs | [#30](https://github.com/danzeroum/docker/pull/30) | `b0b7ef5` | — |
+
+Estado ao fechar: **894 testes**, `SCHEMA_VERSION = 15`, migrações **v10 a v15
+todas com teste sobre banco populado** — a regra que subiu de lembrete a aceite
+na 2b, depois que a v3 perdeu `first_seen` em produção.
+
+## Pendências abertas — dono: operador da VPS
+
+Nenhuma das duas é de código, e nenhuma das duas fecha sem alguém executar algo
+fora deste repositório.
+
+### (1) Executar o roteiro do doc 12 na VPS
+
+- **Dono:** operador da VPS (bloco `4-runbook`).
+- **Aberta desde:** 2026-07-30, decisões da Sprint 2b, item (d).
+- **Por que atravessou três sprints aberta:** porque a verdade era essa. O
+  roteiro passa nos testes desde a Sprint 3; "passa nos testes" e "executa
+  contra dados reais" são afirmações diferentes, e o critério de aceitação do
+  conjunto pede a segunda.
+- **Vale mais agora do que quando foi aberta:** é a primeira execução que
+  exercita **drift** e **certificados**, e são justamente os dois blocos cujo
+  comportamento depende do que existe no disco daquele host — o rótulo
+  `com.docker.compose.project.config_files` resolvendo ou não sob o mount, e o
+  `live/` do certbot com ou sem symlink órfão. Nenhuma fixture prova isso.
+- **Critério de fechamento:** rodar os 7 passos do doc 12 na VPS, com os 15
+  containers reais, e registrar **neste documento** o resultado datado de cada
+  passo. Só isso transforma o item (d) em fechado.
+
+### (2) Decidir a agenda do acabamento visual
+
+- **Dono:** dono do produto.
+- **Aberta desde:** 2026-07-30, decisões da Sprint 2a ("dívida deliberada").
+- **O que é:** 9 dos módulos herdaram o corpo das telas de página cheia. O dado
+  é real desde a 2a; o que falta é forma — densidade, hierarquia e estados na
+  caixa do módulo, contra o card correspondente do protótipo.
+- **Não é requisito técnico:** o cockpit funciona, informa e degrada
+  corretamente sem isso. É prioridade, e prioridade é do dono.
+- **Critério de fechamento:** ou a Sprint 6 é disparada módulo a módulo (bloco
+  `6-módulo`, 1 módulo por PR), ou a dívida é declarada aceita em definitivo
+  aqui, com data. As duas fecham; deixá-la sem decisão é a única saída que não
+  fecha.
+
+## O que o ciclo deixou como regra permanente
+
+Quatro coisas que nasceram de erro concreto e viraram prática, não conselho:
+
+1. **Versão de schema não se escreve como literal em teste** —
+   `tests/test_guarda_schema_literal.py` é a versão executável. O mesmo erro
+   apareceu três vezes em duas sprints, a terceira por quem já o tinha
+   corrigido duas. A quarta ocorrência morre no CI.
+2. **Toda migração passa por teste sobre banco populado** — a v3 perdeu
+   `first_seen` em produção. v10 a v15 cumpriram.
+3. **Ausência de dado nunca vira afirmação** — `null` = sem fonte, `0` = a
+   fonte rodou e diz que está limpo, `N` = a fonte acusa. Três estados, três
+   leituras, e a diferença entre a primeira e a segunda é alguém ser acordado
+   ou não. Aplicado em `certs_expiring`, `updates`, `notifications` e `drift`.
+4. **Barreira e sentinela saem no mesmo commit que a mudança que as libera** —
+   o pin do `ENABLE_ACTIONS` na 2b e o sentinela do `brute_force` na 5. A
+   bissecção nunca encontra um estado intermediário incoerente.
