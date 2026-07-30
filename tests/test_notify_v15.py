@@ -455,14 +455,18 @@ async def test_resumo_separa_entregue_de_sem_entrega(db_mod):
 
 
 @pytest.mark.asyncio
-async def test_brute_force_esta_reservada_para_o_b11():
-    """O nome existe no motor para a regra entrar no B11 sem migração de banco
-    nem mudança de contrato na tela — mas nada a dispara hoje."""
+async def test_brute_force_saiu_da_reserva_no_b11():
+    """Este teste SUBSTITUI o sentinela que proibia o disparo, no mesmo commit
+    que o B11 liga a regra — a bissecção nunca encontra um estado em que a regra
+    existe e o teste a proíbe, nem o contrário. Mesma disciplina do pin do
+    `ENABLE_ACTIONS`.
+
+    O disparo mora no `hardening`, e não aqui: quem detecta força bruta é o
+    limitador que conta as falhas, e o motor só entrega.
+    """
+    import hardening
     assert "brute_force" in ntf._TITULOS
-    import inspect as _inspect
-    fonte = _inspect.getsource(ntf)
-    disparos = fonte.count('"brute_force"')
-    assert disparos == 1, "brute_force ganhou um disparo antes do B11"
+    assert "brute_force" in __import__("inspect").getsource(hardening.registra_e_notifica)
 
 
 @pytest.mark.asyncio

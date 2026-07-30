@@ -492,3 +492,86 @@ Suíte: **799 passando**.
 - **`certs_expiring`** — a decisão de fonte segue aberta para a Sprint 5.
 - **Item (d) da 2b** — rodar o roteiro do doc 12 na VPS é trabalho de quem opera
   a VPS (bloco `4-runbook`), não deste pacote.
+
+---
+
+# 18 · Sprint 5 — executada. O plano B1–B11 fecha.
+
+Ordem entregue: **B8 → certs → B11**.
+
+## B8 — drift compose × runtime
+
+`app/drift.py` + `GET /api/drift`. Sem migração: drift é derivado, não
+histórico. Cache de 60s, lido pelo `summary` via `peek` e aquecido no
+`aquecer_loop` — senão o chip só teria dado depois de alguém abrir o módulo, que
+é o invariante 3 do doc 10 ao contrário.
+
+Compara imagem/tag, portas publicadas e env declaradas, mais os containers fora
+de qualquer projeto — que são drift por definição: estão rodando e não estão
+escritos em lugar nenhum.
+
+Decisões (a) a (d) do doc 00. O chip Drift, calado desde a 2a, percorre agora os
+três estados do contrato.
+
+## certs — a decisão da 2a, fechada
+
+`app/certs.py` + `GET /api/certs`. Lê `notAfter` do X.509 dos lineages do
+certbot, montados read-only. Cache de 1h: certificado tem validade em meses.
+
+`certs_expiring` e `cert_window_days` saem do `null` **quando há mount** e
+continuam `null` — com `stale_since["certs"]` — quando não há. Decisões (e) a
+(h) do doc 00.
+
+A regra `cert_expirando` entra no motor do B7 com dedup diário. O mount está
+comentado no `docker-compose.yml` com as **duas** linhas necessárias (`live/` e
+`archive/`) e o porquê: `live/` é feito de symlinks, e montar só ele entrega um
+diretório de links quebrados.
+
+## B11 — hardening
+
+`app/hardening.py` (rate-limit), `app/backup.py` (backup diário),
+`app/compressao.py` (gzip só em JSON/text-plain).
+
+Rate-limit em `POST /api/session/unlock` e no 401 do `/metrics`: 5 falhas/min
+por IP → 429 + `brute_force`. Decisões (i) a (n) do doc 00 — e a (i) é o bloco
+inteiro: o IP contado é a origem real, não o do ingress.
+
+Backup pela API de backup do SQLite, 7 cópias rotativas dentro do volume
+`cockpit-data`. Decisões (o) e (p).
+
+Gzip por content-type, camada mais externa. Decisão (q).
+
+**O teste-sentinela do `brute_force` saiu no mesmo commit que liga a regra**, e
+o que ficou no lugar afirma o oposto: que a regra tem disparo.
+
+## Testes
+
+| Arquivo | Casos |
+|---|---|
+| `tests/test_drift_b8.py` | 40 |
+| `tests/test_certs_sprint5.py` | 23 |
+| `tests/test_hardening_b11.py` | 32 |
+
+Suíte: **894 passando** (era 799 ao fim da Sprint 4).
+
+`PyYAML` e `cryptography` entram em `app/requirements.txt` **e** em
+`tests/requirements-test.txt` — sem o segundo, os testes novos passariam na
+máquina do dev e sumiriam como erro de import no CI.
+
+## O plano, fechado
+
+| Bloco | Sprint |
+|---|---|
+| B1 storage · B2 retenção · B4 segurança | 1 |
+| B3 eventos · B10 prune | 2b |
+| B5 busca em logs | 3 |
+| B6 updates · B7 notificações · B9 métricas | 4 |
+| B8 drift · B11 hardening · certs | 5 |
+
+## O que fica fora do código
+
+- **Item (d) da 2b** — rodar o roteiro do doc 12 na VPS, com os 15 containers
+  reais. Continua honesto e aberto no doc 00, e vale dobrado agora que exercita
+  drift e certificados recém-nascidos. É do operador (bloco `4-runbook`).
+- **Acabamento visual dos 9 módulos delegados** — dívida deliberada registrada
+  na 2a. É decisão de prioridade do dono do produto, não requisito técnico.

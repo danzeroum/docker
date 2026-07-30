@@ -3,3 +3,9 @@ uvicorn[standard]==0.32.1
 httpx==0.27.2
 psutil==6.1.0
 aiosqlite==0.22.1
+# B8: leitura dos compose files para comparar declarado x em execucao.
+# safe_load apenas — o YAML vem do disco do host, e full_load construiria
+# objetos Python a partir dele.
+PyYAML==6.0.2
+# 5-certs: notAfter lido do X.509, nunca parseado da saida do certbot.
+cryptography==43.0.3

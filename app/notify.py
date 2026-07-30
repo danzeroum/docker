@@ -19,6 +19,7 @@ Regras vivas:
 - `unhealthy` — healthcheck falhando.
 - `disk_high` — uso acima de `NOTIFY_DISCO_PCT` (padrão 80).
 - `imagem_desatualizada` — o que o job diário do B6 encontrou.
+- `cert_expirando` — certificado dentro da janela, com dedup **diário**.
 - `brute_force` — **reservada para o B11**. O nome está aqui e no dedup para que
   a regra entre lá sem migração de banco nem mudança de contrato na tela.
 
@@ -38,6 +39,12 @@ import httpx
 
 # Janela de silêncio por (regra, alvo). Persistida: ver a v15.
 DEDUP_MIN = float(os.getenv("NOTIFY_DEDUP_MIN", "30") or 30)
+
+# Janela por regra, quando a padrão não serve. Certificado expira em DIAS: com
+# os 30 min do padrão, o mesmo aviso sairia 48 vezes por dia sem trazer
+# informação nova nenhuma — o caminho mais curto para o operador silenciar o
+# canal inteiro justamente antes do aviso que importa.
+_JANELA_POR_REGRA = {"cert_expirando": 24 * 60}
 
 DISCO_PCT = float(os.getenv("NOTIFY_DISCO_PCT", "80") or 80)
 
@@ -140,6 +147,7 @@ _TITULOS = {
     "unhealthy": "healthcheck falhando",
     "disk_high": "disco acima do limite",
     "imagem_desatualizada": "imagem desatualizada",
+    "cert_expirando": "certificado perto do vencimento",
     "brute_force": "tentativas de acesso",
 }
 
@@ -180,7 +188,8 @@ async def deve_notificar(regra: str, alvo: str) -> bool:
         visto = datetime.fromisoformat(str(quando).replace("Z", "+00:00"))
     except (ValueError, TypeError):
         return True
-    return _agora() - visto >= timedelta(minutes=DEDUP_MIN)
+    janela = _JANELA_POR_REGRA.get(regra, DEDUP_MIN)
+    return _agora() - visto >= timedelta(minutes=janela)
 
 
 # --- fila -----------------------------------------------------------------
@@ -311,6 +320,23 @@ async def avaliar_imagens() -> list[dict]:
     return achados
 
 
+async def avaliar_certificados() -> list[dict]:
+    """Lê o cache que a régua já aquece; não varre o diretório por conta própria.
+
+    Sem fonte (diretório não montado) devolve lista vazia — e não um alerta de
+    "não sei", que é ruído sobre a nossa própria configuração e não sobre a
+    infraestrutura do operador.
+    """
+    from cache import peek
+    from certs import achados_de_cert
+
+    entrada = peek("certs")
+    achados = achados_de_cert(entrada.get("data") if entrada else None)
+    for a in achados:
+        enfileirar(a["regra"], a["alvo"], a["ts"], a["detalhe"])
+    return achados
+
+
 async def ciclo() -> dict:
     """Uma varredura do que não chega por evento."""
     from sampler import get_last_sample
@@ -325,7 +351,13 @@ async def ciclo() -> dict:
         imagens = await avaliar_imagens()
     except Exception:
         pass
-    return {"disco": len(disco), "imagens": len(imagens), "descartadas": _descartadas}
+    certificados = []
+    try:
+        certificados = await avaliar_certificados()
+    except Exception:
+        pass
+    return {"disco": len(disco), "imagens": len(imagens),
+            "certificados": len(certificados), "descartadas": _descartadas}
 
 
 async def notify_loop(intervalo: float = None):

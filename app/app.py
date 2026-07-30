@@ -25,6 +25,8 @@ from routers.security import router as security_router
 from routers.prune import router as prune_router
 from routers.metrics_prom import router as metrics_prom_router
 from routers.updates import router as updates_router
+from routers.drift import router as drift_router
+from routers.certs import router as certs_router
 from routers.notificacoes import router as notificacoes_router
 from sampler import sampler_loop
 from findings.engine import findings_loop
@@ -35,6 +37,8 @@ from summary import aquecer_loop
 from logs_ingest import ingest_loop
 from updates import updates_loop
 from notify import despachante_loop, notify_loop
+from backup import backup_loop
+from compressao import GzipJsonMiddleware
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(APP_DIR, "static")
@@ -95,7 +99,12 @@ async def lifespan(app: FastAPI):
     # atrasar a proxima deteccao.
     despachante_task = asyncio.create_task(despachante_loop())
     notify_task = asyncio.create_task(notify_loop())
+    # Backup diario pela API de backup do SQLite. `cp` de arquivo quente pega o
+    # banco no meio de uma transacao: o arquivo abre e falha depois, que e a
+    # pior propriedade possivel num backup.
+    backup_task = asyncio.create_task(backup_loop())
     yield
+    backup_task.cancel()
     notify_task.cancel()
     despachante_task.cancel()
     updates_task.cancel()
@@ -141,6 +150,10 @@ async def lifespan(app: FastAPI):
         await notify_task
     except asyncio.CancelledError:
         pass
+    try:
+        await backup_task
+    except asyncio.CancelledError:
+        pass
     await close_db()
 
 
@@ -155,6 +168,12 @@ app.add_middleware(
 )
 
 app.add_middleware(TelemetryMiddleware)
+
+# Por ULTIMO, e portanto o mais externo: comprime a resposta final, depois de
+# todo mundo ter escrito nela. Compacta so JSON e text/plain — as duas rotas que
+# transmitem sao text/event-stream, e gzip num stream poe buffer entre o evento
+# acontecer e a tela mostra-lo.
+app.add_middleware(GzipJsonMiddleware)
 
 
 # ---------- health ----------
@@ -192,4 +211,6 @@ app.include_router(security_router)
 app.include_router(prune_router)
 app.include_router(metrics_prom_router)
 app.include_router(updates_router)
+app.include_router(drift_router)
+app.include_router(certs_router)
 app.include_router(notificacoes_router)

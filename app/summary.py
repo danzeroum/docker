@@ -199,7 +199,7 @@ def _stacks(containers: list, ingress_data):
     return valor
 
 
-def _ingress(ingress_data):
+def _ingress(ingress_data, certs_data=None):
     if not isinstance(ingress_data, dict):
         return None
     hosts = ingress_data.get("hosts") if isinstance(ingress_data.get("hosts"), dict) else {}
@@ -212,13 +212,13 @@ def _ingress(ingress_data):
     return {
         "hosts": totais.get("public", len(publicos)),
         "https_forced": forcados,
-        # NÃO existe fonte para validade de certificado: não há regra de
-        # expiração entre as 17 do motor, e o diretório do certbot não está
-        # montado no container (o compose monta só nginx e /opt/btv). Inventar
-        # dias aqui seria exatamente o que o doc 01 proíbe. Fica null até o B?
-        # que ler o cert de verdade.
-        "certs_expiring": None,
-        "cert_window_days": None,
+        # A decisão que a 2a deixou aberta, fechada nos DOIS ramos: com o
+        # diretório de certificados montado read-only, a chave ganha fonte; sem
+        # ele, continua `null` — e `null` aqui segue significando "não estou
+        # olhando", nunca "nenhum certificado está para vencer". A diferença
+        # entre as duas leituras é alguém ser acordado ou não.
+        "certs_expiring": (certs_data or {}).get("expiring") if isinstance(certs_data, dict) else None,
+        "cert_window_days": (certs_data or {}).get("window_days") if isinstance(certs_data, dict) else None,
     }
 
 
@@ -273,6 +273,29 @@ def _storage(storage_data):
     }
 
 
+def _drift(drift_data):
+    """`summary.drift`. Fecha o contrato de TRÊS estados que a régua construiu
+    sem nomear:
+
+    - `count: null` — sem fonte: o cálculo nunca rodou, e o chip se cala;
+    - `count: 0` — a fonte rodou e diz que está limpo. **Informação**, e o chip
+      mostra 0 em vez de sumir;
+    - `count: N` — a fonte acusa.
+
+    Desde a 2a o chip vivia no primeiro estado por falta de B8. Agora percorre
+    os três, e o `0` que aparece é uma afirmação, não uma ausência disfarçada.
+    """
+    if not isinstance(drift_data, dict):
+        return {"count": None}
+    return {
+        "count": drift_data.get("count"),
+        "projetos": len(drift_data.get("projects") or []),
+        "fora_de_projeto": len(drift_data.get("fora_de_projeto") or []),
+        "nao_avaliadas": sum(len(p.get("nao_avaliadas") or [])
+                             for p in drift_data.get("projects") or []),
+    }
+
+
 def _security(security_data):
     """Mapeia score_minimo → min_score.
 
@@ -310,11 +333,13 @@ async def montar(containers: list) -> dict:
     capacity_data, capacity_stale = _do_cache("capacity")
     storage_data, storage_stale = _do_cache("storage")
     security_data, security_stale = _do_cache("security")
+    drift_data, drift_stale = _do_cache("drift")
+    certs_data, certs_stale = _do_cache("certs")
 
     resultado = {
         "findings": registra("findings", await _seguro(_findings)),
         "stacks": _stacks(containers, ingress_data),
-        "ingress": _ingress(ingress_data),
+        "ingress": _ingress(ingress_data, certs_data),
         "capacity": _capacity(capacity_data),
         "audit": registra("audit", await _seguro(_audit)),
         "tasks": registra("tasks", await _seguro(_tasks)),
@@ -323,9 +348,7 @@ async def montar(containers: list) -> dict:
         "notifications": registra("notifications", await _seguro(_notifications)),
         "storage": _storage(storage_data),
         "security": _security(security_data),
-        # B8 pendente. A chave já sai no contrato para a régua não precisar
-        # mudar de forma quando o drift chegar.
-        "drift": {"count": None},
+        "drift": _drift(drift_data),
         "capabilities": {
             "actions_enabled": actions_enabled(),
             "terminal_enabled": _flag("ENABLE_TERMINAL"),
@@ -337,9 +360,17 @@ async def montar(containers: list) -> dict:
         ("capacity", capacity_stale),
         ("storage", storage_stale),
         ("security", security_stale),
+        ("drift", drift_stale),
     ):
         if quando or resultado.get(chave) is None:
             stale[chave] = quando or _agora()
+
+    # `certs` tem chave própria em stale_since porque não é um bloco do
+    # resultado: ele alimenta duas chaves DENTRO de `ingress`. Sem isto, um
+    # cockpit sem o diretório montado mostraria `certs_expiring: null` sem nada
+    # que distinguisse "não estou olhando" de "o ingress inteiro está velho".
+    if certs_stale or certs_data is None:
+        stale["certs"] = certs_stale or _agora()
 
     resultado["stale_since"] = stale
     resultado["generated_at"] = _agora()
@@ -373,6 +404,8 @@ async def aquecer():
     from routers.metrics import get_metrics_history
     from routers.security import get_security
     from routers.storage import get_storage
+    from drift import calcular as calcular_drift
+    from certs import calcular as calcular_certs
 
     async def projecao_disco():
         # A mesma janela que a tela Capacidade desenha: 30 d por dia.
@@ -383,6 +416,12 @@ async def aquecer():
         ("capacity", 300.0, projecao_disco),
         ("security", 30.0, get_security),
         ("storage", 30.0, get_storage),
+        # Sem esta linha o chip Drift só teria dado depois de alguém ABRIR o
+        # módulo — que é justamente o invariante 3 do doc 10 ao contrário.
+        ("drift", 60.0, calcular_drift),
+        # 1h: certificado tem validade em MESES, e reler o diretório a cada
+        # minuto gastaria I/O para produzir sempre o mesmo número.
+        ("certs", 3600.0, calcular_certs),
     ):
         try:
             await cached_or_fetch(chave, ttl=ttl, factory=fn, timeout=45.0)

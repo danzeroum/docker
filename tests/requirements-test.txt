@@ -7,3 +7,5 @@ pytest-asyncio==0.24.0
 respx==0.21.1          # mock de httpx (intercepta chamadas ao socket-proxy)
 psutil==6.1.0
 aiosqlite==0.22.1
+PyYAML==6.0.2          # B8: le os compose files para comparar declarado x runtime
+cryptography==43.0.3   # 5-certs: notAfter lido do X.509
