@@ -619,9 +619,10 @@ fora deste repositório.
 
 O script que conferiu a PR #31 antes do commit achou **duas afirmações falsas na
 primeira execução**: o `busca_router` do B5 não morava num
-<!-- docs-ref-ok: caminho que NUNCA existiu, citado como o exemplo do bug que criou este guarda -->
 `app/routers/logs_busca.py` — a busca é por host, não por container — e o screen
 map citava esse arquivo inexistente.
+
+`guard-docs-ok: app/routers/logs_busca.py — caminho que NUNCA existiu; é o exemplo do bug que criou este guarda`
 
 Um script que alguém lembra de rodar não é guarda. `tests/test_guarda_docs_registro.py`
 é a versão executável: varre os quatro docs de registro (00, 14, `github.md`,
@@ -644,10 +645,31 @@ porque estava certo sobre o processo de teste e errado sobre o mundo.
 citando rota que nunca existiu, entraria exatamente por aí. Precisa de marcador
 como qualquer outra linha.
 
-Allowlist por marcador com motivo, no padrão do `# schema-literal-ok:`:
+**O marcador é VISÍVEL na renderização.** Até a PR #31 ele era comentário HTML:
+funcionava para o guarda, que lê o fonte, e falhava para o leitor — que é quem o
+motivo existe para servir. O GitHub oculta comentário HTML tanto no `.md` do
+repositório quanto no corpo da PR, então a pessoa lia a citação de uma rota
+inexistente sem nada explicando por que ela está ali. Marcador que não aparece
+onde a citação aparece não cumpre a função.
 
-    <!-- docs-ref-ok: motivo -->                      (mesma linha ou a de cima)
-    <!-- docs-ref-ok-bloco: motivo --> … <!-- /docs-ref-ok-bloco -->
+A forma é uma linha própria, em código inline ou blockquote:
+
+    `guard-docs-ok: <alvo> — <motivo>`
+
+Comentário HTML na sintaxe antiga **não conta como allowlist** — é denunciado,
+com a forma nova na mensagem.
+
+Duas propriedades que o formato novo permite e o antigo não permitia:
+
+**O marcador nomeia o ALVO.** Isenta aquele alvo, e não a linha inteira: uma
+linha com duas citações, uma marcada, continua reportando a outra. O formato
+antigo isentava a linha e escondia a segunda.
+
+**Marcador órfão é falha.** Se o alvo nomeado não é citado em até 3 linhas de
+distância, o marcador está morto — sobrou de uma edição anterior. Allowlist que
+ninguém poda vira a lista de tudo o que o guarda não olha mais, e o erro aponta
+o marcador, não uma citação: o problema é a allowlist morta, e a citação que a
+justificava já não está lá.
 
 Marcador **sem** motivo não isenta nada. Nunca por arquivo inteiro.
 
@@ -657,11 +679,11 @@ foram escritos, e de alguns que nunca vão existir porque a ideia foi recusada.
 Varrê-los produziria dezenas de achados corretos e inúteis, e a lição da Sprint 3
 é que guarda barulhento é guarda desligado.
 
-Um marcador já está em uso, no doc 14: o
-<!-- docs-ref-ok: desenho recusado na 2a; a rota nunca existiu, e a citacao registra a recusa -->
-`/api/capabilities` que a Sprint 2a
-**recusou** — a flag foi para dentro do `summary` em vez de virar rota, e a
-citação existe para registrar a recusa.
+Dois marcadores estão em uso, ambos com motivo: o caminho desta seção, que nunca
+existiu e serve de exemplo do bug, e — no doc 14 — a rota `/api/capabilities`,
+desenho que a Sprint 2a **recusou** ao pôr a flag dentro do `summary`.
+
+`guard-docs-ok: /api/capabilities — desenho recusado na 2a; a rota nunca existiu, e a citação registra a recusa`
 
 ## O que o ciclo deixou como regra permanente
 
