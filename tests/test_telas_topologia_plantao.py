@@ -54,14 +54,25 @@ def test_nenhum_js_cita_fase_pendente():
     assert not achados, f"promessa de fase ainda na interface: {achados}"
 
 
-def test_router_nao_tem_mais_placeholder():
-    fonte = (JS / "main.js").read_text()
-    assert "renderPlaceholder" not in fonte, \
-        "o placeholder de fase saiu das duas telas; a funcao nao deve sobreviver sem uso"
-    for rota, render in (("#/topologia", "renderTopologia"), ("#/plantao", "renderPlantao")):
-        m = re.search(rf"case '{re.escape(rota)}':([^\n]*)", fonte)
-        assert m, f"{rota} saiu do router"
-        assert render in m.group(1), f"{rota} nao chama {render}: {m.group(1)!r}"
+def test_nenhum_placeholder_de_fase_sobrevive():
+    """A funcao de placeholder nao deve existir em lugar nenhum do frontend."""
+    for arquivo in sorted(JS.rglob("*.js")):
+        assert "renderPlaceholder" not in arquivo.read_text(), \
+            f"placeholder de fase ressuscitou em {arquivo.name}"
+
+
+def test_topologia_e_plantao_estao_registradas_e_chamam_o_render_real():
+    """Antes: `case '#/topologia':` no switch do main.js.
+
+    O switch saiu na Sprint 2a (um `case` por tela no nucleo contraria o doc 10
+    §4). As duas telas viraram modulos registrados — fora dos presets padrao,
+    por decisao de escopo, mas registradas: nada se perdeu no porte.
+    """
+    indice = (JS / "modulos" / "index.js").read_text()
+    for mid, render in (("topologia", "renderTopologia"), ("plantao", "renderPlantao")):
+        modulo = (JS / "modulos" / f"{mid}.js").read_text()
+        assert render in modulo, f"modulo {mid} nao chama {render}"
+        assert mid in indice, f"{mid} nao esta registrado no indice"
 
 
 def test_topologia_nao_inventa_rota_nova():

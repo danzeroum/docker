@@ -543,3 +543,180 @@
 [data-tema="cockpit"] { --focus-ring: #7dd3fc; }
 [data-tema="escritorio"] { --focus-ring: #2563eb; }
 [data-tema="claro"] { --focus-ring: #1d4ed8; }
+
+/* ===========================================================================
+   Kernel do Cockpit Vivo (Sprint 2a) — régua, grade, Personalizar, subtela.
+   Cor continua sendo sinal (estado); o cromo é cinza-azulado (doc 08). Nada
+   aqui introduz cor nova: a subtela usa elevação, não cor.
+   =========================================================================== */
+
+/* --- régua: chrome, fora da área rolável, nunca ocultável ---------------- */
+.regua{
+  display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;
+  padding:.5rem 1rem;border-bottom:1px solid var(--border);
+  background:var(--surface);position:sticky;top:0;z-index:5
+}
+.rg-vitais,.rg-chips{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap}
+.rg-chips{flex:1}
+.rg-vital,.rg-chip{
+  display:inline-flex;align-items:baseline;gap:.3rem;
+  padding:.2rem .45rem;border-radius:5px;border:1px solid var(--border);
+  background:var(--bg);font-size:.7rem;line-height:1
+}
+.rg-chip{cursor:pointer;font-family:inherit;color:var(--text)}
+.rg-chip:hover{border-color:var(--text-mute)}
+.rg-rot{color:var(--text-mute);font-size:.62rem;text-transform:uppercase;letter-spacing:.05em}
+.rg-val{font-family:'JetBrains Mono',monospace;font-weight:600}
+.rg-ok .rg-val{color:var(--ok)}
+.rg-warn .rg-val{color:var(--warn)}
+.rg-bad .rg-val{color:var(--bad)}
+.rg-neutro .rg-val{color:var(--text-mute)}
+/* Módulo oculto: o chip continua vivo e clicável — só se declara oculto. */
+.rg-chip.rg-oculto{border-style:dashed;opacity:.75}
+/* Dado velho se declara velho em vez de passar por atual. */
+.rg-chip.rg-velho .rg-val{color:var(--text-mute);font-style:italic}
+
+/* --- faixa crítica: do host inteiro, em qualquer escopo ------------------ */
+.faixa-critica{
+  display:flex;align-items:baseline;gap:.6rem;flex-wrap:wrap;
+  padding:.55rem 1rem;background:rgba(239,68,68,.1);
+  border-bottom:1px solid var(--bad)
+}
+.fc-sev{
+  font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--bad);border:1px solid var(--bad);border-radius:4px;padding:.1rem .3rem
+}
+.fc-titulo{font-size:.8rem;font-weight:600}
+.fc-corpo{font-size:.72rem;color:var(--text-dim)}
+.fc-desde{font-size:.65rem;color:var(--text-mute);font-family:'JetBrains Mono',monospace}
+
+/* --- grade de 12 colunas ------------------------------------------------- */
+.grade{
+  display:grid;grid-template-columns:repeat(12,1fr);gap:.7rem;
+  padding:.7rem 1rem;align-content:start
+}
+.mod{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--rc,8px);
+  display:flex;flex-direction:column;min-width:0;overflow:hidden
+}
+.mod-head{
+  display:flex;align-items:baseline;gap:.5rem;justify-content:space-between;
+  padding:.5rem .7rem;border-bottom:1px solid var(--border)
+}
+.mod-nome{
+  margin:0;font-size:.62rem;font-weight:700;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--text-mute)
+}
+.mod-sub{font-size:.62rem;color:var(--text-mute);font-family:'JetBrains Mono',monospace}
+.mod-corpo{padding:.6rem .7rem;min-width:0;overflow:auto;flex:1}
+@media (max-width:900px){ .grade{grid-template-columns:repeat(6,1fr)} }
+
+.mod-lista{display:flex;flex-direction:column}
+.mod-linha{
+  display:flex;align-items:center;gap:.5rem;width:100%;
+  padding:.32rem 0;border:0;border-bottom:1px solid var(--border);
+  background:none;color:inherit;font:inherit;text-align:left;cursor:pointer
+}
+/* `mod-linha` e SEMPRE <button>: linha que abre um escopo. Linha sem acao usa
+   `mod-item`, que e <div> por desenho — botao que nao faz nada e pior para o
+   teclado que um div honesto (invariante coberto por test_acessibilidade). */
+.mod-item{
+  display:flex;align-items:center;gap:.5rem;width:100%;
+  padding:.32rem 0;border-bottom:1px solid var(--border)
+}
+.mod-linha:hover{background:var(--bg)}
+.mod-nome-cel{flex:1;min-width:0;font-size:.72rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mod-meta{font-size:.65rem;color:var(--text-mute);font-family:'JetBrains Mono',monospace}
+.mod-tag{
+  width:64px;flex-shrink:0;font-size:.58rem;text-transform:uppercase;
+  letter-spacing:.06em;color:var(--text-mute)
+}
+.empty.ok{color:var(--ok)}
+
+.stg-total{font-family:'JetBrains Mono',monospace;font-size:1.3rem;font-weight:600;margin-bottom:.4rem}
+.stg-total span{font-family:inherit;font-size:.7rem;font-weight:400;color:var(--text-dim);margin-left:.3rem}
+
+.met-grade{display:flex;gap:1rem;flex-wrap:wrap}
+.met-grade div{display:flex;flex-direction:column}
+.met-grade span{font-size:.6rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-mute)}
+.met-grade strong{font-family:'JetBrains Mono',monospace;font-size:1rem}
+.met-serie{display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem}
+.met-serie>span{width:56px;font-size:.6rem;text-transform:uppercase;color:var(--text-mute)}
+.spark{display:flex;align-items:flex-end;gap:1px;height:34px;flex:1}
+.spark-b{background:var(--accent,#60a5fa);border-radius:1px 1px 0 0;min-height:2px}
+
+.logs-pre{
+  margin:0;font-family:'JetBrains Mono',monospace;font-size:.66rem;line-height:1.5;
+  white-space:pre-wrap;word-break:break-word;max-height:280px;overflow:auto
+}
+
+.cfg-linha{display:flex;justify-content:space-between;gap:.5rem;padding:.25rem 0;border-bottom:1px solid var(--border);font-size:.72rem}
+.cfg-linha strong{font-family:'JetBrains Mono',monospace;font-weight:600}
+.cfg-warn strong{color:var(--warn)}
+.cfg-bad strong{color:var(--bad)}
+.cfg-ok strong{color:var(--ok)}
+.cfg-viol{list-style:none;margin:.5rem 0 0;padding:0;display:flex;flex-direction:column;gap:.25rem}
+.cfg-viol li{font-size:.68rem;display:flex;gap:.4rem;align-items:baseline}
+.cfg-viol strong{font-family:'JetBrains Mono',monospace;font-size:.62rem}
+.cfg-viol li.cfg-critical strong{color:var(--bad)}
+.cfg-viol li.cfg-high strong{color:var(--warn)}
+.cfg-viol li.cfg-medium strong{color:var(--text-dim)}
+.cfg-viol span{color:var(--text-dim)}
+
+/* --- Personalizar -------------------------------------------------------- */
+.pz-abrir{
+  background:var(--surface);border:1px solid var(--border);border-radius:6px;
+  padding:.35rem .6rem;cursor:pointer;color:var(--text-dim);font-size:.7rem;font-family:inherit
+}
+.pz-abrir[aria-pressed="true"]{color:var(--text);border-color:var(--text-mute)}
+.pz{
+  border-bottom:1px solid var(--border);background:var(--surface);
+  padding:.6rem 1rem;max-height:44vh;overflow:auto
+}
+.pz-topo{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem}
+.pz-titulo{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text-mute)}
+.pz-fechar,.pz-olho,.pz-larg,.pz-mv,.pz-preset,.pz-restaurar{
+  background:var(--bg);border:1px solid var(--border);border-radius:5px;
+  color:var(--text-dim);font:inherit;font-size:.66rem;cursor:pointer;padding:.15rem .4rem
+}
+.pz-presets{display:flex;gap:.35rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.pz-preset.pz-ativo{color:var(--text);border-color:var(--text-mute);font-weight:600}
+.pz-perso{font-size:.62rem;color:var(--text-mute);font-style:italic}
+.pz-lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.15rem}
+.pz-linha{
+  display:flex;align-items:center;gap:.4rem;padding:.2rem .3rem;
+  border:1px dashed transparent;border-radius:5px
+}
+.pz-linha:hover{border-color:var(--border);background:var(--bg)}
+.pz-alca{color:var(--text-mute);cursor:grab;font-size:.7rem}
+.pz-nome{flex:1;min-width:0;font-size:.72rem}
+.pz-nota{font-size:.62rem;color:var(--text-mute);line-height:1.5;margin:.5rem 0}
+.pz-olho[aria-pressed="true"]{color:var(--ok)}
+:is(.pz-fechar,.pz-olho,.pz-larg,.pz-mv,.pz-preset,.pz-restaurar):focus-visible,
+.pz-abrir:focus-visible,.rg-chip:focus-visible,.mod-linha:focus-visible{
+  outline:2px solid var(--accent,#60a5fa);outline-offset:1px
+}
+
+/* --- subtela central ----------------------------------------------------- */
+.sub-overlay{position:relative;flex:1;min-height:0}
+.sub-fundo{position:absolute;inset:0;background:rgba(0,0,0,.45);z-index:20}
+.sub-painel{
+  position:absolute;inset:.6rem;z-index:21;display:flex;flex-direction:column;
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  box-shadow:0 18px 48px rgba(0,0,0,.35);overflow:hidden
+}
+.sub-topo{
+  display:flex;align-items:center;gap:.6rem;padding:.5rem .7rem;
+  border-bottom:1px solid var(--border)
+}
+.sub-voltar,.sub-fechar{
+  background:var(--bg);border:1px solid var(--border);border-radius:5px;
+  color:var(--text-dim);font:inherit;font-size:.66rem;cursor:pointer;padding:.2rem .45rem
+}
+.sub-ident{flex:1;display:flex;align-items:baseline;gap:.5rem;min-width:0}
+.sub-titulo{font-size:.82rem}
+.sub-chip{
+  font-size:.62rem;color:var(--text-mute);font-family:'JetBrains Mono',monospace;
+  border:1px solid var(--border);border-radius:4px;padding:.05rem .3rem
+}
+.sub-corpo{flex:1;min-height:0;overflow:auto}

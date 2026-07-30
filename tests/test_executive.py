@@ -302,7 +302,16 @@ def test_tela_nao_inventa_custo_zero():
     assert "cost_monthly !== null" in fonte, "cartao de custo sem guarda de ausencia"
 
 
-def test_placeholder_do_executivo_saiu_do_router():
-    fonte = (JS / "main.js").read_text()
-    assert "renderExecutivo(container)" in fonte
-    assert "renderPlaceholder(container, 'Executivo'" not in fonte
+def test_executivo_esta_registrado_e_chama_o_render_real():
+    """Antes: `case '#/executivo':` no switch do main.js.
+
+    Na Sprint 2a o switch morreu — era um `case` por tela no nucleo, o oposto da
+    regra "zero if no nucleo" do doc 10 §4. A intencao do teste nao muda: a tela
+    esta ligada ao render de verdade, nao a um placeholder de fase. O que muda e
+    onde isso se verifica — no modulo e no registro.
+    """
+    modulo = (JS / "modulos" / "executivo.js").read_text()
+    assert "renderExecutivo" in modulo, "modulo executivo nao chama o render real"
+    assert "renderPlaceholder" not in modulo
+    indice = (JS / "modulos" / "index.js").read_text()
+    assert "executivo" in indice, "executivo nao esta registrado"

@@ -27,6 +27,7 @@ from findings.engine import findings_loop
 from db import init_db, close_db
 from telemetry import TelemetryMiddleware, flush_telemetry_loop
 from events import events_loop
+from summary import aquecer_loop
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(APP_DIR, "static")
@@ -71,7 +72,12 @@ async def lifespan(app: FastAPI):
     findings_task = asyncio.create_task(findings_loop(findings_interval))
     events_task = asyncio.create_task(events_loop())
     telemetry_flush_task = asyncio.create_task(flush_telemetry_loop())
+    # Aquece os caches que a régua lê. Sem isto, o chip de um módulo oculto
+    # nunca teria dado — ninguém dispararia a busca — e o invariante 3 do doc 10
+    # ("módulo oculto não oculta o dado") viraria letra morta.
+    summary_warm_task = asyncio.create_task(aquecer_loop())
     yield
+    summary_warm_task.cancel()
     sampler_task.cancel()
     findings_task.cancel()
     events_task.cancel()
@@ -90,6 +96,10 @@ async def lifespan(app: FastAPI):
         pass
     try:
         await telemetry_flush_task
+    except asyncio.CancelledError:
+        pass
+    try:
+        await summary_warm_task
     except asyncio.CancelledError:
         pass
     await close_db()

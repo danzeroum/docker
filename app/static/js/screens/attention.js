@@ -146,7 +146,7 @@ export function renderAttention(container) {
           }
         }
         setState({ selectedFinding: card.dataset.id });
-        navigate('#/incidente');
+        navigate('#/atencao');
       });
     });
   }

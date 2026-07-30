@@ -219,7 +219,10 @@ def test_tela_tarefas_usa_button_de_verdade():
     assert re.search(r"<div[^>]*onclick", fonte, re.I) is None
 
 
-def test_placeholder_de_tarefas_saiu_do_router():
-    fonte = (JS / "main.js").read_text()
-    assert "renderTarefas(container)" in fonte
-    assert "renderPlaceholder(container, 'Tarefas'" not in fonte
+def test_tarefas_esta_registrada_e_chama_o_render_real():
+    """Mesma intencao de antes, alvo novo: o switch do main.js saiu na 2a."""
+    modulo = (JS / "modulos" / "tarefas.js").read_text()
+    assert "renderTarefas" in modulo, "modulo tarefas nao chama o render real"
+    assert "renderPlaceholder" not in modulo
+    indice = (JS / "modulos" / "index.js").read_text()
+    assert "tarefas" in indice, "tarefas nao esta registrada"

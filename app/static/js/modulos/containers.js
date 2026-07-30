@@ -1,0 +1,76 @@
+/* Módulo `containers` — read model por escopo (doc 10 §1).
+ *
+ * É o exemplo canônico de "1 registro × N escopos": no host lista os 15, no
+ * escopo stack lista só os da stack. Nenhum código duplicado entre os dois — a
+ * diferença é um filtro, não uma tela.
+ *
+ * Clicar numa linha abre a subtela do container (navegação de 3 níveis, doc 10
+ * §2: nunca mais de 2 cliques entre quaisquer dois níveis).
+ */
+
+import { escapeHtml } from '../fmt.js';
+import { chipDoSummary } from '../kernel/regua.js';
+
+function saude(c) {
+  // Mesma regra do campo Health explícito entregue no B4: sem healthcheck é
+  // ausência de medida, não saúde confirmada.
+  if (!c) return null;
+  if (c.health && c.health !== 'none') return c.health;
+  return null;
+}
+
+function linha(c, aoAbrir) {
+  const s = saude(c);
+  const estado = s === 'unhealthy' ? 'unhealthy' : (c.state || 'unknown');
+  const selo = (s === 'unhealthy' || s === 'starting')
+    ? `<span class="item-health ${s}">${s}</span>` : '';
+  return `<button type="button" class="mod-linha" data-abrir="${escapeHtml(c.name || '')}">
+    <span class="item-status ${escapeHtml(estado)}"></span>
+    <span class="mod-nome-cel">${escapeHtml(c.name || '')}${selo}</span>
+    <span class="mod-meta">${escapeHtml(c.stack || '')}</span>
+  </button>`;
+}
+
+export default {
+  id: 'containers',
+  nome: 'Containers',
+  escopos: ['host', 'stack'],
+  span: 6,
+
+  chip: (escopo, summary) => {
+    // Dois dados num chip só: quantos no ar e o pior score de segurança. O
+    // score entra aqui porque o doc 11 pede "score mínimo no chip".
+    const seg = summary && summary.security;
+    const base = chipDoSummary(summary, 'stacks', () => ({ rotulo: 'Containers', valor: '' }));
+    if (!summary) return null;
+    const c = summary.counters || null;
+    const pior = seg && seg.min_score != null ? ` · S${seg.min_score}` : '';
+    if (!c) {
+      return base && base.stale ? { rotulo: 'Containers', valor: '—', stale: true } : null;
+    }
+    return {
+      rotulo: 'Containers',
+      valor: `${c.running}/${c.total}${c.attention ? ` · ${c.attention}!` : ''}${pior}`,
+      titulo: 'no ar / total · precisando de atenção · pior score de segurança',
+    };
+  },
+
+  render: (escopo, dados, corpo) => {
+    const overview = (dados && dados.overview) || {};
+    let lista = overview.containers || [];
+    if (escopo.t === 'stack') lista = lista.filter((c) => c.stack === escopo.id);
+
+    if (!lista.length) {
+      corpo.innerHTML = '<div class="empty">Nenhum container neste escopo</div>';
+      return null;
+    }
+    const aoAbrir = dados && dados.abrirContainer;
+    corpo.innerHTML = `<div class="mod-lista">${lista.map(linha).join('')}</div>`;
+    if (typeof aoAbrir === 'function') {
+      corpo.querySelectorAll('[data-abrir]').forEach((b) => {
+        b.addEventListener('click', () => aoAbrir(b.dataset.abrir));
+      });
+    }
+    return null;
+  },
+};
