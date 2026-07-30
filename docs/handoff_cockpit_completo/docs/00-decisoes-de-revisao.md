@@ -356,3 +356,92 @@ de unidades da F0a.
   prune real.
 - `summary.events` via `peek`: o chip do módulo Eventos oculto nasce junto com a fonte.
 - Pós-2b, o roteiro do doc 12 executa contra dados reais, exceto a busca `oom` (B5, Sprint 3).
+
+
+## Decisões da Sprint 4
+
+· dev · 2026-07-30 · pendentes de validação do revisor
+
+**(a) `/metrics` autentica no app, e não só no ingress.** O bloco 4-B9 pedia "o
+mesmo basic auth do app". O app não tem basic auth — ela vive no nginx, e a
+dívida já estava registrada aqui. Mas `/metrics` é exatamente a rota que o
+scraper busca **direto** em `http://docker-cockpit:8000/metrics`, sem passar
+pelo ingress: herdar a proteção do nginx significaria não ter proteção nenhuma.
+A verificação passou a ser no app, contra `BASIC_AUTH_USER`/`BASIC_AUTH_PASS`,
+com `compare_digest` nos dois campos. Sem as env: **503, não 200** — instalação
+que esqueceu de configurar não publica o inventário de containers.
+
+**(b) Container parado sai com `estado=0`, a série não desaparece.** Série que
+some entre scrapes dispara `absent()` no alertmanager a cada `docker compose
+up`. O `0` é a afirmação "medi e está parado"; a ausência seria "não sei", e as
+duas acordam pessoas diferentes.
+
+Pelo mesmo raciocínio invertido: container **sem healthcheck** não ganha série
+de saúde. `0` ali afirmaria saúde onde não há medida.
+
+**(c) Labels só `name` e `image`.** Id de container como label incha o TSDB a
+cada recreate — séries novas que nunca mais recebem amostra ficam na memória até
+o retention. Há teste que varre a exposição e falha em qualquer chave fora
+dessas duas.
+
+**(d) Imagem desatualizada compara DIGEST, nunca nome de tag.** `nginx:1.25`
+local e remoto têm o mesmo nome sempre, inclusive depois de a tag ser
+republicada — que é o caso que a verificação existe para pegar. `latest` é o
+extremo: nome imutável, conteúdo semanal.
+
+**(e) `pendente` é um estado, e existe só para o 429.** Uma VPS com 20 imagens
+estoura o rate limit anônimo do Hub com facilidade. Marcar tudo como
+`desconhecido` na primeira negativa apagaria o resultado bom que já estava no
+banco; `pendente` preserva o digest remoto conhecido e tenta amanhã.
+
+**(f) Imagem construída localmente fica FORA da listagem**, e não dentro como
+`desconhecido`. Registry privado idem. O operador não tem o que fazer com essas
+linhas, e uma lista com 12 "desconhecido" esconde as 2 que importam.
+
+**(g) `summary.updates` e `summary.notifications` são `null` quando o job nunca
+rodou** — mesmo padrão de `certs_expiring`, agora aplicado três vezes. Zero
+afirma "nada desatualizado" / "nada digno de nota"; a verdade pode ser "o job
+não rodou" ou "nenhum canal está configurado". Sem summary, sem selo na tela.
+
+**(h) `die` com exit 0 NUNCA notifica** — a decisão da 2b agora tem uma segunda
+implementação e um segundo teste. `docker stop` emite `die` com exit 0, e um
+alerta a cada parada pedida por alguém treina o operador a ignorar o canal.
+Exit **vazio** também não notifica: é o daemon não tendo informado, e não dá
+para afirmar falha.
+
+**(i) Dedup de notificação é PERSISTIDO (v15), por `(regra, alvo)`.** Em
+memória ele sumiria no restart — e o restart é exatamente quando tudo reavalia
+junto: o stream reconecta, o sampler colhe a primeira amostra e o job de imagens
+roda. Por par e não por regra: dois containers em crash loop são dois
+incidentes.
+
+**(j) Falha total de entrega NÃO abre a janela de silêncio.** Se nenhum canal
+aceitou, o operador não recebeu nada; deduplicar ali trocaria o alerta por 30
+min de silêncio. A tentativa é gravada mesmo assim — canal quebrado e ausência
+de problema não podem ter a mesma aparência.
+
+**(k) Segredo jamais em log ou banco.** A URL do webhook do Discord **é** a
+credencial, e `str(exc)` do httpx a imprime. O motivo gravado é curto e sem URL
+(`rede: ConnectError`, `HTTP 500`). Há teste que passa a URL inteira por dentro
+de um erro e varre a linha gravada e o retorno da função atrás dela.
+
+**(l) Fila entre detecção e entrega, com teto.** A detecção roda dentro do
+`async for` do stream de eventos; um webhook lento ali seguraria a timeline
+inteira. Fila cheia **descarta** em vez de bloquear: um crash loop gera centenas
+de `die` por minuto, e travar o stream para entregar todos seria trocar a
+timeline por notificação.
+
+**(m) `brute_force` está reservada, não implementada.** O nome existe no motor e
+no dedup para a regra entrar no B11 sem migração de banco nem mudança de
+contrato na tela. Um teste conta as ocorrências e falha se alguém a ligar antes
+da hora.
+
+**Mensagem enviada:** host, alvo, regra, instante — e, quando existe, um detalhe
+curto escrito pelo próprio motor (um exit code, um percentual). Nunca payload
+bruto: inspect e log passam por env, cmdline e header, e um webhook de chat é o
+lugar menos controlado por onde esse conteúdo poderia sair. Há teste que lê a
+função pelo AST — só o código, sem a prosa que explica a regra.
+
+**Continua pendente:** o item (d) das decisões da 2b (rodar o roteiro do doc 12
+na VPS, com os 15 containers reais). É trabalho de quem opera a VPS, e o bloco
+`4-runbook` é dele.

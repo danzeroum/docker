@@ -7,6 +7,7 @@
 
 import { apiGet } from '../data.js';
 import { escapeHtml } from '../fmt.js';
+import { carregarUpdates, seloDeImagem } from '../updates.js';
 
 function linha(rotulo, valor, tom) {
   return `<div class="cfg-linha${tom ? ` cfg-${tom}` : ''}">
@@ -24,9 +25,10 @@ export default {
     corpo.innerHTML = '<div class="skeleton" style="height:120px"></div>';
 
     (async () => {
-      const [insp, seg] = await Promise.all([
+      const [insp, seg, upd] = await Promise.all([
         apiGet(`mod_cfg_${escopo.id}`, `/api/containers/${encodeURIComponent(escopo.id)}/json`),
         apiGet('mod_cfg_sec', '/api/security'),
+        carregarUpdates(),
       ]);
       if (!vivo) return;
       if (insp.error || !insp.data) {
@@ -40,7 +42,14 @@ export default {
       const saude = (st.Health && st.Health.Status) || null;
       const mem = Number(hc.Memory) || 0;
 
+      // O selo fica na linha da imagem, e não numa linha própria: é um atributo
+      // da imagem, não outro fato. Ausente quando o job nunca rodou.
+      const selo = seloDeImagem(upd, cfg.Image);
       let html = linha('Imagem', cfg.Image || '—')
+        + (selo
+          ? `<div class="cfg-linha cfg-warn"><span></span><strong class="selo-update"
+              title="${escapeHtml(selo.titulo)}">${escapeHtml(selo.texto)}</strong></div>`
+          : '')
         + linha('Usuário', cfg.User || '(vazio = root)', cfg.User ? '' : 'warn')
         + linha('Limite de memória', mem > 0 ? `${Math.round(mem / (1024 * 1024))} MB` : 'sem limite', mem > 0 ? '' : 'warn')
         + linha('Restart policy', (hc.RestartPolicy && hc.RestartPolicy.Name) || '—')

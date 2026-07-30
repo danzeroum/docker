@@ -120,6 +120,26 @@ async def _events():
     return await get_events_resumo(), None
 
 
+async def _updates():
+    """`summary.updates`. None quando o job nunca rodou — nao zero.
+
+    Zero afirmaria "nenhuma imagem desatualizada", que e conclusao; o job pode
+    simplesmente ainda nao ter rodado. Mesmo padrao de `certs_expiring`.
+    """
+    from db import get_updates_resumo
+    return await get_updates_resumo(), None
+
+
+async def _notifications():
+    """`summary.notifications`. None quando nada foi notificado ainda.
+
+    Zero afirmaria "nada digno de nota aconteceu"; a verdade pode ser "nenhum
+    canal esta configurado". Mesmo padrao de `certs_expiring` e `updates`.
+    """
+    from db import get_notificacoes_resumo
+    return await get_notificacoes_resumo(), None
+
+
 async def _audit():
     from db import get_audit_log
     ultimas = await get_audit_log(limit=1)
@@ -299,6 +319,8 @@ async def montar(containers: list) -> dict:
         "audit": registra("audit", await _seguro(_audit)),
         "tasks": registra("tasks", await _seguro(_tasks)),
         "events": registra("events", await _seguro(_events)),
+        "updates": registra("updates", await _seguro(_updates)),
+        "notifications": registra("notifications", await _seguro(_notifications)),
         "storage": _storage(storage_data),
         "security": _security(security_data),
         # B8 pendente. A chave já sai no contrato para a régua não precisar

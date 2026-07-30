@@ -397,3 +397,98 @@ container com histórico cheio.
 | Personalizar | ✅ |
 
 Falta o `buscar oom` para o roteiro executar inteiro. É o marco da Sprint 3.
+
+---
+
+# 17 · Sprint 4 — executada
+
+Ordem entregue: **B9 → B6 → B7**, como pedido — B9 é independente e pequeno, e
+o B7 consome o que o B6 produz.
+
+## B9 — `/metrics` no formato exposition
+
+Rota nova, `app/routers/metrics_prom.py`. Lê **só** o snapshot em memória
+(`get_container_stats`, `get_container_inspects`, `get_last_sample`): um teste
+afirma que o módulo não cita `proxy_get` nem `httpx`, porque com
+`scrape_interval` de 15s cada scrape viraria 4 chamadas ao daemon por minuto,
+por métrica.
+
+Séries: `cockpit_container_cpu_pct`, `_mem_bytes`, `_mem_limit_bytes`,
+`_estado`, `_unhealthy`, `cockpit_unhealthy_total`, `cockpit_containers_total`,
+`cockpit_host_cpu_pct`, `cockpit_host_mem_pct`.
+
+Três decisões com teste próprio, registradas no doc 00 (b, c): `estado=0` em vez
+de a série sumir; sem healthcheck, sem série de saúde; labels só `name` e
+`image`.
+
+Auth no app e não herdada do ingress — decisão (a) do doc 00. Sem env: 503. Sem
+credencial: 401 com `WWW-Authenticate` (é o 401 que faz o scraper mandar a
+credencial; um 403 deixaria a integração muda).
+
+Snapshot vazio no boot devolve 200 com `HELP`/`TYPE` válidos: o Prometheus faz o
+primeiro scrape antes de o coletor rodar, e um 500 ali marcaria o alvo como
+down.
+
+## B6 — imagem desatualizada (v14)
+
+`image_updates` (PK = `repo:tag` como aparece no `RepoTag`), job diário em
+`app/updates.py`, rota `GET /api/updates` que lê **só do banco** — uma consulta
+ao Hub por request estouraria o rate limit no primeiro polling da tela.
+
+Quatro estados, nenhum deles erro: `atualizada`, `desatualizada`,
+`desconhecido`, `pendente`. Decisões (d), (e) e (f) do doc 00.
+
+`consultado_em` é coluna e não derivado: quando a fonte é uma API externa com
+rate limit, a idade do dado **é** o dado. Um `desatualizada` de três dias atrás
+não é a mesma afirmação que um de agora — e é por isso que o selo na tela leva a
+hora.
+
+Cache de 24h por imagem, mais curto que o intervalo do job de propósito: um
+restart do cockpit não deve refazer as 20 consultas.
+
+**UI:** selo `imagem desatualizada · verificado hh:mm` na lista de containers e
+na subtela (linha da imagem). Só `desatualizada` ganha selo — um "em dia" em 20
+linhas é ruído que informa zero e empurra o único selo que importa para fora do
+campo de visão. O mapa vive em `app/static/js/updates.js`, compartilhado pelos
+dois módulos e fora do `/api/overview`: o job roda uma vez por dia e o overview
+é buscado a cada 15s.
+
+## B7 — motor de notificações (v15)
+
+Duas metades separadas por uma fila — decisão (l) do doc 00:
+
+    detecção ──put_nowait──> fila ──> despachante ──> Telegram/Discord/Slack
+
+Regras vivas: `container_die` (exit ≠ 0), `unhealthy`, `disk_high`,
+`imagem_desatualizada`. `brute_force` reservada para o B11 — decisão (m).
+
+Dedup persistido por `(regra, alvo)`, 30 min — decisão (i). Falha total não abre
+a janela — decisão (j). Segredo nunca em log nem no banco — decisão (k).
+
+**UI:** selo `notificado hh:mm · canal` no cartão do achado, juntando por
+`(rule, target)` — a mesma chave do dedup no servidor, de modo que
+`unhealthy` casa sozinho sem tabela de tradução no meio. Tentativa **registrada
+e não entregue** não vira selo: ela existe no banco justamente para registrar
+que o alerta não chegou.
+
+## Testes
+
+| Arquivo | Casos | O que cobre |
+|---|---|---|
+| `tests/test_metrics_prom.py` | 17 | auth, exposição, cardinalidade, degradação no boot |
+| `tests/test_updates_v14.py` | 27 | digest, 429, cache 24h, migração v13→v14 populada |
+| `tests/test_updates_ui.py` | 12 | selo da imagem, sob node, módulos ES reais |
+| `tests/test_notify_v15.py` | 32 | regras, dedup, segredo, fila, migração v14→v15 populada |
+| `tests/test_notificacoes_ui.py` | 9 | selo do achado, entrega parcial, sem entrega |
+
+Suíte: **799 passando**.
+
+## O que a Sprint 4 NÃO entregou
+
+- **B8 (drift)** — `summary.drift.count` continua `null`, e o chip continua se
+  calando. Sprint 5.
+- **B11 (hardening)** — a regra de brute-force está reservada no motor, sem
+  disparo. Sprint 5.
+- **`certs_expiring`** — a decisão de fonte segue aberta para a Sprint 5.
+- **Item (d) da 2b** — rodar o roteiro do doc 12 na VPS é trabalho de quem opera
+  a VPS (bloco `4-runbook`), não deste pacote.

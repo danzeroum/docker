@@ -1,6 +1,7 @@
 import { apiGet, apiPost, cancel } from '../data.js';
 import { escapeHtml } from '../fmt.js';
 import { showToast, showAckModal } from '../notifications.js';
+import { carregarNotificacoes, seloDeNotificacao } from '../notificacoes.js';
 import { navigate } from '../main.js';
 import { getState } from '../store.js';
 
@@ -20,6 +21,25 @@ function severityLabel(sev) {
   if (sev === 'high') return 'Alto';
   if (sev === 'medium') return 'M\u00e9dio';
   return 'Baixo';
+}
+
+/* "notificado hh:mm · canal" no cartao do achado.
+ *
+ * A pergunta do operador as 3 da manha nao e "o que aconteceu" — e "isso ja me
+ * acordou?". Sem o selo, achado ja notificado e achado que o canal engoliu tem
+ * a mesma aparencia. */
+function pintarNotificados(lista, estado) {
+  lista.querySelectorAll('[data-rule]').forEach((card) => {
+    const alvo = card.querySelector('[data-notificado]');
+    if (!alvo) return;
+    const selo = seloDeNotificacao(estado, card.dataset.rule, card.dataset.target);
+    // Sem notificacao o selo fica AUSENTE, e nao "nao notificado": o motor pode
+    // simplesmente nao ter canal configurado, e afirmar ausencia de aviso onde
+    // ha ausencia de motor seria inventar estado.
+    if (!selo) return;
+    alvo.textContent = selo.texto;
+    if (selo.titulo) alvo.title = selo.titulo;
+  });
 }
 
 export function renderAttention(container) {
@@ -75,7 +95,7 @@ export function renderAttention(container) {
       const isAgg = Array.isArray(f.targets);
       const targetLabel = isAgg ? `${f.targets.length} hosts` : escapeHtml(f.target || '');
       const targetsAttr = isAgg ? JSON.stringify(f.targets) : '';
-      return `<div class="atn-card" data-id="${escapeHtml(f.id)}" data-scope="${escapeHtml(f.scope || 'container')}" data-target="${escapeHtml(f.target || '')}" data-targets="${escapeHtml(targetsAttr)}" style="border-left:3px solid ${color}">
+      return `<div class="atn-card" data-id="${escapeHtml(f.id)}" data-rule="${escapeHtml(f.rule || '')}" data-scope="${escapeHtml(f.scope || 'container')}" data-target="${escapeHtml(f.target || '')}" data-targets="${escapeHtml(targetsAttr)}" style="border-left:3px solid ${color}">
       <button type="button" class="card-open" data-open="${escapeHtml(f.id)}"><span class="sr-only">Abrir achado</span></button>
         <div class="atn-head">
           <span class="atn-sev" style="background:${color};color:#fff">${severityLabel(f.severity)}</span>
@@ -83,6 +103,7 @@ export function renderAttention(container) {
           <span class="atn-target">${escapeHtml(targetLabel)}</span>
           ${durStr ? `<span class="atn-occs">${durStr}</span>` : ''}
           <span class="atn-ago">${ago}</span>
+          <span class="atn-notificado" data-notificado></span>
         </div>
         <div class="atn-title">${escapeHtml(title)}</div>
         ${interp ? `<div class="atn-interp">${escapeHtml(interp)}</div>` : ''}
@@ -93,6 +114,13 @@ export function renderAttention(container) {
         </div>
       </div>`;
     }).join('');
+
+    // O selo entra depois: vem de outra rota, e esperar por ele para desenhar
+    // a fila atrasaria os achados por causa de um dado auxiliar.
+    carregarNotificacoes().then((estado) => {
+      if (_disposed) return;
+      pintarNotificados(list, estado);
+    });
 
     list.querySelectorAll('.ack-btn').forEach(btn => {
       btn.addEventListener('click', async (e) => {

@@ -37,6 +37,7 @@ async def events_loop():
                             event = None
                         if event:
                             gravado = await _persistir(event)
+                            _avaliar_notificacao(gravado)
                             _broadcast({"type": "docker_event", "data": event, "row": gravado})
                             _invalidate_caches(event)
         except (httpx.ConnectError, httpx.RemoteProtocolError, httpx.ReadError, httpx.TimeoutException):
@@ -57,6 +58,24 @@ async def _persistir(event):
         return await insert_event(event)
     except Exception:
         return None
+
+
+def _avaliar_notificacao(linha):
+    """Enfileira o que a regra do B7 reconhecer. Síncrono e sem I/O de rede.
+
+    Roda aqui dentro do `async for` porque é aqui que o evento existe — mas só
+    enfileira. A entrega é do despachante: um webhook lento não pode segurar o
+    stream, senão a timeline inteira para para mandar uma mensagem de chat.
+    """
+    if not linha:
+        return
+    try:
+        from notify import avaliar_evento
+        avaliar_evento(linha)
+    except Exception:
+        # Notificação que falha não pode calar o stream, pela mesma razão que
+        # a persistência não pode.
+        pass
 
 
 def _invalidate_caches(event):
