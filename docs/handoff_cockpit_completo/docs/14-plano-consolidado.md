@@ -322,3 +322,78 @@ e a escolha é consciente:
 O que **não** é opção é deixar como está indefinidamente: chave permanentemente
 `null` no contrato é convite a alguém "consertar" preenchendo com estimativa, que
 é exatamente o dado inventado que o doc 01 proíbe.
+
+---
+
+# 16 · Sprint 2b — executada
+
+## B3 — timeline persistida (v11)
+
+`docker_events` com `id` AUTOINCREMENT, não PK temporal: o daemon emite
+die+stop+start de um restart no mesmo segundo, e uma chave por timestamp
+descartaria justamente a sequência que a timeline existe para mostrar.
+
+Persistência no consumer **único**, antes do broadcast. Persistir antes de
+transmitir porque o pior caso vira "evento no banco que ninguém viu ao vivo" —
+o inverso perderia o evento para sempre.
+
+Filtros no servidor: `_clients` guarda `(fila, filtro)` e o broadcast corta na
+origem. `invalidate` e `error` passam por qualquer filtro — são plano de
+controle, e sem eles a tela do cliente filtrado congela sem motivo aparente.
+
+Ruído do daemon (`exec_create`, `exec_start`, `attach`) fica fora do ring:
+chega às dezenas por minuto e expulsaria os `die` que o operador procura.
+
+**Um bug pego pelo próprio teste:** `die` com exit 0 é `docker stop` — parada
+limpa, pedida por alguém. O primeiro rascunho marcava como `warn`, o que
+encheria a timeline de alarme falso toda vez que o operador desliga um serviço.
+Alarme que sempre toca deixa de ser lido.
+
+## B10 — prune, barreira e auditoria-antes (v12)
+
+A barreira devolve **404, não 403**. Um 403 confirmaria que a rota está lá e que
+só falta credencial. Cobre as 7 rotas que tocam o daemon; **não** cobre `ack` de
+achado nem tarefas, que mutam o banco do próprio cockpit — barrá-las deixaria o
+quadro de achados somente-leitura sem ganho de segurança.
+
+A inversão do padrão para `0` e o pin `ENABLE_ACTIONS: "1"` no compose entraram
+no mesmo commit, como registrado no §15. Um teste lê o compose e falha se o pin
+sumir: é a bissecção do git em forma de asserção.
+
+`projects.py` entrou na auditoria-antes junto com `containers.py`. Não estava
+explícito no bloco, mas é ele que roda `docker compose up` com timeout de 60s —
+o candidato mais provável a travar, e portanto o que mais precisa da linha
+`running` órfã.
+
+Prune só remove imagens dangling. Volume órfão guarda DADO e container parado há
+8 dias pode ser religado na segunda; remover qualquer um dos dois precisa de um
+pedido próprio que este bloco não oferece. O filtro `dangling=true` vai também
+ao daemon — sem ele `/images/prune` remove toda imagem sem container usando,
+inclusive as taggeadas que uma stack parada vai precisar ao subir.
+
+## UI
+
+Prune: dry-run → **lista** → confirmar. A lista da confirmação é a mesma do
+dry-run; sem isso o padrão `dry_run=true` viraria só um clique a mais.
+
+Timeline: histórico primeiro (para não nascer vazia), stream depois, com o
+**mesmo filtro** nos dois. Coberto por teste que inspeciona as URLs pedidas em
+cada escopo.
+
+Métricas na subtela: toggle 24h/7d com cache da janela anterior — uma requisição
+por troca. Render numa passada só; escrever por ponto provocaria 500 reflows num
+container com histórico cheio.
+
+## Estado do roteiro do doc 12
+
+| Passo | Estado |
+|---|---|
+| Cenário API caindo → faixa crítica + achado | ✅ |
+| Subtela do container: métricas em serra | ✅ (sparklines de `/history`) |
+| Subtela: eventos die→start | ✅ (timeline filtrada por container) |
+| Subtela: buscar `oom` nos logs | ⏳ **B5, Sprint 3** |
+| Destravar → reiniciar → auditoria | ✅ |
+| Chip Drift na régua | ⏳ B8, Sprint 5 (chip se cala sem fonte) |
+| Personalizar | ✅ |
+
+Falta o `buscar oom` para o roteiro executar inteiro. É o marco da Sprint 3.

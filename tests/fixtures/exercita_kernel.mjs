@@ -18,12 +18,14 @@ function fazerNo(id) {
   const no = {
     id,
     _html: '',
+    _filhos: new Map(),
     hidden: false,
     style: {},
     dataset: {},
     get innerHTML() { return this._html; },
     set innerHTML(v) {
       this._html = String(v);
+      this._filhos = new Map();
       for (const m of this._html.matchAll(/id="([^"]+)"/g)) {
         if (!registro.has(m[1])) registro.set(m[1], fazerNo(m[1]));
       }
@@ -44,8 +46,20 @@ function fazerNo(id) {
       if (!m) return [];
       const attr = m[1];
       const achados = [];
-      for (const mm of this._html.matchAll(new RegExp(`data-${attr}="([^"]*)"`, 'g'))) {
-        achados.push({ dataset: { [attr]: mm[1], modulo: mm[1], id: mm[1] }, addEventListener() {} });
+      for (const mm of this._html.matchAll(new RegExp(`data-${attr}(?:="([^"]*)")?`, 'g'))) {
+        const valor = mm[1] === undefined ? '' : mm[1];
+        // Nó PERSISTENTE por (pai, atributo, valor): um módulo que escreve em
+        // `querySelector('[data-serie]').innerHTML` precisa que esse nó
+        // sobreviva à chamada, senão o teste mede um objeto descartável e
+        // conclui que o render nao pintou nada.
+        const chave = `${attr}=${valor}`;
+        if (!this._filhos.has(chave)) {
+          const filho = fazerNo(`${this.id}::${chave}`);
+          filho.dataset = { [attr]: valor, modulo: valor, id: valor, acao: valor, range: valor };
+          filho.disabled = false;
+          this._filhos.set(chave, filho);
+        }
+        achados.push(this._filhos.get(chave));
       }
       if (!achados.length && sel.startsWith('.')) {
         const cls = sel.slice(1);
@@ -144,7 +158,57 @@ function servir(mapa) {
   };
 }
 
-servir({ '/api/overview': OVERVIEW, '/api/findings': FINDINGS, '/api': {} });
+const STORAGE = {
+  images: { count: 3, size_bytes: 6 * GB, dangling_count: 2 },
+  containers: { count: 2, size_bytes: 200 },
+  volumes: { count: 1, size_bytes: 2 * GB, orphan_count: 1 },
+  build_cache: { count: 0, size_bytes: 0, reclaimable_bytes: 0 },
+  reclaimable_bytes: 9.8 * GB,
+  orphans: [
+    { type: 'image', id: 'sha256:aaa', name: '<none>:<none>', size_bytes: 3 * GB, reason: 'dangling' },
+    { type: 'volume', id: 'sobra_v', name: 'sobra_v', size_bytes: 2 * GB, reason: 'ninguem referencia' },
+  ],
+  orphan_exited_days: 7,
+};
+
+const DRY_RUN = {
+  dry_run: true,
+  candidates: [
+    { type: 'image', id: 'sha256:aaa', name: '<none>:<none>', size_bytes: 3 * GB, reason: 'dangling' },
+  ],
+  count: 1,
+  reclaimable_bytes: 3 * GB,
+  removed_bytes: 0,
+};
+
+const EVENTOS = {
+  events: [
+    { id: 3, ts: new Date(Date.now() - 30000).toISOString(), action: 'die', actor_name: 'criptotrade-app',
+      stack: 'criptotrade', exit_code: '137', severity: 'critical' },
+    { id: 2, ts: new Date(Date.now() - 60000).toISOString(), action: 'start', actor_name: 'api',
+      stack: 'web', exit_code: '', severity: 'info' },
+  ],
+  count: 2, next_before_id: null, filters: {},
+};
+
+const HISTORY = {
+  container_id: 'front', resolution: 'raw', range_hours: 24,
+  points: Array.from({ length: 12 }, (_, i) => ({ ts: `2026-07-30T${String(i).padStart(2, '0')}:00:00Z`, cpu_pct: i * 2, mem_bytes: 1000 + i })),
+  point_count: 12, downsampled_from: null, retention: { raw_hours: 24, rollup_days: 30 },
+};
+
+const ROTAS_2B = {
+  '/api/overview': OVERVIEW,
+  '/api/findings': FINDINGS,
+  '/api/storage': STORAGE,
+  '/api/events': EVENTOS,
+  '/api/containers/front/history': HISTORY,
+  '/api/containers': { Id: 'front', Name: '/front', State: { Status: 'running' }, Config: {}, HostConfig: {}, Mounts: [] },
+  '/api/security': { containers: [], summary: {} },
+  '/api': {},
+};
+
+servir(ROTAS_2B);
 
 /* --- executa ------------------------------------------------------------- */
 const reg = await import(new URL('../../app/static/js/kernel/registry.js', import.meta.url));
@@ -270,4 +334,59 @@ saida.ids_em_presets = [...idsEmPresets].sort();
 /* O kernel deixa um setInterval de polling e um EventSource vivos por desenho —
  * é o loop compartilhado do doc 10 §3. Num harness isso significa que o node
  * nunca sai, então o encerramento é explícito depois de a saída ser escrita. */
+/* --- 2b-UI: corpos reais dos módulos ------------------------------------ */
+lay.restaurar('host');
+const mods2b = {
+  armazenamento: await import(new URL('../../app/static/js/modulos/armazenamento.js', import.meta.url)),
+  eventos: await import(new URL('../../app/static/js/modulos/eventos.js', import.meta.url)),
+  metricas: await import(new URL('../../app/static/js/modulos/metricas.js', import.meta.url)),
+};
+
+async function corpoDe(mod, escopo, dadosExtra) {
+  const alvo = fazerNo('corpo-teste');
+  registro.set('corpo-teste', alvo);
+  const dispose = mod.default.render(escopo, { overview: OVERVIEW, findings: FINDINGS, ...dadosExtra }, alvo);
+  for (let i = 0; i < 40; i++) await Promise.resolve();
+  await new Promise((r) => setTimeout(r, 0));
+  // O HTML "visivel" inclui o que os filhos pintaram: modulos escrevem em
+  // sub-nos (`[data-serie]`, `[data-pre]`) depois do primeiro render.
+  let html = alvo.innerHTML;
+  for (const [, filho] of alvo._filhos) html += filho.innerHTML;
+  if (typeof dispose === 'function') dispose();
+  return html;
+}
+
+// sem unlock: a flag está ligada mas a sessão não
+globalThis.sessionStorage.removeItem('cockpit-unlock');
+saida.armazenamento_sem_unlock = await corpoDe(mods2b.armazenamento, esc.host());
+
+// com unlock e flag ligada: o botão existe
+globalThis.sessionStorage.setItem('cockpit-unlock', JSON.stringify({
+  token: 'tok', expiresAt: new Date(Date.now() + 600000).toISOString(),
+}));
+saida.armazenamento_com_unlock = await corpoDe(mods2b.armazenamento, esc.host());
+
+// flag desligada, mesmo com unlock: o botão NÃO existe no DOM
+const SEM_FLAG = { ...OVERVIEW, summary: { ...SUMMARY, capabilities: { actions_enabled: false, terminal_enabled: false } } };
+saida.armazenamento_sem_flag = await corpoDe(mods2b.armazenamento, esc.host(), { overview: SEM_FLAG });
+
+// timeline nos 3 escopos, e a URL que cada um pede
+const pedidos = [];
+const fetchOriginal = globalThis.fetch;
+globalThis.fetch = async (url) => { pedidos.push(url); return fetchOriginal(url); };
+saida.eventos_host = await corpoDe(mods2b.eventos, esc.host());
+saida.eventos_stack = await corpoDe(mods2b.eventos, esc.stack('web'));
+saida.eventos_container = await corpoDe(mods2b.eventos, esc.container('criptotrade-app'));
+saida.urls_eventos = pedidos.filter((u) => String(u).includes('/api/events'));
+globalThis.fetch = fetchOriginal;
+
+saida.metricas_container = await corpoDe(mods2b.metricas, esc.container('front'));
+
+// storage fora do ar degrada o cartão, não a tela
+servir({ ...ROTAS_2B, '/api/storage': null });
+saida.armazenamento_caido = await corpoDe(mods2b.armazenamento, esc.host());
+servir({ ...ROTAS_2B, '/api/events': null });
+saida.eventos_caido = await corpoDe(mods2b.eventos, esc.host());
+servir(ROTAS_2B);
+
 process.stdout.write(JSON.stringify(saida), () => process.exit(0));

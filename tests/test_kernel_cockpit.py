@@ -216,3 +216,56 @@ def test_sem_actions_enabled_nenhum_botao_de_acao_no_dom(k):
     assert "display:none" not in dom.replace("display:none;flex", ""), (
         "há algo escondido por CSS onde o contrato pede ausência"
     )
+
+
+# --- 2b-UI: corpos reais dos módulos --------------------------------------
+
+def test_prune_so_existe_no_dom_com_flag_e_unlock(k):
+    """Fail-closed visual em duas condições, não uma.
+
+    Ausente, não `display:none`: esconder por CSS deixa a ação alcançável por
+    quem inspeciona o DOM, e o contrato do doc 11 é que ela não exista.
+    """
+    assert 'data-acao="dry_run"' in k["armazenamento_com_unlock"], "botão sumiu com tudo ligado"
+    assert 'data-acao="dry_run"' not in k["armazenamento_sem_unlock"], "botão apareceu sem sessão destravada"
+    assert 'data-acao="dry_run"' not in k["armazenamento_sem_flag"], "botão apareceu com a flag desligada"
+    # e não é CSS escondendo
+    assert "display:none" not in k["armazenamento_sem_flag"]
+
+
+def test_armazenamento_mostra_o_recuperavel_e_o_criterio(k):
+    html = k["armazenamento_com_unlock"]
+    assert "9.8 GB" in html
+    assert "7 dias parado" in html, "o operador precisa saber o critério, não adivinhar"
+    assert "fora do total" in html, "build cache fora do número precisa estar dito"
+
+
+def test_storage_caido_degrada_o_cartao_e_nao_a_tela(k):
+    html = k["armazenamento_caido"]
+    assert "empty" in html
+    assert "stg-total" not in html, "mostrou total com a fonte fora do ar"
+
+
+def test_timeline_pede_o_filtro_ao_servidor_em_cada_escopo(k):
+    """Zero filtragem no cliente: a URL carrega o escopo."""
+    urls = k["urls_eventos"]
+    assert any(u.endswith("limit=40") for u in urls), "escopo host pediu filtro que não existe"
+    assert any("stack=web" in u for u in urls), "escopo stack não filtrou no servidor"
+    assert any("container=criptotrade-app" in u for u in urls), "escopo container não filtrou no servidor"
+
+
+def test_timeline_pinta_evento_com_severidade(k):
+    html = k["eventos_host"]
+    assert "die" in html
+    assert "ev-critical" in html, "severidade não chegou à tela"
+    assert "exit 137" in html, "o exit code é o que responde 'por que caiu'"
+
+
+def test_eventos_caido_degrada_o_cartao(k):
+    assert "empty" in k["eventos_caido"]
+
+
+def test_subtela_tem_toggle_de_janela_nas_metricas(k):
+    html = k["metricas_container"]
+    assert 'data-range="24h"' in html and 'data-range="7d"' in html
+    assert "met-serie" in html, "sparkline não desenhou"
