@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="crossorigin" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  html,body{margin:0;padding:0;background:#eef0f4;-webkit-font-smoothing:antialiased}
+  *{box-sizing:border-box}
+  a{color:#2563eb;text-decoration:none}
+  a:hover{color:#1d4ed8}
+  ::selection{background:rgba(37,99,235,.18)}
+  ::-webkit-scrollbar{width:7px;height:7px}
+  ::-webkit-scrollbar-thumb{background:#d3d9e2;border-radius:5px}
+  ::-webkit-scrollbar-track{background:transparent}
+</style>
+</helmet>
+
+<div data-screen-label="Visão geral — proposta tema claro modular" style="width:1440px;height:900px;display:flex;background:#f6f7f9;color:#0f172a;font-family:Inter,system-ui,sans-serif;overflow:hidden;position:relative">
+
+  <aside style="width:196px;flex-shrink:0;background:#ffffff;border-right:1px solid #e7eaf0;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;gap:9px;padding:15px 14px 13px">
+      <div style="width:26px;height:26px;border-radius:7px;background:#2563eb;display:grid;place-items:center;flex-shrink:0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
+      </div>
+      <div style="min-width:0">
+        <div style="font-weight:800;font-size:13px;letter-spacing:-.02em">Cockpit Docker</div>
+        <div style="font-size:8.5px;color:#94a3b8;letter-spacing:.15em;text-transform:uppercase;margin-top:1px">proposta · tema claro</div>
+      </div>
+    </div>
+
+    <div style="flex:1;min-height:0;overflow-y:auto;padding:6px 8px 10px">
+      <div style="font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:#94a3b8;font-weight:700;margin:4px 0 7px 8px">Navegação</div>
+      <div style="display:flex;flex-direction:column;gap:1px">
+        <sc-for list="{{ navItens }}" as="n" hint-placeholder-count="12">
+          <div style="{{ n.estilo }}" title="{{ n.dica }}">
+            <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ n.label }}</span>
+            <span style="{{ n.badgeEstilo }}">{{ n.badge }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="padding:12px 14px;border-top:1px solid #eef1f5">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;flex-shrink:0;color:{{ travaCor }}"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="{{ travaPath }}"></path></svg>
+        <span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:{{ travaCor }}">{{ travaTitulo }}</span>
+      </div>
+      <div style="font-size:10.5px;line-height:1.45;color:#64748b;margin-bottom:8px">{{ travaTexto }}</div>
+      <div onClick="{{ onTrava }}" style="{{ travaBtnEstilo }}">{{ travaBtn }}</div>
+    </div>
+  </aside>
+
+  <main style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <header style="height:56px;flex-shrink:0;border-bottom:1px solid #e7eaf0;background:#ffffff;display:flex;align-items:center;gap:14px;padding:0 16px">
+      <div style="min-width:0;flex:1">
+        <div style="font-size:15px;font-weight:700;letter-spacing:-.015em;line-height:1.15">Visão geral</div>
+        <div style="font-size:10.5px;color:#94a3b8;font-family:'JetBrains Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px">srv1351082 · 15 containers · 12 stacks · 13 domínios · leitura a cada 5s</div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:#94a3b8;font-weight:700">Demo</span>
+        <div style="display:flex;background:#f1f3f7;border:1px solid #e7eaf0;border-radius:7px;padding:2px;gap:2px">
+          <sc-for list="{{ cenarioBtns }}" as="c" hint-placeholder-count="3">
+            <div onClick="{{ c.onClick }}" style="{{ c.estilo }}">{{ c.label }}</div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:#94a3b8;font-weight:700">Profundidade</span>
+        <div style="display:flex;background:#f1f3f7;border:1px solid #e7eaf0;border-radius:7px;padding:2px;gap:2px">
+          <sc-for list="{{ depthBtns }}" as="d" hint-placeholder-count="3">
+            <div onClick="{{ d.onClick }}" style="{{ d.estilo }}" title="{{ d.dica }}">{{ d.label }}</div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="width:1px;height:22px;background:#e7eaf0"></div>
+
+      <div onClick="{{ onPersonalizar }}" style="{{ personalizarEstilo }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:13px;height:13px"><line x1="4" y1="7" x2="20" y2="7"></line><circle cx="9" cy="7" r="2.4" fill="currentColor" stroke="none"></circle><line x1="4" y1="15" x2="20" y2="15"></line><circle cx="15" cy="15" r="2.4" fill="currentColor" stroke="none"></circle></svg>
+        Personalizar
+      </div>
+    </header>
+
+    <div style="{{ faixaEstilo }}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#b91c1c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+      <span style="font-size:12.5px;font-weight:700;color:#b91c1c">{{ faixaTitulo }}</span>
+      <span style="font-size:11px;color:#dc2626;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ faixaCorpo }}</span>
+      <span style="font-size:10px;color:#b91c1c;font-family:'JetBrains Mono',monospace;flex-shrink:0">{{ faixaDesde }}</span>
+    </div>
+
+    <div style="flex-shrink:0;display:flex;align-items:center;gap:5px;padding:8px 16px;background:#fbfcfd;border-bottom:1px solid #e7eaf0;flex-wrap:wrap">
+      <sc-for list="{{ chips }}" as="ch" hint-placeholder-count="10">
+        <div onClick="{{ ch.onClick }}" style="{{ ch.estilo }}" title="{{ ch.dica }}">
+          <span style="font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;font-weight:700;white-space:nowrap">{{ ch.rot }}</span>
+          <span style="{{ ch.valEstilo }}">{{ ch.val }}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="flex:1;min-height:0;overflow-y:auto;padding:14px 16px;display:grid;grid-template-columns:repeat(12,1fr);gap:12px;align-content:start">
+
+      <div style="{{ mAtencao.estilo }}">
+        <div style="display:flex;align-items:baseline;gap:8px">
+          <span style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#64748b;font-weight:700">Atenção agora</span>
+          <span style="font-size:10.5px;color:#94a3b8;font-family:'JetBrains Mono',monospace">{{ atencaoContagem }}</span>
+          <span style="flex:1"></span>
+          <span style="font-size:10px;color:#2563eb;font-weight:600;cursor:pointer">ver fila completa</span>
+        </div>
+        <div style="display:flex;flex-direction:column">
+          <sc-for list="{{ filaItens }}" as="f" hint-placeholder-count="3">
+            <div style="{{ f.estilo }}">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="{{ f.sevEstilo }}">{{ f.sev }}</span>
+                <span style="flex:1;min-width:0;font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ f.titulo }}</span>
+                <span style="font-size:10px;color:#94a3b8;font-family:'JetBrains Mono',monospace;flex-shrink:0">{{ f.quando }}</span>
+              </div>
+              <div style="{{ f.corpoEstilo }}">{{ f.corpo }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="{{ mContainers.estilo }}">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#64748b;font-weight:700">Containers</span>
+          <span style="font-size:10.5px;color:#94a3b8;font-family:'JetBrains Mono',monospace">{{ containersContagem }}</span>
+          <span style="flex:1"></span>
+          <div style="display:flex;background:#f1f3f7;border:1px solid #e7eaf0;border-radius:6px;padding:2px;gap:2px">
+            <sc-for list="{{ modoBtns }}" as="m" hint-placeholder-count="2">
+              <div onClick="{{ m.onClick }}" style="{{ m.estilo }}">{{ m.label }}</div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="{{ listaEstilo }}">
+          <sc-for list="{{ cRows }}" as="c" hint-placeholder-count="15">
+            <div style="{{ c.estilo }}">
+              <div style="display:grid;grid-template-columns:8px minmax(0,1.45fr) 92px 118px 66px 86px;gap:10px;align-items:center">
+                <span style="{{ c.dot }}"></span>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{{ c.nome }}">{{ c.nome }}</span>
+                <span style="display:flex;align-items:center;gap:6px"><span style="width:34px;height:3px;background:#eef1f5;border-radius:2px;overflow:hidden;display:inline-block"><span style="{{ c.cpuBar }}"></span></span><span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#475569">{{ c.cpu }}</span></span>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#475569;white-space:nowrap">{{ c.mem }}</span>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#94a3b8;white-space:nowrap">{{ c.up }}</span>
+                <span style="{{ c.expEstilo }}">{{ c.exp }}</span>
+              </div>
+              <div style="{{ c.linha2Estilo }}">{{ c.linha2 }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="{{ cartoesEstilo }}">
+          <sc-for list="{{ cCards }}" as="c" hint-placeholder-count="15">
+            <div style="border:1px solid #edf0f4;border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;min-width:0">
+              <div style="display:flex;align-items:center;gap:7px"><span style="{{ c.dot }}"></span><span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0">{{ c.nome }}</span><span style="{{ c.expEstilo }}">{{ c.exp }}</span></div>
+              <div style="font-size:10.5px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.linha2 }}</div>
+              <div style="display:flex;gap:8px;font-family:'JetBrains Mono',monospace;font-size:10px;color:#94a3b8;min-width:0"><span style="white-space:nowrap;flex-shrink:0">{{ c.cpu }}</span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">{{ c.mem }}</span><span style="flex:1"></span><span style="white-space:nowrap;flex-shrink:0">{{ c.up }}</span></div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="{{ mStacks.estilo }}">
+        <div style="display:flex;align-items:baseline;gap:8px">
+          <span style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#64748b;font-weight:700">Stacks</span>
+          <span style="font-size:10.5px;color:#94a3b8;font-family:'JetBrains Mono',monospace">15 projetos · 12 no ar</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 14px">
+          <sc-for list="{{ stacksRows }}" as="s" hint-placeholder-count="12">
+            <div style="display:flex;align-items:center;gap:7px;padding:3.5px 0;min-width:0">
+              <span style="{{ s.dot }}"></span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0;color:{{ s.cor }}">{{ s.nome }}</span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#94a3b8">{{ s.frac }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="font-size:10.5px;color:#b45309;background:rgba(217,119,6,.07);border-radius:6px;padding:6px 9px">3 stacks paradas com domínio ainda apontado — plataforma, mixlirous, btv-demo.</div>
+      </div>
+
+      <div style="{{ mIngress.estilo }}">
+        <div style="display:flex;align-items:baseline;gap:8px">
+          <span style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#64748b;font-weight:700">Ingress &amp; TLS</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 14px">
+          <sc-for list="{{ ingressStats }}" as="i" hint-placeholder-count="4">
+            <div style="min-width:0">
+              <div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#94a3b8;font-weight:700">{{ i.rot }}</div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;margin-top:2px;color:{{ i.cor }}">{{ i.val }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="font-size:10.5px;color:#64748b;line-height:1.5">no_http2 e no_gzip são <b>1 achado com N alvos</b> — a fila não afoga com 13 linhas do mesmo conserto.</div>
+      </div>
+
+      <div style="{{ mCapacidade.estilo }}">
+        <div style="display:flex;align-items:baseline;gap:8px">
+          <span style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#64748b;font-weight:700">Capacidade</span>
+          <span style="font-size:10.5px;color:#94a3b8;font-family:'JetBrains Mono',monospace">disco · 30d</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:600;color:{{ discoCor }}">{{ discoPct }}</span>
+          <div style="flex:1;height:5px;background:#eef1f5;border-radius:3px;overflow:hidden"><div style="{{ discoBarra }}"></div></div>
+        </div>
+        <svg viewBox="0 0 100 26" preserveAspectRatio="none" style="width:100%;height:26px;display:block"><polyline points="{{ sparkPontos }}" fill="none" stroke="#2563eb" stroke-width="1.6" vector-effect="non-scaling-stroke"></polyline></svg>
+        <div style="font-size:10.5px;color:#64748b;line-height:1.5">{{ discoProjecao }}</div>
+      </div>
+
+      <div style="{{ mAuditoria.estilo }}">
+        <div style="display:flex;align-items:baseline;gap:8px">
+          <span style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#64748b;font-weight:700">Auditoria</span>
+          <span style="font-size:10.5px;color:#94a3b8;font-family:'JetBrains Mono',monospace">últimas ações</span>
+        </div>
+        <div style="display:flex;flex-direction:column">
+          <sc-for list="{{ auditRows }}" as="a" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:9px;padding:5px 0;border-top:1px solid #f3f5f8">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#94a3b8;width:72px;flex-shrink:0">{{ a.h }}</span>
+              <span style="font-size:10px;font-weight:700;color:#475569;background:#f1f3f7;border-radius:4px;padding:1px 6px;flex-shrink:0">{{ a.quem }}</span>
+              <span style="font-size:11.5px;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ a.acao }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="{{ mTarefas.estilo }}">
+        <div style="display:flex;align-items:baseline;gap:8px">
+          <span style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#64748b;font-weight:700">Tarefas</span>
+          <span style="font-size:10.5px;color:#94a3b8;font-family:'JetBrains Mono',monospace">geradas dos achados</span>
+        </div>
+        <div style="display:flex;gap:16px">
+          <sc-for list="{{ tarefaCols }}" as="t" hint-placeholder-count="4">
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="{{ t.dot }}"></span>
+              <span style="font-size:11px;color:#475569">{{ t.nome }}</span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600">{{ t.n }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="font-size:11px;color:#64748b;line-height:1.5"><b style="color:#334155">Próxima:</b> trocar proxy_pass por 301 nos blocos :80 — executagent e familia-web · esta semana.</div>
+      </div>
+
+    </div>
+  </main>
+
+  <div style="{{ painelEstilo }}">
+    <div style="display:flex;align-items:center;gap:8px;padding:13px 15px;border-bottom:1px solid #eef1f5">
+      <span style="font-size:12px;font-weight:700;flex:1">Módulos da visão geral</span>
+      <span onClick="{{ onRestaurar }}" style="font-size:10.5px;color:#2563eb;font-weight:600;cursor:pointer">restaurar padrão</span>
+    </div>
+    <div style="display:flex;flex-direction:column;padding:6px 8px">
+      <sc-for list="{{ painelModulos }}" as="p" hint-placeholder-count="7">
+        <div style="{{ p.estilo }}">
+          <span onClick="{{ p.onOlho }}" title="{{ p.olhoDica }}" style="{{ p.olhoEstilo }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+          </span>
+          <span style="flex:1;font-size:12px;font-weight:600;color:{{ p.cor }}">{{ p.nome }}</span>
+          <span onClick="{{ p.onCheio }}" title="alternar largura" style="{{ p.cheioEstilo }}">{{ p.cheioLabel }}</span>
+          <span onClick="{{ p.onUp }}" style="{{ p.setaEstilo }}">↑</span>
+          <span onClick="{{ p.onDown }}" style="{{ p.setaEstilo }}">↓</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="padding:11px 15px;border-top:1px solid #eef1f5;font-size:10.5px;color:#64748b;line-height:1.55">Ordem, largura e visibilidade ficam salvas neste navegador. O que estiver oculto <b>continua na régua de status</b> — clique no chip para trazer de volta.</div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 1440, &quot;height&quot;: 900}, &quot;cenario&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;normal&quot;, &quot;incidente&quot;, &quot;disco&quot;], &quot;default&quot;: &quot;incidente&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Demonstração&quot;}, &quot;densidade&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;confortavel&quot;, &quot;compacta&quot;], &quot;default&quot;: &quot;confortavel&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Interface&quot;}}">
+class Component extends DCLogic {
+  LS = 'cockpitClaroModularV1';
+  state = { cenario: null, depth: 'informacao', modo: 'lista', personalizar: false, destravado: false, ordem: null, ocultos: [], cheios: [] };
+  padrao = ['atencao', 'containers', 'stacks', 'ingress', 'capacidade', 'auditoria', 'tarefas'];
+  nomes = { atencao: 'Atenção agora', containers: 'Containers', stacks: 'Stacks', ingress: 'Ingress & TLS', capacidade: 'Capacidade', auditoria: 'Auditoria', tarefas: 'Tarefas' };
+  spans = { atencao: 5, containers: 7, stacks: 4, ingress: 4, capacidade: 4, auditoria: 6, tarefas: 6 };
+
+  base = [
+    { id: 'btv-nginx-prod', stack: 'global-ingress', img: 'nginx (build ./nginx)', st: 'running', hl: 'healthy', cpu: 1.4, memAbs: '88 MB / 8 GB', up: '31d 08h', exposto: 'internet', info: '13 hosts e 12 certificados em um só container', saber: 'ponto único de falha de toda a VPS' },
+    { id: 'docker-cockpit', stack: 'docker-cockpit', img: 'btv/docker-cockpit:1.4.2', st: 'running', hl: 'healthy', cpu: 0.4, memAbs: '168 MB / 8 GB', up: '12d 04h', exposto: 'ingress', info: 'lê o daemon através do socket-proxy', saber: 'read_timeout de 60s no ingress corta o stream' },
+    { id: 'docker-cockpit-proxy', stack: 'docker-cockpit', img: 'tecnativa/docker-socket-proxy', st: 'running', hl: 'healthy', cpu: 0.2, memAbs: '48 MB / 8 GB', up: '12d 04h', exposto: 'interna', info: 'intermedia todo acesso ao daemon', saber: 'POST e DELETE ligados — revisar' },
+    { id: 'prompte-frontend', stack: 'prompte', img: 'nginx:alpine', st: 'running', hl: 'healthy', cpu: 0.3, memAbs: '80 MB / 8 GB', up: '18d 06h', exposto: 'ingress', info: 'SPA estática servida por nginx', saber: 'sem limite de memória declarado' },
+    { id: 'btvchatcorp-frontend-1', stack: 'btvchatcorp', img: 'btv/chatcorp-frontend:1.1', st: 'running', hl: 'healthy', cpu: 0.6, memAbs: '256 MB / 8 GB', up: '9d 11h', exposto: 'ingress', info: 'sufixo -1: subiu sem container_name', saber: 'nome muda se o compose recriar a stack' },
+    { id: 'central-inteligencia-juridica', stack: 'juridico', img: 'btv/cij:1.6', st: 'running', hl: 'healthy', cpu: 4.1, memAbs: '880 MB / 8 GB', up: '6d 02h', exposto: 'ingress', info: 'FastAPI com CSP própria escrita no ingress', saber: 'upload trava em 1 MB pelo nginx' },
+    { id: 'btv-governance', stack: 'governance', img: 'btv/governance:0.9', st: 'running', hl: 'healthy', cpu: 1.2, memAbs: '432 MB / 8 GB', up: '14d 03h', exposto: 'ingress', info: 'API por trás do site demo', saber: 'exposta só no path /v1/, sem auth' },
+    { id: 'executagent-studio', stack: 'executagent', img: 'btv/executagent-studio:1.0', st: 'running', hl: 'healthy', cpu: 0.9, memAbs: '328 MB / 8 GB', up: '11d 20h', exposto: 'internet', info: 'atende também em HTTP puro', saber: 'porta 80 sem redirecionamento' },
+    { id: 'familia-web', stack: 'familia-web', img: 'node:20-alpine', st: 'running', hl: 'none', cpu: 1.7, memAbs: '544 MB / 8 GB', up: '7d 14h', exposto: 'internet', info: 'Next.js sem healthcheck declarado', saber: 'porta 80 sem redirecionamento' },
+    { id: 'conciliaai-backend', stack: 'conciliaai', img: 'btv/conciliaai:1.2', st: 'running', hl: 'none', cpu: 2.4, memAbs: '656 MB / 8 GB', up: '5d 09h', exposto: 'ingress', info: 'host conciliaia → container conciliaai', saber: 'grafia diferente entre domínio e serviço' },
+    { id: 'criptotrade-app', stack: 'criptotrade', img: 'btv/criptotrade:2.8.0', st: 'running', hl: 'healthy', cpu: 8.1, memAbs: '412 MB / 512 MB', up: '2h 12m', exposto: 'ingress', info: 'consome perto do limite de 512 MB', saber: 'limite apertado desde a 2.8.0' },
+    { id: 'criptotrade-frontend', stack: 'criptotrade', img: 'nginx:alpine', st: 'running', hl: 'healthy', cpu: 0.3, memAbs: '88 MB / 8 GB', up: '9d 04h', exposto: 'ingress', info: 'painel de trading, destino padrão do domínio', saber: 'depende da API acima' },
+    { id: 'giva-api-1', stack: 'giva', img: 'giva/api:1.3', st: 'running', hl: 'healthy', cpu: 3.6, memAbs: '960 MB / 8 GB', up: '4d 07h', exposto: 'ingress', info: 'aceita upload de até 50 MB', saber: 'maior gerador de log e de disco' },
+    { id: 'giva-frontend-1', stack: 'giva', img: 'giva/web:1.3', st: 'running', hl: 'healthy', cpu: 0.4, memAbs: '112 MB / 8 GB', up: '4d 07h', exposto: 'ingress', info: 'assets com cache de 1 ano', saber: 'único host com headers de segurança' },
+    { id: 'btv-squad-dashboard', stack: 'squad', img: 'btv/squad-dashboard:0.7', st: 'running', hl: 'healthy', cpu: 2.1, memAbs: '608 MB / 8 GB', up: '3d 16h', exposto: 'ingress', info: 'SSE ao vivo, buffering desligado', saber: 'é a referência de streaming da VPS' }
+  ];
+
+  cenarios = {
+    normal: { disco: 71, discoSub: '68 / 96 GB', vit: { cpu: '11.8%', ram: '46.2%', swap: '2.1%' }, patch: {},
+      proj: 'Chega a 82% em ~24 dias (r² 0.86, 30d de coleta). Sem ação antes de 90%: rotação de log pendente.',
+      spark: '0,20 14,19 28,18.5 42,18 56,17 70,16 84,15 100,14' },
+    incidente: { disco: 73, discoSub: '70 / 96 GB', vit: { cpu: '24.6%', ram: '52.4%', swap: '3.0%' },
+      patch: { 'criptotrade-app': { st: 'restarting', hl: 'unhealthy', cpu: 0, memAbs: '511 MB / 512 MB', up: 'reinic.', info: 'morto pelo kernel 14 vezes em 26 min', saber: 'reiniciar não resolve — subir o limite' },
+        'criptotrade-frontend': { info: 'painel abre, mas /api/ devolve 502', saber: 'sintoma, não a causa' },
+        'btv-nginx-prod': { info: '502 em criptotrade/api desde 04:12', saber: 'o gateway está certo — o upstream é que morre' } },
+      faixa: { titulo: 'criptotrade-app em ciclo de reinício — OOMKilled', corpo: 'Limite de 512 MB estourado após o deploy 2.8.0 · 14 ciclos · nginx devolve 502 em /api/.', desde: 'desde 04:12 · há 26 min' },
+      proj: 'Chega a 84% em ~22 dias. O incidente atual não pressiona disco — pressiona memória.',
+      spark: '0,20 14,19 28,18.5 42,18 56,17 70,16 84,15 100,14' },
+    disco: { disco: 94, discoSub: '90 / 96 GB', vit: { cpu: '13.1%', ram: '47.9%', swap: '2.4%' },
+      patch: { 'giva-api-1': { hl: 'unhealthy', info: 'log json-file com 22 GB sem rotação', saber: 'a causa do disco cheio está aqui' },
+        'btv-nginx-prod': { info: 'sem espaço para gravar access.log', saber: 'para de registrar antes de parar de servir' },
+        'central-inteligencia-juridica': { info: 'a 6 GB de não conseguir gravar upload', saber: 'risco de perda de dados do cliente' } },
+      faixa: { titulo: 'Disco raiz em 94% — escrita em risco', corpo: 'Log json-file do giva-api-1 com 22 GB sem rotação. Truncar devolve 22 GB sem downtime.', desde: 'crescendo há 9 dias' },
+      proj: 'Crítico agora: 6.1 GB livres, crescimento de 2.4 GB/dia. Truncar o log do giva-api-1 devolve 22 GB.',
+      spark: '0,20 14,18 28,16 42,13 56,10 70,7 84,4 100,2' }
+  };
+
+  filas = {
+    incidente: [
+      { sev: 'crítico', cor: '#dc2626', quando: 'há 26 min', t: 'criptotrade-app em ciclo de reinício (exit 137)', tp: 'O painel de trading parou de operar', c: 'OOMKilled 14×. Limite de 512 MB estourado após o deploy 2.8.0.', cp: 'O site abre, mas nenhuma ordem é processada desde as 04:12.' },
+      { sev: 'atenção', cor: '#d97706', quando: 'há 26 min', t: 'btv-nginx-prod devolvendo 502 em /api/', tp: 'O gateway responde erro para o painel', c: 'O resolver mantém o nginx de pé; o 502 vem do upstream morto.', cp: 'Consequência do item acima — some quando a API voltar.' },
+      { sev: 'pendente', cor: '#64748b', quando: 'sempre', t: 'docker.danzeroum.com corta SSE em 60s', tp: 'O próprio cockpit perde conexão a cada minuto', c: 'Falta proxy_buffering off e timeouts longos — o squad já faz certo.', cp: 'O bloco do cockpit no gateway não está pronto para dados ao vivo.' }
+    ],
+    disco: [
+      { sev: 'crítico', cor: '#dc2626', quando: 'agora', t: 'Disco / em 94% — 6 GB livres', tp: 'O servidor está quase sem espaço', c: 'Log json-file do giva-api-1 com 22 GB sem rotação.', cp: 'Há uma limpeza segura que devolve 22 GB.' },
+      { sev: 'crítico', cor: '#dc2626', quando: 'há 14 min', t: 'giva-api-1 unhealthy — falha de escrita', tp: 'Uploads de clientes começaram a falhar', c: 'Healthcheck falha em PUT. Consequência direta do disco.', cp: 'O serviço que aceita arquivos de até 50 MB não grava mais.' },
+      { sev: 'pendente', cor: '#64748b', quando: 'estrutural', t: 'Nenhum serviço de backup entre os 15 containers', tp: 'Não existe cópia de segurança na VPS', c: 'Nada no ingress nem no compose faz dump de volumes.', cp: 'Sem espaço e sem backup ao mesmo tempo é o pior cenário.' }
+    ],
+    normal: [
+      { sev: 'atenção', cor: '#d97706', quando: 'estrutural', t: 'executagent e familia-web servem em HTTP puro', tp: 'Dois sites atendem sem criptografia', c: 'Blocos :80 fazem proxy_pass em vez de return 301.', cp: 'Quem digita o endereço sem https trafega em texto claro.' },
+      { sev: 'atenção', cor: '#d97706', quando: 'estrutural', t: '/docs e /openapi.json do criptotrade sem auth', tp: 'A documentação da API de trading está pública', c: 'Dois location = expostos fora do bloco protegido.', cp: 'Qualquer pessoa vê o contrato completo da API.' },
+      { sev: 'planejado', cor: '#2563eb', quando: 'em 18d', t: '3 certificados na janela de 18–19 dias', tp: 'Três certificados vencem no mesmo período', c: 'Renovação automática existe; falta confirmar o reload do nginx.', cp: 'docker, squad e giva vencem quase juntos.' }
+    ]
+  };
+
+  get cenario() { return this.state.cenario ?? this.props.cenario ?? 'incidente'; }
+  get densidade() { return this.props.densidade ?? 'confortavel'; }
+  get ordem() { return this.state.ordem ?? this.padrao; }
+
+  componentDidMount() {
+    try {
+      const s = JSON.parse(localStorage.getItem(this.LS) || 'null');
+      if (s && Array.isArray(s.ordem)) this.setState({ ordem: s.ordem.filter(id => this.padrao.includes(id)), ocultos: s.ocultos || [], cheios: s.cheios || [], modo: s.modo || 'lista' });
+    } catch (e) {}
+  }
+
+  persistir(patch) {
+    const prox = Object.assign({ ordem: this.ordem, ocultos: this.state.ocultos, cheios: this.state.cheios, modo: this.state.modo }, patch);
+    this.setState(patch);
+    try { localStorage.setItem(this.LS, JSON.stringify(prox)); } catch (e) {}
+  }
+
+  mover(id, d) {
+    const o = this.ordem.slice(), i = o.indexOf(id), j = i + d;
+    if (i < 0 || j < 0 || j >= o.length) return;
+    o[i] = o[j]; o[j] = id;
+    this.persistir({ ordem: o });
+  }
+
+  alternar(id) {
+    const oc = this.state.ocultos.slice(), i = oc.indexOf(id);
+    i >= 0 ? oc.splice(i, 1) : oc.push(id);
+    this.persistir({ ocultos: oc });
+  }
+
+  alternarCheio(id) {
+    const ch = this.state.cheios.slice(), i = ch.indexOf(id);
+    i >= 0 ? ch.splice(i, 1) : ch.push(id);
+    this.persistir({ cheios: ch });
+  }
+
+  corDe(c) {
+    if (c.st === 'restarting') return '#dc2626';
+    if (c.st !== 'running') return '#94a3b8';
+    if (c.hl === 'unhealthy') return '#dc2626';
+    return '#16a34a';
+  }
+
+  seg(ativo) {
+    return 'padding:3px 9px;border-radius:5px;font-size:10.5px;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .15s;' +
+      (ativo ? 'background:#ffffff;color:#0f172a;box-shadow:0 1px 2px rgba(15,23,42,.12)' : 'background:transparent;color:#64748b');
+  }
+
+  renderVals() {
+    const cen = this.cenarios[this.cenario], depth = this.state.depth, dens = this.densidade;
+    const cs = this.base.map(c => Object.assign({}, c, cen.patch[c.id] || {}));
+    const rodando = cs.filter(c => c.st === 'running').length;
+    const doentes = cs.filter(c => c.hl === 'unhealthy' || c.st === 'restarting').length;
+    const fila = this.filas[this.cenario];
+    const plain = depth === 'conhecimento';
+    const ocultos = this.state.ocultos, cheios = this.state.cheios, pers = this.state.personalizar;
+    const nCrit = fila.filter(f => f.sev === 'crítico').length;
+
+    const modulo = (id) => {
+      const span = cheios.includes(id) || (id === 'containers' && this.state.modo === 'cartoes') ? 12 : this.spans[id];
+      return { estilo: 'grid-column:span ' + span + ';order:' + this.ordem.indexOf(id) +
+        ';background:#ffffff;border:1px solid #e7eaf0;border-radius:10px;padding:13px 15px;display:flex;flex-direction:column;gap:10px;min-width:0' +
+        (ocultos.includes(id) ? ';display:none' : '') +
+        (pers ? ';outline:2px dashed rgba(37,99,235,.45);outline-offset:2px' : '') };
+    };
+
+    const sevBg = { 'crítico': 'rgba(220,38,38,.1)', 'atenção': 'rgba(217,119,6,.1)', 'pendente': 'rgba(100,116,139,.12)', 'planejado': 'rgba(37,99,235,.1)' };
+    const filaItens = fila.map((f, i) => ({
+      estilo: 'display:flex;flex-direction:column;gap:2px;padding:8px 0' + (i > 0 ? ';border-top:1px solid #f3f5f8' : ''),
+      sev: f.sev, quando: f.quando,
+      sevEstilo: 'font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:' + f.cor + ';background:' + sevBg[f.sev] + ';border-radius:4px;padding:2px 6px;flex-shrink:0',
+      titulo: plain ? f.tp : f.t,
+      corpo: plain ? f.cp : f.c,
+      corpoEstilo: 'font-size:11px;color:#64748b;line-height:1.45' + (dens === 'compacta' ? ';display:none' : '')
+    }));
+
+    const linha2De = (c) => depth === 'dado' ? c.img : (depth === 'informacao' ? c.info : c.saber);
+    const expMap = { internet: ['Internet', '#b45309', 'rgba(217,119,6,.1)'], ingress: ['ingress', '#64748b', '#f1f3f7'], interna: ['interna', '#94a3b8', '#f6f7f9'] };
+    const expChip = (e) => { const m = expMap[e]; return 'font-size:9.5px;font-weight:600;color:' + m[1] + ';background:' + m[2] + ';border-radius:4px;padding:2px 7px;text-align:center;white-space:nowrap;justify-self:start'; };
+    const cRows = cs.map((c, i) => ({
+      estilo: 'display:flex;flex-direction:column;gap:1px;padding:' + (dens === 'compacta' ? '3.5px' : '5.5px') + ' 0' + (i > 0 ? ';border-top:1px solid #f3f5f8' : ''),
+      dot: 'width:7px;height:7px;border-radius:50%;background:' + this.corDe(c),
+      nome: c.id, cpu: c.cpu.toFixed(1) + '%',
+      cpuBar: 'display:block;height:100%;width:' + Math.min(100, c.cpu * 6) + '%;background:' + (c.cpu > 6 ? '#d97706' : '#2563eb') + ';border-radius:2px',
+      mem: c.memAbs, up: c.up, exp: expMap[c.exposto][0], expEstilo: expChip(c.exposto),
+      linha2: linha2De(c),
+      linha2Estilo: 'font-size:10.5px;color:' + (depth === 'conhecimento' ? '#2563eb' : '#94a3b8') + ';padding-left:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' + (dens === 'compacta' ? ';display:none' : '')
+    }));
+    const cCards = cs.map(c => ({
+      dot: 'width:7px;height:7px;border-radius:50%;flex-shrink:0;background:' + this.corDe(c),
+      nome: c.id, cpu: c.cpu.toFixed(1) + '%', mem: c.memAbs, up: c.up,
+      exp: expMap[c.exposto][0], expEstilo: expChip(c.exposto), linha2: linha2De(c)
+    }));
+
+    const grupos = {};
+    cs.forEach(c => { (grupos[c.stack] = grupos[c.stack] || []).push(c); });
+    const stacksRows = Object.keys(grupos).map(k => {
+      const g = grupos[k], run = g.filter(c => c.st === 'running').length, ruim = g.some(c => c.hl === 'unhealthy' || c.st === 'restarting');
+      return { nome: k, frac: run + '/' + g.length, cor: '#334155', dot: 'width:6px;height:6px;border-radius:50%;flex-shrink:0;background:' + (ruim ? '#dc2626' : '#16a34a') };
+    }).concat([['plataforma', '0/2'], ['mixlirous', '0/1'], ['btv-demo', '0/1']].map(p => ({ nome: p[0], frac: p[1], cor: '#94a3b8', dot: 'width:6px;height:6px;border-radius:50%;flex-shrink:0;background:#cbd5e1' })));
+
+    const chipDef = [
+      { rot: 'CPU', val: cen.vit.cpu }, { rot: 'RAM', val: cen.vit.ram },
+      { rot: 'Disco', val: cen.disco + '%', cor: cen.disco > 85 ? '#dc2626' : (cen.disco > 70 ? '#b45309' : null) },
+      { rot: 'Swap', val: cen.vit.swap },
+      { mod: 'atencao', rot: 'Atenção', val: nCrit ? nCrit + ' crít +' + (fila.length - nCrit) : fila.length + ' abertos', cor: nCrit ? '#dc2626' : '#b45309' },
+      { mod: 'containers', rot: 'Containers', val: rodando + '/15' + (doentes ? ' · ' + doentes + '!' : ''), cor: doentes ? '#dc2626' : null },
+      { mod: 'stacks', rot: 'Stacks', val: '12/15', cor: '#b45309' },
+      { mod: 'ingress', rot: 'HTTPS', val: '11/13', cor: '#b45309' },
+      { mod: 'capacidade', rot: 'Projeção', val: this.cenario === 'disco' ? 'crítica' : '~24d', cor: this.cenario === 'disco' ? '#dc2626' : null },
+      { mod: 'auditoria', rot: 'Auditoria', val: 'há 2h' },
+      { mod: 'tarefas', rot: 'Tarefas', val: '6 · 2' }
+    ];
+    const chips = chipDef.map(ch => {
+      const oculto = ch.mod && ocultos.includes(ch.mod);
+      return { rot: ch.rot, val: ch.val,
+        estilo: 'display:flex;align-items:baseline;gap:5px;padding:3.5px 9px;border-radius:999px;flex-shrink:0;white-space:nowrap;border:1px solid ' + (oculto ? 'rgba(37,99,235,.45)' : '#e7eaf0') + ';background:' + (oculto ? '#eff6ff' : '#ffffff') + (oculto ? ';cursor:pointer' : ''),
+        valEstilo: 'font-family:\'JetBrains Mono\',monospace;font-size:11px;font-weight:600;white-space:nowrap;color:' + (ch.cor || '#0f172a'),
+        dica: oculto ? 'Módulo oculto — clique para mostrar de novo' : (ch.mod ? 'Resumo do módulo ' + this.nomes[ch.mod] : 'Vitais do host'),
+        onClick: oculto ? (() => this.alternar(ch.mod)) : null };
+    });
+
+    const painelModulos = this.ordem.map((id, i) => {
+      const oculto = ocultos.includes(id), cheio = cheios.includes(id) || (id === 'containers' && this.state.modo === 'cartoes');
+      return { nome: this.nomes[id], cor: oculto ? '#94a3b8' : '#0f172a',
+        estilo: 'display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:7px' + (oculto ? ';opacity:.75' : ''),
+        olhoEstilo: 'width:24px;height:24px;display:grid;place-items:center;border-radius:6px;cursor:pointer;color:' + (oculto ? '#cbd5e1' : '#2563eb') + ';background:' + (oculto ? 'transparent' : '#eff6ff'),
+        olhoDica: oculto ? 'mostrar módulo' : 'ocultar (o resumo continua na régua)',
+        cheioLabel: cheio ? '↹ inteira' : '↹ meia', 
+        cheioEstilo: 'font-size:9.5px;font-weight:600;color:' + (cheio ? '#2563eb' : '#94a3b8') + ';cursor:pointer;white-space:nowrap',
+        setaEstilo: 'width:22px;height:22px;display:grid;place-items:center;border-radius:6px;cursor:pointer;color:#64748b;font-size:12px;background:#f1f3f7',
+        onOlho: () => this.alternar(id), onCheio: () => this.alternarCheio(id),
+        onUp: () => this.mover(id, -1), onDown: () => this.mover(id, 1) };
+    });
+
+    const navDefs = [['Visão geral', '', true], ['Atenção agora', String(fila.length)], ['Containers', '15'], ['Projetos (stacks)', '15'], ['Logs & métricas', ''], ['Ingress & TLS', '4'], ['Topologia', ''], ['Backend & API', ''], ['Capacidade', ''], ['Tarefas', '6'], ['Auditoria', ''], ['Resumo executivo', '']];
+    const navItens = navDefs.map(n => ({ label: n[0], badge: n[1],
+      estilo: 'display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:7px;font-size:12px;' +
+        (n[2] ? 'font-weight:650;color:#1d4ed8;background:#eff6ff' : 'font-weight:500;color:#8b98ab;cursor:default'),
+      badgeEstilo: n[1] ? 'font-family:\'JetBrains Mono\',monospace;font-size:9.5px;font-weight:600;padding:1px 6px;border-radius:999px;background:' + (n[0] === 'Atenção agora' && nCrit ? 'rgba(220,38,38,.1)' : '#f1f3f7') + ';color:' + (n[0] === 'Atenção agora' && nCrit ? '#dc2626' : '#64748b') : 'display:none',
+      dica: n[2] ? '' : 'Fora do escopo desta proposta — aplicação do tema segue o doc 08' }));
+
+    const depthDefs = [['A', 'dado', 'Dado: métrica crua e imagem'], ['B', 'informacao', 'Informação: o achado interpretado'], ['C', 'conhecimento', 'Conhecimento: o que fazer com isso']];
+    const cenDefs = [['Normal', 'normal'], ['API caindo', 'incidente'], ['Disco cheio', 'disco']];
+    const tarefaCores = { 'A fazer': '#64748b', 'Andamento': '#2563eb', 'Bloqueado': '#d97706', 'Feito': '#16a34a' };
+
+    return {
+      navItens, chips, filaItens, cRows, cCards, stacksRows, painelModulos,
+      atencaoContagem: fila.length + ' abertos' + (nCrit ? ' · ' + nCrit + ' crítico' : ''),
+      containersContagem: rodando + '/15 rodando' + (doentes ? ' · ' + doentes + ' precisa de você' : ''),
+      mAtencao: modulo('atencao'), mContainers: modulo('containers'), mStacks: modulo('stacks'),
+      mIngress: modulo('ingress'), mCapacidade: modulo('capacidade'), mAuditoria: modulo('auditoria'), mTarefas: modulo('tarefas'),
+      listaEstilo: 'display:flex;flex-direction:column;min-width:0' + (this.state.modo === 'lista' ? '' : ';display:none'),
+      cartoesEstilo: 'display:grid;grid-template-columns:repeat(auto-fill,minmax(238px,1fr));gap:10px' + (this.state.modo === 'cartoes' ? '' : ';display:none'),
+      modoBtns: [['Lista', 'lista'], ['Cartões', 'cartoes']].map(m => ({ label: m[0], estilo: this.seg(this.state.modo === m[1]), onClick: () => this.persistir({ modo: m[1] }) })),
+      depthBtns: depthDefs.map(d => ({ label: d[0], dica: d[2], estilo: this.seg(depth === d[1]), onClick: () => this.setState({ depth: d[1] }) })),
+      cenarioBtns: cenDefs.map(c => ({ label: c[0], estilo: this.seg(this.cenario === c[1]), onClick: () => this.setState({ cenario: c[1] }) })),
+      onPersonalizar: () => this.setState({ personalizar: !pers }),
+      personalizarEstilo: 'display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;' +
+        (pers ? 'background:#2563eb;color:#ffffff' : 'background:#ffffff;color:#334155;border:1px solid #d6dce5'),
+      painelEstilo: 'position:absolute;top:62px;right:12px;width:296px;background:#ffffff;border:1px solid #e7eaf0;border-radius:12px;box-shadow:0 16px 40px rgba(15,23,42,.14);z-index:30;' + (pers ? '' : 'display:none'),
+      onRestaurar: () => { try { localStorage.removeItem(this.LS); } catch (e) {} this.setState({ ordem: null, ocultos: [], cheios: [], modo: 'lista' }); },
+      faixaEstilo: 'flex-shrink:0;display:flex;align-items:center;gap:10px;padding:9px 16px;background:rgba(220,38,38,.05);border-bottom:1px solid rgba(220,38,38,.22);' + (cen.faixa ? '' : 'display:none'),
+      faixaTitulo: cen.faixa ? cen.faixa.titulo : '', faixaCorpo: cen.faixa ? cen.faixa.corpo : '', faixaDesde: cen.faixa ? cen.faixa.desde : '',
+      ingressStats: [{ rot: 'Hosts públicos', val: '13', cor: '#0f172a' }, { rot: 'HTTPS forçado', val: '11/13', cor: '#b45309' }, { rot: 'Certificados', val: '3 · 18–19d', cor: '#0f172a' }, { rot: 'Achados', val: '4 agregados', cor: '#0f172a' }],
+      discoPct: cen.disco + '%', discoCor: cen.disco > 85 ? '#dc2626' : '#0f172a',
+      discoBarra: 'height:100%;width:' + cen.disco + '%;background:' + (cen.disco > 85 ? '#dc2626' : cen.disco > 70 ? '#d97706' : '#2563eb') + ';border-radius:3px',
+      discoProjecao: cen.proj, sparkPontos: cen.spark,
+      auditRows: [{ h: '09:41', quem: 'dz', acao: 'restart criptotrade-app · sessão destravada, motivo: janela de manutenção' }, { h: '08:12', quem: 'dz', acao: 'ack no_backup — aceito_estrutural, revisar em 30d' }, { h: 'ontem 22:03', quem: 'deploy', acao: 'deploy-cockpit.sh · migrations v8+v9 validadas (dry-run)' }],
+      tarefaCols: Object.keys(tarefaCores).map(k => ({ nome: k, n: { 'A fazer': '2', 'Andamento': '1', 'Bloqueado': '1', 'Feito': '2' }[k], dot: 'width:7px;height:7px;border-radius:50%;background:' + tarefaCores[k] })),
+      travaTitulo: this.state.destravado ? 'Destravada · 30 min' : 'Somente leitura',
+      travaCor: this.state.destravado ? '#b45309' : '#64748b',
+      travaPath: this.state.destravado ? 'M7 11V7a5 5 0 0 1 9.9-1' : 'M7 11V7a5 5 0 0 1 10 0v4',
+      travaTexto: this.state.destravado ? 'Ações de escrita liberadas e auditadas. Trava sozinha ao expirar.' : 'Parar, reiniciar e remover exigem destravar a sessão — tudo vai para a auditoria.',
+      travaBtn: this.state.destravado ? 'Travar agora' : 'Destravar sessão',
+      travaBtnEstilo: 'text-align:center;padding:6px 10px;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;' + (this.state.destravado ? 'background:rgba(217,119,6,.1);color:#b45309' : 'background:#f1f3f7;color:#334155'),
+      onTrava: () => this.setState({ destravado: !this.state.destravado })
+    };
+  }
+}
+</script>
+</body>
+</html>
