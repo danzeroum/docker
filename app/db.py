@@ -362,6 +362,31 @@ _MIGRATIONS = [
         ")",
         "CREATE INDEX IF NOT EXISTS idx_updates_status ON image_updates(status)",
     ]),
+    # v15 — historico de notificacoes (B7).
+    #
+    # A tabela existe por causa do DEDUP, e nao para virar relatorio. Dedup em
+    # memoria some no restart, e o restart e exatamente o momento em que tudo
+    # reavalia ao mesmo tempo: o cockpit reconecta ao stream, o sampler colhe a
+    # primeira amostra e o job de imagens roda — tres regras disparando juntas
+    # para fatos que ja tinham sido notificados antes de o processo cair.
+    #
+    # `enviado_em` vazio significa "nenhum canal aceitou". Distinguir isso de
+    # entregue e o que impede o dedup de silenciar um alerta que o operador
+    # nunca recebeu: falha total nao inicia a janela de 30 min.
+    (15, [
+        "CREATE TABLE IF NOT EXISTS notificacoes ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "regra TEXT NOT NULL,"
+        "alvo TEXT NOT NULL DEFAULT '',"
+        "ts TEXT NOT NULL,"                      # quando o fato aconteceu
+        "enviado_em TEXT NOT NULL DEFAULT '',"   # vazio = nenhum canal aceitou
+        "canais TEXT NOT NULL DEFAULT '',"       # canais que aceitaram
+        "falhas TEXT NOT NULL DEFAULT '',"       # canal:motivo curto, sem segredo
+        "detalhe TEXT NOT NULL DEFAULT ''"       # texto humano, nunca payload bruto
+        ")",
+        "CREATE INDEX IF NOT EXISTS idx_notif_dedup "
+        "ON notificacoes(regra, alvo, enviado_em)",
+    ]),
 ]
 
 # Versao de esquema no topo da lista. Os testes de migracao conferem "banco
@@ -1192,6 +1217,83 @@ async def get_updates_resumo():
         "checked": total,
         "consultado_em": ultimo,
     }
+
+
+# --- notificacoes (B7) ----------------------------------------------------
+
+async def registrar_notificacao(regra, alvo, ts, canais, falhas, detalhe):
+    """Grava a tentativa. `canais` vazio => `enviado_em` vazio => nao deduplica.
+
+    Registrar tambem a falha total (e nao so o sucesso) e o que da ao operador
+    como saber que o alerta EXISTIU e nao chegou. Sem esta linha, canal quebrado
+    e ausencia de problema tem a mesma aparencia: silencio.
+    """
+    entregues = ",".join(sorted(canais or []))
+    db = await get_db()
+    cur = await db.execute(
+        "INSERT INTO notificacoes (regra, alvo, ts, enviado_em, canais, falhas, detalhe)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (str(regra), str(alvo or ""), str(ts or _now()),
+         _now() if entregues else "", entregues, str(falhas or ""), str(detalhe or "")),
+    )
+    await db.commit()
+    return cur.lastrowid
+
+
+async def ultima_entrega(regra, alvo):
+    """Instante da ultima ENTREGA para o par (regra, alvo). None se nunca houve."""
+    db = await get_db()
+    cur = await db.execute(
+        "SELECT MAX(enviado_em) FROM notificacoes"
+        " WHERE regra = ? AND alvo = ? AND enviado_em != ''",
+        (str(regra), str(alvo or "")),
+    )
+    row = await cur.fetchone()
+    return (row[0] if row and row[0] else None)
+
+
+async def get_notificacoes(limit: int = 100, regra: str = None):
+    db = await get_db()
+    sql = "SELECT * FROM notificacoes"
+    params = []
+    if regra:
+        sql += " WHERE regra = ?"
+        params.append(regra)
+    sql += " ORDER BY id DESC LIMIT ?"
+    params.append(max(1, min(int(limit or 100), 500)))
+    cur = await db.execute(sql, tuple(params))
+    return _parse_rows(await cur.fetchall(), cur.description)
+
+
+async def get_notificacoes_resumo():
+    """Para `summary.notifications`. None quando nada foi notificado ainda.
+
+    None e nao zero, pelo mesmo motivo de `certs_expiring` e `updates`: zero
+    afirma "nada digno de nota aconteceu", e a verdade pode ser "nenhum canal
+    esta configurado".
+    """
+    db = await get_db()
+    cur = await db.execute(
+        "SELECT COUNT(*), SUM(enviado_em = ''), MAX(enviado_em) FROM notificacoes"
+    )
+    total, falhadas, ultimo = (await cur.fetchone()) or (0, 0, None)
+    if not total:
+        return None
+    return {
+        "total": total,
+        "sem_entrega": falhadas or 0,
+        "ultima_entrega": ultimo or None,
+    }
+
+
+async def purge_notificacoes(teto: int = 2000):
+    """Ring por contagem, como o de eventos: o historico existe para o dedup."""
+    db = await get_db()
+    await db.execute(
+        "DELETE FROM notificacoes WHERE id <= (SELECT MAX(id) - ? FROM notificacoes)",
+        (int(teto),),
+    )
+    await db.commit()
 
 
 async def get_first_sample_time():

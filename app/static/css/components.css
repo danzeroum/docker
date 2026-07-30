@@ -369,6 +369,13 @@
 .atn-score{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--text-mute)}
 .atn-target{font-size:.7rem;color:var(--text-dim);font-weight:500}
 .atn-ago{font-size:.65rem;color:var(--text-mute);margin-left:auto}
+/* "notificado hh:mm · canal" (B7). Vazio quando ninguem foi avisado — e o
+   :empty tira ate o espacamento, para que ausencia de aviso nao deixe uma lacuna
+   que se leia como campo faltando. */
+.atn-notificado{
+  font-size:.65rem;color:var(--text-mute);font-family:'JetBrains Mono',monospace
+}
+.atn-notificado:empty{display:none}
 .atn-occs{font-size:.6rem;background:var(--bg-2);padding:.1rem .35rem;border-radius:3px;color:var(--text-dim)}
 .atn-title{font-size:.85rem;font-weight:600;color:var(--text);margin-bottom:.2rem}
 .atn-interp{font-size:.75rem;color:var(--text-dim);margin-bottom:.15rem}

@@ -25,6 +25,7 @@ from routers.security import router as security_router
 from routers.prune import router as prune_router
 from routers.metrics_prom import router as metrics_prom_router
 from routers.updates import router as updates_router
+from routers.notificacoes import router as notificacoes_router
 from sampler import sampler_loop
 from findings.engine import findings_loop
 from db import init_db, close_db
@@ -33,6 +34,7 @@ from events import events_loop
 from summary import aquecer_loop
 from logs_ingest import ingest_loop
 from updates import updates_loop
+from notify import despachante_loop, notify_loop
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(APP_DIR, "static")
@@ -87,7 +89,15 @@ async def lifespan(app: FastAPI):
     # Job diario de updates. O Hub tem rate limit anonimo apertado; uma VPS
     # com 20 imagens o estoura facil se a consulta virar por request.
     updates_task = asyncio.create_task(updates_loop())
+    # Motor de notificacoes (B7), em duas tarefas de proposito: o despachante
+    # consome a fila e faz o I/O de rede; o laco de varredura so olha o que nao
+    # chega por evento (disco, imagens). Juntar os dois faria uma entrega lenta
+    # atrasar a proxima deteccao.
+    despachante_task = asyncio.create_task(despachante_loop())
+    notify_task = asyncio.create_task(notify_loop())
     yield
+    notify_task.cancel()
+    despachante_task.cancel()
     updates_task.cancel()
     logs_task.cancel()
     summary_warm_task.cancel()
@@ -121,6 +131,14 @@ async def lifespan(app: FastAPI):
         pass
     try:
         await updates_task
+    except asyncio.CancelledError:
+        pass
+    try:
+        await despachante_task
+    except asyncio.CancelledError:
+        pass
+    try:
+        await notify_task
     except asyncio.CancelledError:
         pass
     await close_db()
@@ -174,3 +192,4 @@ app.include_router(security_router)
 app.include_router(prune_router)
 app.include_router(metrics_prom_router)
 app.include_router(updates_router)
+app.include_router(notificacoes_router)
