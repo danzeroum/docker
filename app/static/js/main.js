@@ -3,17 +3,11 @@ import { apiGet, apiGetText, apiPost, apiDelete, cancel, cancelAll } from './dat
 import { fmtBytes, fmtDuration, fmtDate, shortId, escapeHtml, jsonHighlight } from './fmt.js';
 import { showToast, showConfirmModal } from './notifications.js';
 import { initCommandPalette } from './commands.js';
-import { renderOverview } from './screens/overview.js';
-import { renderAttention } from './screens/attention.js';
-import { renderIngress } from './screens/ingress.js';
-import { renderProjects } from './screens/projects.js';
-import { renderAuditoria } from './screens/auditoria.js';
-import { renderCapacidade } from './screens/capacidade.js';
-import { renderBackend } from './screens/backend.js';
-import { renderTarefas } from './screens/tarefas.js';
-import { renderExecutivo } from './screens/executivo.js';
-import { renderTopologia } from './screens/topologia.js';
-import { renderPlantao } from './screens/plantao.js';
+// O núcleo do Cockpit Vivo assumiu a área de tela. Este arquivo cuida do chrome
+// (barra lateral, filtros, trava, tema, paleta) e NÃO conhece módulo nenhum:
+// a única lista de módulos do sistema está em `modulos/index.js`.
+import { iniciar as iniciarCockpit, _interno as cockpit } from './kernel/app.js';
+import { container as escopoContainer } from './kernel/escopo.js';
 
 // --- Theme ---
 function applyTheme(tema) {
@@ -24,75 +18,27 @@ subscribe((s) => {
   if (s.tema) applyTheme(s.tema);
 });
 
-// --- Hash router ---
-let _writingHash = false;
+/* `navigate` continua exportado porque três corpos de tela o importam. A
+ * implementação virou uma ponte no kernel, que deriva o módulo do hash de forma
+ * genérica (`#/x` revela o módulo de id `x`). O roteador de rotas em si saiu:
+ * escopo é o que navega agora, e o kernel é dono da hash.
+ *
+ * O dispose por tela e o `schedule` também saíram — o kernel guarda um dispose
+ * por módulo montado, que é o que impede vazar poller (o bug do `let pollTimer`
+ * duplicado nasceu justamente de dois donos para o mesmo timer). */
+export { navegarPorHash as navigate } from './kernel/app.js';
 
-export function navigate(hash) {
-  if (location.hash === hash) return;
-  _writingHash = true;
-  location.hash = hash;
-  _writingHash = false;
-}
-
-window.addEventListener('hashchange', () => {
-  if (_writingHash) return;
-  const hash = location.hash || '#/overview';
-  setState({ screen: hash });
-});
-
-// --- Dispose ---
-let currentDispose = null;
-let activePollers = [];
-
-function schedule(fn, ms, key) {
-  let id = setTimeout(async () => {
-    const result = await fn();
-    if (!result || result.aborted) return;
-    id = setTimeout(arguments.callee, ms);
-  }, ms);
-  activePollers.push(() => clearTimeout(id));
-  return () => { clearTimeout(id); };
-}
-
-function _route(screen) {
-  return screen ? screen.split('?')[0] : '#/overview';
-}
-
-function renderScreen(screen) {
-  cancelAll();
-  if (currentDispose) { currentDispose(); currentDispose = null; }
-  activePollers.forEach(fn => fn());
-  activePollers = [];
-
-  const container = document.getElementById('screenContainer');
-  if (!container) return;
-
-  let dispose;
-  switch (_route(screen)) {
-    case '#/overview': dispose = renderOverview(container); break;
-    case '#/dossie': dispose = renderDossie(container); break;
-    case '#/logs': renderLogs(container); break;
-    case '#/plantao': dispose = renderPlantao(container); break;
-    case '#/incidente': dispose = renderAttention(container); break;
-    case '#/auditoria': dispose = renderAuditoria(container); break;
-    case '#/ingress': dispose = renderIngress(container); break;
-    case '#/topologia': dispose = renderTopologia(container); break;
-    case '#/capacidade': dispose = renderCapacidade(container); break;
-    case '#/tarefas': dispose = renderTarefas(container); break;
-    case '#/executivo': dispose = renderExecutivo(container); break;
-    case '#/backend': dispose = renderBackend(container); break;
-    case '#/projetos': dispose = renderProjects(container); break;
-    default: dispose = renderOverview(container); break;
-  }
-  if (dispose) currentDispose = dispose;
-}
+/* Aqui vivia o roteador por tela: uma cadeia de 13 desvios, um por rota, que
+ * escolhia o render. Era o oposto exato da regra do doc 10 §4 — "módulo novo =
+ * 1 arquivo novo, zero desvio no núcleo". Acrescentar tela exigia editar este
+ * arquivo, e este arquivo conhecia cada tela pelo nome.
+ *
+ * No lugar dele, o kernel monta a grade iterando o registro. `grep` neste
+ * arquivo não encontra o id de nenhum módulo — o que é o critério de pronto da
+ * Sprint 2a. */
 
 subscribe((s, changed) => {
-  if (changed.includes('screen')) renderScreen(s.screen);
-  if (changed.includes('depth')) {
-    const container = document.getElementById('screenContainer');
-    if (container) renderScreen(s.screen);
-  }
+  if (changed.includes('depth')) cockpit.repintar();
   if (changed.includes('tema') || changed.includes('perfil')) {
     renderContainerList();
   }
@@ -249,7 +195,7 @@ function renderContainerList() {
       const badge = (saude === 'unhealthy' || saude === 'starting')
         ? `<span class="item-health ${saude}" title="Healthcheck: ${saude}">${saude === 'unhealthy' ? 'unhealthy' : 'starting'}</span>`
         : '';
-      html += `<button type="button" class="list-item ${id === selId ? 'active' : ''}" data-id="${id}"${id === selId ? ' aria-current="true"' : ''}>
+      html += `<button type="button" class="list-item ${id === selId ? 'active' : ''}" data-id="${id}" data-nome="${escapeHtml(name)}"${id === selId ? ' aria-current="true"' : ''}>
         <div class="item-status ${statusCls}"></div>
         <div class="item-info">
           <div class="item-name" title="${escapeHtml(name)}">${escapeHtml(name)}${badge}</div>
@@ -273,290 +219,26 @@ function renderContainerList() {
   });
   listEl.querySelectorAll('.list-item').forEach(el => {
     el.addEventListener('click', () => {
+      const nome = el.dataset.nome || el.dataset.id;
       setState({ selectedContainer: el.dataset.id });
-      navigate('#/dossie');
+      // A barra lateral deixa de ser rota e passa a ser atalho de escopo: abre a
+      // subtela do container. O kernel e a faixa crítica seguem visíveis.
+      cockpit.irPara(escopoContainer(nome));
     });
   });
 }
 
 
 
-// --- Screen: Dossiê ---
-function parseInspect(data) {
-  const c = Array.isArray(data) ? data[0] : data;
-  const state = c.State || {};
-  const config = c.Config || {};
-  const host = c.HostConfig || {};
-  const net = c.NetworkSettings || {};
-  const health = state.Health || null;
-  let status = state.Status || 'unknown';
-  if (health && health.Status === 'unhealthy' && state.running) status = 'unhealthy';
-  return {
-    name: c.Name ? c.Name.replace(/^\//, '') : '',
-    id: c.Id || '', image: config.Image || '',
-    state: { status, running: !!state.Running, exitCode: state.ExitCode ?? null,
-      startedAt: state.StartedAt ? new Date(state.StartedAt) : null,
-      uptimeMs: state.Status === 'running' && state.StartedAt ? (new Date() - new Date(state.StartedAt)) : 0,
-      restartCount: state.RestartCount ?? 0, pid: state.Pid ?? null, error: state.Error || null,
-      health: health ? { status: health.Status || 'none', failingStreak: health.FailingStreak ?? 0,
-        log: (health.Log || []).map(l => ({ start: l.Start, exitCode: l.ExitCode, output: l.Output }))
-      } : null
-    },
-    config: { env: config.Env || [] },
-    host: { portBindings: host.PortBindings || {}, restartPolicy: host.RestartPolicy || {} },
-    net: { ip: net.IPAddress || '', networks: net.Networks || {} },
-    mounts: c.Mounts || []
-  };
-}
+/* O Dossiê e a tela de Logs viviam aqui, ~275 linhas de renderização de
+ * detalhe de container. Foram substituídos pela subtela central + os módulos
+ * `config`, `metricas` e `logs`, que renderizam no escopo {t:'container'}.
+ *
+ * Não é remoção de funcionalidade, é a mesma informação vinda do registro em
+ * vez de uma tela dedicada — que é o ponto do doc 10: não existem 3 telas,
+ * existe 1 registro × 3 escopos. O tail de logs migrou para `modulos/logs.js`
+ * preservando `apiGetText` (log é texto, não JSON) e o follow por SSE. */
 
-function renderDossie(container) {
-  let id = getState().selectedContainer;
-  if (!id) {
-    const p = new URLSearchParams(location.hash.split('?')[1] || '');
-    const cname = p.get('c');
-    if (cname) {
-      const ctners = getState().containers;
-      const found = ctners.find(c => {
-        const n = (c.Names && c.Names[0] || '').replace(/^\//, '');
-        return n === cname;
-      });
-      if (found) {
-        id = found.Id;
-        setState({ selectedContainer: id });
-      }
-    }
-  }
-  if (!id) {
-    container.innerHTML = '<div class="content"><div class="empty">Selecione um container na lista à esquerda.</div></div>';
-    return;
-  }
-
-  container.innerHTML = '<div class="content"><div class="skeleton" style="width:100%;height:400px"></div></div>';
-
-  const ac = new AbortController();
-
-  async function load() {
-    const { data, error } = await apiGet('inspect', `/api/containers/${id}/json`);
-    if (error) {
-      container.innerHTML = `<div class="content"><div class="empty">Erro ao carregar: ${escapeHtml(error)}</div></div>`;
-      showToast(error, 'error');
-      return;
-    }
-    if (ac.signal.aborted) return;
-
-    const c = parseInspect(data);
-    let healthHtml = '<div class="empty-field">Nenhum HEALTHCHECK definido.</div>';
-    if (c.state.health) {
-      const logs = c.state.health.log.slice().reverse().map(l => `
-        <div style="margin-bottom:.75rem;padding:.75rem 1rem;border:1px solid var(--border);border-radius:10px;border-left:3px solid ${l.exitCode===0?'var(--ok)':'var(--bad)'}">
-          <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.25rem">
-            <span style="font-family:'JetBrains Mono';font-size:.7rem;padding:.15rem .4rem;border-radius:4px;background:${l.exitCode===0?'var(--ok-soft)':'var(--bad-soft)'};color:${l.exitCode===0?'#86efac':'#fca5a5'}">exit ${l.exitCode}</span>
-            <span style="font-size:.7rem;color:var(--text-mute)">${fmtDate(l.start)}</span>
-          </div>
-          ${l.output ? `<pre style="margin:0;font-size:.7rem;color:var(--text-dim);white-space:pre-wrap;word-break:break-all">${escapeHtml(l.output.trim().slice(0,300))}</pre>` : ''}
-        </div>
-      `).join('');
-      healthHtml = `
-        <div class="card-grid cols-3" style="margin-bottom:1rem">
-          <div class="field"><div class="field-label">Status</div><div class="field-value">${escapeHtml(c.state.health.status)}</div></div>
-          <div class="field"><div class="field-label">Falhas</div><div class="field-value">${c.state.health.failingStreak}</div></div>
-        </div>
-        ${logs || '<div class="empty-field">Sem logs de health.</div>'}`;
-    }
-
-    const ports = Object.entries(c.host.portBindings || {}).filter(([,v]) => v);
-    let portHtml = '<div class="empty-field">Nenhuma porta publicada.</div>';
-    if (ports.length) {
-      portHtml = `<div class="table-wrap"><table><thead><tr><th>Host IP</th><th>Host Port</th><th>Container Port</th></tr></thead><tbody>
-        ${ports.map(([k,v]) => v.map(b => `<tr><td>${escapeHtml(b.HostIp||'0.0.0.0')}</td><td>${escapeHtml(b.HostPort)}</td><td>${escapeHtml(k)}</td></tr>`).join('')).join('')}
-      </tbody></table></div>`;
-    }
-
-    const nets = Object.entries(c.net.networks || {});
-    let netHtml = '<div class="empty-field">Sem redes.</div>';
-    if (nets.length) {
-      netHtml = `<div class="table-wrap"><table><thead><tr><th>Rede</th><th>IP</th><th>Gateway</th></tr></thead><tbody>
-        ${nets.map(([n,v]) => `<tr><td>${escapeHtml(n)}</td><td>${escapeHtml(v.IPAddress||'—')}</td><td>${escapeHtml(v.Gateway||'—')}</td></tr>`).join('')}
-      </tbody></table></div>`;
-    }
-
-    let volHtml = '<div class="empty-field">Nenhum volume.</div>';
-    if (c.mounts.length) {
-      volHtml = `<div class="table-wrap"><table><thead><tr><th>Tipo</th><th>Source</th><th>Destino</th></tr></thead><tbody>
-        ${c.mounts.map(m => `<tr><td>${escapeHtml(m.Type)}</td><td>${escapeHtml(m.Source||m.Name||'')}</td><td>${escapeHtml(m.Destination||'')}</td></tr>`).join('')}
-      </tbody></table></div>`;
-    }
-
-    let envHtml = '<div class="empty-field">Sem variáveis.</div>';
-    if (c.config.env.length) {
-      envHtml = `<div class="table-wrap"><table><thead><tr><th>Variável</th><th>Valor</th></tr></thead><tbody>
-        ${c.config.env.map(e => {
-          const idx = e.indexOf('=');
-          const k = idx > 0 ? e.slice(0, idx) : e;
-          const v = idx > 0 ? e.slice(idx + 1) : '';
-          const secret = /SECRET|PASS|TOKEN|KEY/i.test(k);
-          return `<tr><td><strong>${escapeHtml(k)}</strong></td><td style="${secret?'filter:blur(4px)':''}">${escapeHtml(v||'—')}</td></tr>`;
-        }).join('')}
-      </tbody></table></div>`;
-    }
-
-    container.innerHTML = `<div class="content">
-      <div class="section">
-        <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
-          <span class="status-pill ${escapeHtml(c.state.status)}"><span class="dot"></span>${escapeHtml(c.state.status)}</span>
-          <span style="font-family:'JetBrains Mono';font-size:.8rem;color:var(--text-dim)">ID: ${escapeHtml(shortId(c.id))}</span>
-        </div>
-        <div class="kpis" style="margin-top:1rem">
-          <div class="kpi kpi-ok"><div class="kpi-label">Uptime</div><div class="kpi-value" style="font-size:1.2rem">${fmtDuration(c.state.uptimeMs)}</div></div>
-          <div class="kpi kpi-warn"><div class="kpi-label">Restarts</div><div class="kpi-value" style="font-size:1.2rem">${c.state.restartCount}</div></div>
-          <div class="kpi kpi-bad"><div class="kpi-label">Exit Code</div><div class="kpi-value" style="font-size:1.2rem">${c.state.exitCode ?? '—'}</div></div>
-        </div>
-        <div class="action-bar">
-          <button type="button" class="action-btn start" data-action="start" ${c.state.running?'disabled':''}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Iniciar</button>
-          <button type="button" class="action-btn stop" data-action="stop" ${!c.state.running?'disabled':''}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="12" height="16"/></svg> Parar</button>
-          <button type="button" class="action-btn restart" data-action="restart" ${!c.state.running?'disabled':''}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 23 20"/></svg> Reiniciar</button>
-          <button type="button" class="action-btn remove" data-action="remove"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Remover</button>
-        </div>
-      </div>
-      <div class="section"><div class="section-head"><div class="section-num">02</div><div><h2 class="section-title">Estado</h2></div></div>
-        <div class="card-grid cols-3">
-          <div class="field"><div class="field-label">Started At</div><div class="field-value">${fmtDate(c.state.startedAt)}</div></div>
-          <div class="field"><div class="field-label">PID</div><div class="field-value">${c.state.pid ?? '—'}</div></div>
-          <div class="field"><div class="field-label">Error</div><div class="field-value">${escapeHtml(c.state.error || '—')}</div></div>
-        </div>
-      </div>
-      <div class="section"><div class="section-head"><div class="section-num">03</div><div><h2 class="section-title">Health Check</h2></div></div>${healthHtml}</div>
-      <div class="section"><div class="section-head"><div class="section-num">04</div><div><h2 class="section-title">Rede & Portas</h2></div></div>
-        <h3 style="font-size:.8rem;color:var(--text-mute);margin:0 0 .5rem;text-transform:uppercase">Portas</h3>${portHtml}
-        <h3 style="font-size:.8rem;color:var(--text-mute);margin:1.5rem 0 .5rem;text-transform:uppercase">Redes</h3>${netHtml}
-      </div>
-      <div class="section"><div class="section-head"><div class="section-num">05</div><div><h2 class="section-title">Volumes</h2></div></div>${volHtml}</div>
-      <div class="section"><div class="section-head"><div class="section-num">06</div><div><h2 class="section-title">Variáveis de Ambiente</h2></div></div>${envHtml}</div>
-      <div class="section"><div class="section-head"><div class="section-num">07</div><div><h2 class="section-title">JSON Bruto</h2></div></div>
-        <div class="json-wrap"><pre class="json-content">${jsonHighlight(data)}</pre></div>
-      </div>
-    </div>`;
-
-    // Action buttons
-    container.querySelectorAll('[data-action]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const action = btn.dataset.action;
-        if (action === 'remove') {
-          const r = await showConfirmModal({
-            title: 'Remover container',
-            message: `Tem certeza?`,
-            confirmText: 'Remover',
-            confirmClass: 'remove',
-            confirmName: c.name,
-            checkboxLabel: 'Remover volumes associados',
-          });
-          if (!r.confirmed) return;
-          const qs = r.checkbox ? '?v=1' : '';
-          let { error } = await apiDelete('remove', `/api/containers/${id}${qs}`);
-          if (error && (error.includes('403') || error.includes('Unlock') || error.includes('ausente'))) {
-            const { showUnlockModal } = await import('./notifications.js');
-            const result = await showUnlockModal();
-            if (!result) return;
-            const retry = await apiDelete('remove-retry', `/api/containers/${id}${qs}`);
-            if (retry.error) { showToast(retry.error, 'error'); return; }
-            showToast('Container removido', 'success');
-            setState({ selectedContainer: null });
-            navigate('#/overview');
-            return;
-          }
-          if (error) { showToast(error, 'error'); return; }
-          showToast('Container removido', 'success');
-          setState({ selectedContainer: null });
-          navigate('#/overview');
-        } else {
-          btn.disabled = true;
-          let { error } = await apiPost(action, `/api/containers/${id}/${action}`);
-          if (error && (error.includes('403') || error.includes('Unlock') || error.includes('ausente'))) {
-            const { showUnlockModal } = await import('./notifications.js');
-            const result = await showUnlockModal();
-            if (!result) { btn.disabled = false; return; }
-            btn.disabled = false;
-            const retry = await apiPost(action + '-retry', `/api/containers/${id}/${action}`);
-            if (retry.error) { showToast(retry.error, 'error'); return; }
-            showToast(`Container ${action}`, 'success');
-            load();
-            return;
-          }
-          if (error) { showToast(error, 'error'); btn.disabled = false; return; }
-          showToast(`Container ${action}`, 'success');
-          load();
-        }
-      });
-    });
-  }
-
-  load();
-
-  return () => {
-    ac.abort();
-    cancel('inspect');
-  };
-}
-
-// --- Screen: Logs ---
-function renderLogs(container) {
-  const id = getState().selectedContainer;
-  if (!id) {
-    container.innerHTML = '<div class="content"><div class="empty">Selecione um container na lista à esquerda.</div></div>';
-    return;
-  }
-
-  container.innerHTML = `<div class="content">
-    <div class="section">
-      <div class="section-head"><div><h2 class="section-title">Logs</h2></div></div>
-      <div style="display:flex;gap:.5rem;margin-bottom:1rem">
-        <button type="button" class="action-btn" data-lines="100" style="background:var(--accent)">100 linhas</button>
-        <button type="button" class="action-btn" data-lines="500" style="background:var(--accent)">500 linhas</button>
-        <button type="button" class="action-btn" data-lines="2000" style="background:var(--accent)">2000 linhas</button>
-        <button type="button" class="action-btn start" data-action="stream">▶ Stream</button>
-        <button type="button" class="action-btn stop" data-action="stop-stream" disabled>■ Parar</button>
-      </div>
-      <pre id="logOutput" style="background:var(--bg-2);border:1px solid var(--border);border-radius:10px;padding:1rem;font-family:'JetBrains Mono',monospace;font-size:.75rem;line-height:1.6;overflow:auto;max-height:70vh;margin:0;white-space:pre-wrap;word-break:break-all"></pre>
-    </div>
-  </div>`;
-
-  const logEl = document.getElementById('logOutput');
-  let eventSource = null;
-
-  function stopStream() {
-    if (eventSource) { eventSource.close(); eventSource = null; }
-    document.querySelector('[data-action="stream"]').disabled = false;
-    document.querySelector('[data-action="stop-stream"]').disabled = true;
-  }
-
-  async function fetchLines(n) {
-    const { data, error } = await apiGetText('logs', `/api/containers/${id}/logs?tail=${n}`);
-    if (error) { logEl.textContent = 'Erro: ' + error; return; }
-    logEl.textContent = data || 'Container sem linhas de log.';
-  }
-
-  container.querySelector('[data-lines="100"]').onclick = () => { stopStream(); fetchLines(100); };
-  container.querySelector('[data-lines="500"]').onclick = () => { stopStream(); fetchLines(500); };
-  container.querySelector('[data-lines="2000"]').onclick = () => { stopStream(); fetchLines(2000); };
-  container.querySelector('[data-action="stream"]').onclick = () => {
-    stopStream();
-    document.querySelector('[data-action="stream"]').disabled = true;
-    document.querySelector('[data-action="stop-stream"]').disabled = false;
-    logEl.textContent = 'Aguardando logs...\n';
-    eventSource = new EventSource(`/api/containers/${id}/logs/stream?tail=50`);
-    eventSource.addEventListener('stdout', (e) => { logEl.textContent += e.data + '\n'; });
-    eventSource.addEventListener('stderr', (e) => { logEl.textContent += e.data + '\n'; });
-    eventSource.addEventListener('error', () => { logEl.textContent += '[stream desconectado]\n'; });
-  };
-  container.querySelector('[data-action="stop-stream"]').onclick = stopStream;
-
-  fetchLines(100);
-
-  currentDispose = () => {
-    stopStream();
-    cancel('logs');
-  };
-}
 
 // --- Filter pills ---
 document.getElementById('filters')?.addEventListener('click', (e) => {
@@ -639,12 +321,23 @@ subscribe((s) => {
 
 // --- Boot ---
 function boot() {
-  const hash = location.hash || '#/overview';
-  setState({ screen: hash });
+  // O kernel assume a área de tela: régua (chrome, não ocultável), faixa
+  // crítica (global em qualquer escopo), grade de módulos, painel Personalizar
+  // e a subtela central.
+  iniciarCockpit({
+    regua: document.getElementById('kernelReguaSlot'),
+    faixa: document.getElementById('kernelFaixa'),
+    grade: document.getElementById('screenContainer'),
+    painel: document.getElementById('kernelPainel'),
+    subtela: document.getElementById('kernelSubtela'),
+  });
   startPolling();
   connectSSE();
 
   initCommandPalette([
+    { id: 'personalizar', label: 'Personalizar cockpit', icon: '⋮⋮', action: () => {
+      document.getElementById('personalizarBtn')?.click();
+    }},
     { id: 'filter-all', label: 'Filtrar: Todos', icon: '⊞', action: () => setState({ filter: 'all' }) },
     { id: 'filter-running', label: 'Filtrar: Rodando', icon: '▶', action: () => setState({ filter: 'running' }) },
     { id: 'filter-exited', label: 'Filtrar: Parados', icon: '■', action: () => setState({ filter: 'exited' }) },

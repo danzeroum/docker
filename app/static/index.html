@@ -133,9 +133,23 @@
         <h1 id="mainTitle">Cockpit Docker</h1>
         <div class="muted" id="mainSubtitle">Selecione um container para inspecionar</div>
       </div>
+      <button type="button" id="personalizarBtn" class="pz-abrir" aria-pressed="false"
+              title="Personalizar cockpit: ocultar, mover e presets">⋮⋮ Personalizar</button>
     </header>
 
+    <!-- Kernel: fora da área rolável e fora do registro de módulos.
+         Invariante 1 do doc 10 — os vitais não podem ser ocultados, arrastados
+         nem cobertos pela subtela. Invariante 2 — a faixa crítica é do host
+         inteiro e aparece em qualquer escopo. -->
+    <div id="kernelFaixa" hidden></div>
+    <div id="kernelReguaSlot"></div>
+    <div id="kernelPainel" hidden></div>
+
+    <!-- Grade de módulos do escopo aberto. -->
     <div id="screenContainer"></div>
+
+    <!-- Subtela central: abre ABAIXO do header e da régua, de propósito. -->
+    <div id="kernelSubtela" class="sub-overlay" hidden></div>
   </main>
 </div>
 

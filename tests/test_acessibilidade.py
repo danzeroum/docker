@@ -17,13 +17,21 @@ ARQUIVOS_JS = sorted(JS.rglob("*.js"))
 
 # Classes que nasceram como <div onClick> e foram convertidas. Se alguma voltar
 # a ser div, o teste abaixo pega.
+#
+# `container-card` e `stack-contr` sairam da lista na Sprint 2a: eram markup de
+# `screens/overview.js`, que foi removida porque seus quatro paineis viraram os
+# modulos atencao/containers/stacks/ingress. Nao houve regressao de a11y — as
+# classes deixaram de existir. Em lugar delas entraram os elementos interativos
+# do kernel, que precisam da mesma garantia.
 CLASSES_CONVERTIDAS = [
-    "filter-pill", "list-item", "stack-header", "container-card",
-    "stack-contr", "ig-row", "palette-item",
+    "filter-pill", "list-item", "stack-header", "ig-row", "palette-item",
+    # kernel do Cockpit Vivo (2a)
+    "mod-linha", "rg-chip",
 ]
 
 # Cartoes que tem interativo dentro e por isso usam o botao esticado.
-CARTOES_ESTICADOS = ["atn-card", "atn-mini", "ig-finding", "plt-card"]
+# `atn-mini` saiu junto com screens/overview.js, pelo mesmo motivo.
+CARTOES_ESTICADOS = ["atn-card", "ig-finding", "plt-card"]
 
 
 def _todo_o_js():

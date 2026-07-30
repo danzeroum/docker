@@ -1,5 +1,7 @@
 # 14 · Plano consolidado — backend B1–B11 × face de interface
 
+> Atualizado após a Sprint 2a. O registro da execução está na seção 15, no fim.
+
 Funde três coisas que até aqui viviam separadas: os prompts de backend B1–B11
 (`blocos-b1-b11-prompts-completos.md`), a face de interface dos docs 10/11/12, e o que a
 Sprint 1 efetivamente entregou (`13-blocos-agregados.md`). Nada dos três se perde.
@@ -194,3 +196,105 @@ logs, metricas, stacks, tarefas`), os 7 presets nos 3 escopos, e os dados de dem
 morrer na implementação (`criptotrade-app`, `familia-web`, `giva-api`, `prompte`,
 `redis-teste`, `juridico`, `docker-cockpit-proxy`) — que é exatamente o teste de `grep` do
 doc 01.
+
+---
+
+# 15 · Sprint 2a — executada
+
+Registro do que a 2a entregou, e das decisões tomadas durante a execução.
+
+## Backend: bloco `summary`
+
+`app/summary.py`. O doc 09 §B especificava desde a primeira iteração e nunca foi
+implementado. O desenho tem duas metades, porque há dois compromissos simultâneos:
+
+- `montar()` só lê cache em memória e SQLite — zero chamada ao daemon no request;
+- `aquecer_loop()` mantém esses caches quentes em background, a cada 60 s.
+
+A segunda metade não estava no prompt e é o que faz o invariante 3 valer de
+verdade. Se o summary buscasse sob demanda, o chip de um módulo oculto nunca
+seria preenchido (ninguém dispara a busca) e a régua viraria decoração. Se
+buscasse no request, cada poll dispararia `/system/df`.
+
+`cache.peek()` é a peça que separa as duas: lê sem disparar o factory. A
+fronteira do "velho demais" é o TTL da própria entrada, não uma constante global
+— a projeção de disco é cacheada por 5 min e o storage por 30 s.
+
+**Duas chaves saem `null` por falta de fonte real**, com `stale_since` datado:
+
+- `drift.count` — B8 pendente. A chave já sai no contrato para a régua não mudar
+  de forma quando o drift chegar.
+- `ingress.certs_expiring` e `cert_window_days` — **não há fonte**. Não existe
+  regra de expiração entre as 17 do motor, e o diretório do certbot não está
+  montado no container (o compose monta só `nginx` e `/opt/btv`). O doc 09 §C
+  lista o chip "certs_expiring 3" como se fosse derivável; não é. Inventar dias
+  aqui é exatamente o que o doc 01 proíbe.
+
+`summary.stacks` deriva dos containers que o `/api/overview` já montou, **não**
+de `/api/projects`: aquela rota roda `docker compose ps` por projeto via
+subprocess, e chamá-la por poll colocaria ~12 subprocessos no caminho de cada
+request da régua.
+
+## Frontend: registro de módulos
+
+O `switch` com um `case` por tela saiu de `main.js`. No lugar: `kernel/` com
+`registry`, `escopo`, `layout`, `presets`, `regua`, `cockpit`, `personalizar`,
+`subtela` e `app`. `grep` nos arquivos do núcleo não encontra o id de nenhum
+módulo — coberto por teste (`test_nucleo_nao_cita_nenhum_modulo_por_nome`).
+
+**18 módulos**, não 17. Ao portar, apareceu um órfão que a contagem inicial não
+previa: `projetos`, a tela de start/stop de stack compose atrás de
+`require_unlock` — foi ela que obrigou a F5 a existir. Sem registrar, sumiria no
+porte. Registrada como os outros extras, fora dos presets.
+
+`screens/overview.js` foi **removida**, não portada: seus quatro painéis são
+exatamente os módulos `atencao`, `containers`, `stacks` e `ingress`. O Dossiê e
+a tela de Logs (~275 linhas em `main.js`) também saíram, substituídos pela
+subtela + os módulos `config`, `metricas` e `logs`.
+
+`reconciliar()` acrescenta módulo desconhecido como **oculto**. É o que mantém
+os 5 extras fora da grade sem precisar de lista negra, e evita que um deploy
+faça brotar módulo no arranjo de quem nunca o escolheu.
+
+## Decisões de escopo confirmadas
+
+1. **Os extras** (`backend`, `executivo`, `plantao`, `projetos`, `topologia`)
+   são registrados e aparecem no Personalizar; nenhum preset padrão os
+   referencia. Nenhum tem chave no `summary`, logo nenhum aparece na régua —
+   chip sem fonte seria dado inventado.
+2. **`ENABLE_ACTIONS` nasce em `1`** na 2a, porque as 4 rotas de mutação da F5
+   existem e funcionam atrás do unlock; nascer `0` faria a UI esconder botão de
+   rota que responde. **Na 2b a inversão do padrão e o pin explícito
+   `ENABLE_ACTIONS=1` no compose de produção entram no MESMO commit da
+   barreira** — separá-los derruba `unlock→reiniciar` em produção.
+
+## Dívidas pagas no caminho
+
+- `sw.js` passou a listar `kernel/`, `modulos/` e `screens/` em
+  `STATIC_ASSETS`, com bump de `cockpit-v2` para `v3`. Era dívida registrada no
+  §"Dívida conhecida" acima: sem isso o service worker servia um `main.js` que
+  importa arquivos que ele não tem, e offline a interface ficava em branco.
+- `mod-linha` é sempre `<button>`; linha sem ação usa `mod-item` (`<div>`).
+  `test_acessibilidade` pegou a classe única servindo duas semânticas — botão
+  que não faz nada é pior para o teclado que um div honesto.
+- O follow de logs por SSE quase ficou de fora do porte. Um teste existente
+  (`test_logs_texto`) foi quem pegou.
+
+## Testes migrados, não apagados
+
+Oito testes codificavam a arquitetura antiga (`case '#/rota':` no switch,
+`fetchLines` no `main.js`, classes de `screens/overview.js`). Cada um foi
+**retargetado preservando a intenção** — "a tela está ligada ao render real, não
+a um placeholder" virou "o módulo está registrado e chama o render real". A
+justificativa está no corpo de cada teste, para o próximo leitor não achar que
+alguém afrouxou a asserção.
+
+## O que a 2a NÃO entregou
+
+A adaptação visual de cada corpo de módulo à caixa do módulo. Os 9 módulos que
+delegam a telas existentes renderizam o markup de página cheia dentro de um
+card — funciona e os dados são reais, mas o acabamento de cada um viaja com o
+sprint do seu bloco (Armazenamento e Eventos na 2b, Logs na 3, Drift na 5).
+
+O roteiro de 2 min do doc 12 navega host → stack → subtela sem reload, mas
+`buscar oom nos logs` (B5) e `reiniciar` (B10-residual) só fecham na 2b/3.

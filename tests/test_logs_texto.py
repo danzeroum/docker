@@ -73,9 +73,12 @@ def test_apiget_continua_sendo_so_para_json():
 
 
 def test_a_tela_de_logs_usa_o_leitor_de_texto():
-    fonte = (JS / "main.js").read_text()
-    m = re.search(r"async function fetchLines\(.*?\n  \}", fonte, re.S)
-    assert m, "fetchLines saiu do main.js"
+    # Na Sprint 2a a tela de Logs virou modulo (`modulos/logs.js`). O bug que
+    # este teste protege — ler text/plain como JSON, deixando a tela vazia sem
+    # erro — segue possivel no lugar novo, entao o teste segue o codigo.
+    fonte = (JS / "modulos" / "logs.js").read_text()
+    m = re.search(r"async function fetchLines\(.*?\n    \}", fonte, re.S)
+    assert m, "fetchLines saiu de modulos/logs.js"
     corpo = m.group(0)
     assert "apiGetText(" in corpo, "a tela de Logs voltou a ler texto como JSON"
     assert "apiGet(" not in corpo.replace("apiGetText(", "")
@@ -83,16 +86,16 @@ def test_a_tela_de_logs_usa_o_leitor_de_texto():
 
 def test_leitor_de_texto_e_importado_onde_e_usado():
     """Usar sem importar mata o modulo inteiro, nao so a tela de Logs."""
-    fonte = (JS / "main.js").read_text()
-    m = re.search(r"import\s*\{([^}]*)\}\s*from\s*'\./data\.js'", fonte)
-    assert m, "main.js nao importa de data.js"
+    fonte = (JS / "modulos" / "logs.js").read_text()
+    m = re.search(r"import\s*\{([^}]*)\}\s*from\s*'\.\./data\.js'", fonte)
+    assert m, "modulos/logs.js nao importa de data.js"
     importados = {n.strip() for n in m.group(1).split(",")}
     assert "apiGetText" in importados
 
 
 def test_o_stream_continua_em_rota_propria_por_eventsource():
     """O SSE nunca teve o bug; o conserto de uma rota nao pode quebrar a outra."""
-    fonte = (JS / "main.js").read_text()
+    fonte = (JS / "modulos" / "logs.js").read_text()
     assert "new EventSource(`/api/containers/${id}/logs/stream" in fonte
     # E o SSE nao pode ser lido por fetch de JSON.
     assert "apiGet('logs_stream'" not in fonte

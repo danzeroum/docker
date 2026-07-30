@@ -147,7 +147,7 @@ export function renderPlantao(container) {
     fila.querySelectorAll('[data-open]').forEach(botao => {
       botao.addEventListener('click', () => {
         setState({ selectedFinding: botao.dataset.open });
-        navigate('#/incidente');
+        navigate('#/atencao');
       });
     });
   }
