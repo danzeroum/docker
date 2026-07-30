@@ -5,8 +5,12 @@ proposta original já existiam em produção; este documento registra o que **de
 o que foi entregue e o que sobra.
 
 Leia junto com `00-decisoes-de-revisao.md` (as regras que corrigem os outros documentos) e
-`05-prompt-para-o-desenvolvedor.md` (as regras inegociáveis: sem framework novo, zero dado
-fixo no frontend, campo sem fonte real sai da tela).
+`../../design_handoff_cockpit_vps/05-prompt-para-o-desenvolvedor.md` (as regras inegociáveis:
+sem framework novo, zero dado fixo no frontend, campo sem fonte real sai da tela).
+
+O roadmap que continua daqui, já cruzado com a face de interface dos docs 10/11/12, está em
+`14-plano-consolidado.md` — inclusive os dois pré-requisitos de fundação que a Sprint 2
+assume e que ainda não existem (registro de módulos e bloco `summary`).
 
 ## Correções à proposta original
 
