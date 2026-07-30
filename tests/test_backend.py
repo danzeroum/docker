@@ -56,10 +56,11 @@ def test_backend_com_telemetria(client):
 
 def test_events_invalidate_cache():
     """container start/stop/die/restart/oom invalida caches e broadcast."""
-    from events import _invalidate_caches, _clients, _broadcast
+    from events import _invalidate_caches, _clients, subscribe
     from unittest.mock import patch
-    q = __import__("asyncio").Queue()
-    _clients.append(q)
+    import asyncio
+    # (fila, filtro) desde a 2b-B3 — por isso via subscribe, nao append direto.
+    q = asyncio.run(subscribe())
     with patch("cache.invalidate") as mock_inv:
         for action in ("start", "stop", "die", "restart", "oom"):
             _invalidate_caches({"Type": "container", "Action": action})
@@ -69,7 +70,8 @@ def test_events_invalidate_cache():
     while not q.empty():
         msgs.append(q.get_nowait())
     assert any(m.get("type") == "invalidate" for m in msgs), "broadcast invalidate"
-    _clients.remove(q) if q in _clients else None
+    from events import unsubscribe
+    unsubscribe(q)
 
 
 def test_events_nao_invalida_outros_eventos():
@@ -86,10 +88,10 @@ def test_events_subscribe_unsubscribe():
     from events import subscribe, unsubscribe, _clients
     import asyncio
     q = asyncio.run(subscribe())
-    assert q in _clients
+    assert any(par[0] is q for par in _clients), "subscribe nao registrou a fila"
     assert q.maxsize == 256
     unsubscribe(q)
-    assert q not in _clients
+    assert all(par[0] is not q for par in _clients), "unsubscribe nao removeu"
 
 
 def test_telemetry_middleware_histograma(client):

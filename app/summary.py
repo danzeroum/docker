@@ -99,6 +99,17 @@ async def _tasks():
     }, None
 
 
+async def _events():
+    """Resumo da timeline, para o chip do módulo Eventos.
+
+    Lê SQLite direto, sem peek: é uma contagem e um SELECT de 1 linha em tabela
+    indexada, mais barato que a maquinaria de cache. O `peek` existe para o que
+    custa I/O de disco ou rede — usá-lo aqui seria cerimônia.
+    """
+    from db import get_events_resumo
+    return await get_events_resumo(), None
+
+
 async def _audit():
     from db import get_audit_log
     ultimas = await get_audit_log(limit=1)
@@ -277,6 +288,7 @@ async def montar(containers: list) -> dict:
         "capacity": _capacity(capacity_data),
         "audit": registra("audit", await _seguro(_audit)),
         "tasks": registra("tasks", await _seguro(_tasks)),
+        "events": registra("events", await _seguro(_events)),
         "storage": _storage(storage_data),
         "security": _security(security_data),
         # B8 pendente. A chave já sai no contrato para a régua não precisar

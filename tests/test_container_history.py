@@ -124,7 +124,11 @@ async def test_v10_preserva_amostras_existentes(tmp_path):
             assert linha[3] >= 10.0
 
         cur = await db.execute("SELECT MAX(version) FROM schema_version")
-        assert (await cur.fetchone())[0] == 10
+        # Contra SCHEMA_VERSION, nao contra 10: este teste valida que a v10 nao
+        # perde dado, e `init_db` aplica TODAS as migrations pendentes. Escrever
+        # o numero aqui faz o teste quebrar a cada migration nova — foi
+        # exatamente o que a v9 fez com quatro testes de uma vez.
+        assert (await cur.fetchone())[0] == mod.SCHEMA_VERSION >= 10
 
         cur = await db.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='container_samples_hourly'"
