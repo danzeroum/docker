@@ -298,3 +298,27 @@ sprint do seu bloco (Armazenamento e Eventos na 2b, Logs na 3, Drift na 5).
 
 O roteiro de 2 min do doc 12 navega host → stack → subtela sem reload, mas
 `buscar oom nos logs` (B5) e `reiniciar` (B10-residual) só fecham na 2b/3.
+
+## Backlog de fonte: validade de certificado
+
+`summary.ingress.certs_expiring` e `cert_window_days` saem `null` porque **não há
+fonte**, não porque a leitura falhou. Duas coisas faltam ao mesmo tempo:
+
+- nenhuma das 17 regras do motor calcula dias até a expiração;
+- o diretório do certbot não está montado no container — o compose monta
+  `/opt/btv/ingress/nginx` e `/opt/btv`, ambos `:ro`, e nenhum contém os
+  `fullchain.pem`.
+
+O parser já extrai `cert_path` de cada host, então o caminho existe; o que falta
+é poder ler o arquivo e uma regra que faça a conta.
+
+**Decisão: fica em backlog e se resolve na Sprint 5, junto do B11.** Duas saídas,
+e a escolha é consciente:
+
+1. montar o diretório do certbot `:ro` no compose e criar a regra de expiração —
+   os chips passam a ter fonte real;
+2. tirar as duas chaves do contrato do `summary` e do doc 09 §C.
+
+O que **não** é opção é deixar como está indefinidamente: chave permanentemente
+`null` no contrato é convite a alguém "consertar" preenchendo com estimativa, que
+é exatamente o dado inventado que o doc 01 proíbe.
