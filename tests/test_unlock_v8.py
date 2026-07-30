@@ -255,9 +255,10 @@ async def test_v8_sobre_banco_populado_preserva_dado(tmp_path):
 
 
 async def _checa_v8(conn):
+        import db as db_mod
         cur = await conn.execute("SELECT MAX(version) FROM schema_version")
         # init_db aplica todas as migrations pendentes, nao para na v8
-        assert (await cur.fetchone())[0] == 9
+        assert (await cur.fetchone())[0] == db_mod.SCHEMA_VERSION
 
         cur = await conn.execute(
             "SELECT first_seen, last_seen, occurrences, severity FROM findings WHERE id = ?",

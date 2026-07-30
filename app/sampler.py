@@ -11,6 +11,7 @@ _container_stats = {}
 _container_stats_as_of = None
 _last_container_collection = 0.0
 _last_persist = 0.0
+_rollup_inicial_feito = False
 _SEM_STATS = asyncio.Semaphore(4)
 
 
@@ -168,11 +169,27 @@ async def _persist_samples():
     sample = _last_sample
     if not sample:
         return
+    global _rollup_inicial_feito
     try:
-        from db import insert_host_sample, insert_container_samples, purge_samples
+        from db import (
+            insert_host_sample,
+            insert_container_samples,
+            purge_samples,
+            rollup_container_samples,
+            RETENTION_RAW_HOURS,
+        )
         await insert_host_sample(sample)
         if _container_stats:
             await insert_container_samples(_container_stats)
+        # Agregar SEMPRE antes de expurgar: purge_samples corta o raw em
+        # RETENTION_RAW_HOURS, e o que nao virou linha horaria antes disso
+        # desaparece. Na primeira passada a janela e a do raw inteiro, para
+        # cobrir as horas em que o cockpit esteve fora do ar.
+        if _rollup_inicial_feito:
+            await rollup_container_samples()
+        else:
+            await rollup_container_samples(window_hours=RETENTION_RAW_HOURS)
+            _rollup_inicial_feito = True
         await purge_samples()
     except Exception:
         import traceback

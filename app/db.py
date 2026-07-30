@@ -10,6 +10,31 @@ _connection = None
 # TTL da sessao de destravamento (F5). Unico lugar que define os 30 min.
 UNLOCK_TTL_SECONDS = 1800
 
+
+def _env_int(nome: str, padrao: int, minimo: int) -> int:
+    """Env numerica com piso. Valor ilegivel volta ao padrao em vez de explodir.
+
+    Retencao entra por env, mas um `RETENTION_RAW_HOURS=0` num .env mal editado
+    apagaria a serie inteira no primeiro ciclo do coletor. O piso e o que
+    impede uma variavel de ambiente de virar perda de dado.
+    """
+    try:
+        valor = int(os.getenv(nome, "") or padrao)
+    except (TypeError, ValueError):
+        return padrao
+    return max(minimo, valor)
+
+
+# Retencao de container_samples em dois niveis (v10). host_samples segue em 30 d
+# de raw porque e a fonte da projecao por minimos quadrados da F4.
+RETENTION_RAW_HOURS = _env_int("RETENTION_RAW_HOURS", 24, 1)
+RETENTION_ROLLUP_DAYS = _env_int("RETENTION_ROLLUP_DAYS", 30, 1)
+RETENTION_HOST_DAYS = _env_int("RETENTION_HOST_DAYS", 30, 7)
+
+# Teto de pontos por resposta de historico. A tela desenha sparkline; mandar
+# 1440 pontos para 200 px de largura gasta banda e nao muda um pixel.
+MAX_HISTORY_POINTS = 500
+
 def _now():
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -48,6 +73,196 @@ async def get_db():
         await _connection.execute("PRAGMA foreign_keys=ON")
     return _connection
 
+_MIGRATIONS = [
+    (1, [
+        "CREATE TABLE IF NOT EXISTS findings ("
+        "id TEXT PRIMARY KEY,"
+        "rule TEXT NOT NULL,"
+        "target TEXT NOT NULL,"
+        "scope TEXT NOT NULL,"
+        "severity TEXT NOT NULL,"
+        "score INTEGER NOT NULL,"
+        "caused_by TEXT,"
+        "status TEXT NOT NULL DEFAULT 'open',"
+        "ack_reason TEXT,"
+        "ack_note TEXT,"
+        "ack_until TEXT,"
+        "first_seen TEXT NOT NULL,"
+        "last_seen TEXT NOT NULL,"
+        "resolved_at TEXT,"
+        "occurrences INTEGER NOT NULL DEFAULT 1,"
+        "payload TEXT NOT NULL"
+        ")",
+        "CREATE INDEX IF NOT EXISTS idx_findings_status ON findings(status, score DESC)",
+    ]),
+    (2, [
+        "ALTER TABLE findings ADD COLUMN targets TEXT",
+    ]),
+    (3, [
+        "CREATE TABLE IF NOT EXISTS findings_v3 ("
+        "id TEXT PRIMARY KEY,"
+        "rule TEXT NOT NULL,"
+        "target TEXT,"
+        "targets TEXT,"
+        "scope TEXT NOT NULL,"
+        "severity TEXT NOT NULL,"
+        "score INTEGER NOT NULL,"
+        "caused_by TEXT,"
+        "status TEXT NOT NULL DEFAULT 'open',"
+        "ack_reason TEXT,"
+        "ack_note TEXT,"
+        "ack_until TEXT,"
+        "first_seen TEXT NOT NULL,"
+        "last_seen TEXT NOT NULL,"
+        "resolved_at TEXT,"
+        "occurrences INTEGER NOT NULL DEFAULT 1,"
+        "payload TEXT NOT NULL"
+        ")",
+        "INSERT OR IGNORE INTO findings_v3 "
+        "(id, rule, target, scope, severity, score, caused_by, status, "
+        "ack_reason, ack_note, ack_until, first_seen, last_seen, "
+        "resolved_at, occurrences, payload) "
+        "SELECT id, rule, target, scope, severity, score, caused_by, "
+        "status, ack_reason, ack_note, ack_until, first_seen, last_seen, "
+        "resolved_at, occurrences, payload FROM findings",
+        "DROP TABLE findings",
+        "ALTER TABLE findings_v3 RENAME TO findings",
+        "CREATE INDEX IF NOT EXISTS idx_findings_status ON findings(status, score DESC)",
+    ]),
+    (4, [
+        "CREATE TABLE IF NOT EXISTS audit_log ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "action TEXT NOT NULL,"
+        "project TEXT NOT NULL,"
+        "result TEXT NOT NULL,"
+        "token_label TEXT NOT NULL DEFAULT '',"
+        "ip TEXT NOT NULL DEFAULT '',"
+        "created_at TEXT NOT NULL"
+        ")",
+    ]),
+    (5, [
+        "CREATE TABLE IF NOT EXISTS unlock_state ("
+        "token TEXT PRIMARY KEY,"
+        "remote_user TEXT NOT NULL DEFAULT '',"
+        "ip TEXT NOT NULL DEFAULT '',"
+        "motivo TEXT NOT NULL DEFAULT '',"
+        "created_at TEXT NOT NULL"
+        ")",
+    ]),
+    (6, [
+        "CREATE TABLE IF NOT EXISTS host_samples ("
+        "sampled_at TEXT PRIMARY KEY,"
+        "cpu_pct REAL NOT NULL,"
+        "mem_pct REAL NOT NULL,"
+        "mem_used INTEGER NOT NULL,"
+        "mem_total INTEGER NOT NULL,"
+        "disk_pct REAL NOT NULL,"
+        "swap_pct REAL NOT NULL DEFAULT 0"
+        ")",
+        "CREATE TABLE IF NOT EXISTS container_samples ("
+        "sampled_at TEXT NOT NULL,"
+        "container_id TEXT NOT NULL,"
+        "name TEXT NOT NULL,"
+        "cpu_pct REAL NOT NULL DEFAULT 0,"
+        "mem_usage INTEGER NOT NULL DEFAULT 0,"
+        "mem_limit INTEGER,"
+        "PRIMARY KEY (sampled_at, container_id)"
+        ")",
+    ]),
+    (7, [
+        "CREATE TABLE IF NOT EXISTS api_telemetry ("
+        "route TEXT NOT NULL,"
+        "hour TEXT NOT NULL,"
+        "total INTEGER NOT NULL DEFAULT 0,"
+        "errors INTEGER NOT NULL DEFAULT 0,"
+        "durations_total REAL NOT NULL DEFAULT 0,"
+        "durations_squared REAL NOT NULL DEFAULT 0,"
+        "durations_max REAL NOT NULL DEFAULT 0,"
+        "PRIMARY KEY (route, hour)"
+        ")",
+    ]),
+    # v8 — unlock_state deixa de ser chaveada pelo token em texto claro.
+    # As linhas antigas sao chaveadas pelo UNLOCK_TOKEN estatico: carrega-las
+    # para a frente preservaria exatamente a credencial que esta migracao revoga.
+    # Por isso a tabela e recriada VAZIA, de proposito — nao e perda acidental
+    # de dado (cf. v3/v5 e first_seen). Janela aberta no deploy fecha; o
+    # operador refaz o unlock e a linha nova ja nasce com usuario e prazo.
+    (8, [
+        "DROP TABLE IF EXISTS unlock_state",
+        "CREATE TABLE unlock_state ("
+        "token_hash TEXT PRIMARY KEY,"
+        "remote_user TEXT NOT NULL DEFAULT '',"
+        "ip TEXT NOT NULL DEFAULT '',"
+        "motivo TEXT NOT NULL DEFAULT '',"
+        "created_at TEXT NOT NULL,"
+        "expires_at TEXT NOT NULL"
+        ")",
+        "CREATE INDEX IF NOT EXISTS idx_unlock_expires ON unlock_state(expires_at)",
+    ]),
+    # v9 — tarefas (board do diagnostico).
+    # `origem` e COLUNA, nao inferida de finding_id IS NULL: uma tarefa manual
+    # pode legitimamente apontar para um achado, e e `origem` que decide se o
+    # motor tem permissao de mover o cartao.
+    (9, [
+        "CREATE TABLE IF NOT EXISTS tasks ("
+        "id TEXT PRIMARY KEY,"
+        "title TEXT NOT NULL,"
+        "detail TEXT NOT NULL DEFAULT '',"
+        "col TEXT NOT NULL DEFAULT 'todo',"
+        "origem TEXT NOT NULL DEFAULT 'manual',"
+        "finding_id TEXT,"
+        "target TEXT,"
+        "owner TEXT NOT NULL DEFAULT '',"
+        "due TEXT,"
+        "note TEXT NOT NULL DEFAULT '',"
+        "created_at TEXT NOT NULL,"
+        "updated_at TEXT NOT NULL"
+        ")",
+        "CREATE INDEX IF NOT EXISTS idx_tasks_col ON tasks(col, updated_at DESC)",
+        # No maximo UM cartao automatico por achado. E o que impede o ciclo de
+        # 10 s do motor de duplicar cartao a cada reabertura.
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_auto_finding "
+        "ON tasks(finding_id) WHERE origem = 'auto'",
+    ]),
+    # v10 — retencao em dois niveis para container_samples.
+    #
+    # A PK (sampled_at, container_id) da v6 serve a escrita e o purge por
+    # tempo, mas NAO serve a leitura por container: perguntar "historico do
+    # container X" com ela varre a tabela inteira. Dai o indice invertido.
+    #
+    # A tabela horaria existe porque raw a cada 60 s por 30 dias sao ~43 mil
+    # linhas POR container — o banco cresce justamente no disco que o
+    # /api/storage monitora. Raw agora vive 24 h (RETENTION_RAW_HOURS) e o
+    # que passa disso sobrevive agregado por hora (RETENTION_ROLLUP_DAYS).
+    #
+    # host_samples fica de fora de proposito: e a fonte da projecao de disco
+    # da F4, que precisa de 30 dias de serie para rodar minimos quadrados.
+    # Cortar o raw dela em 24 h mataria /api/metrics/history sem erro nenhum.
+    (10, [
+        "CREATE INDEX IF NOT EXISTS idx_container_samples_cid "
+        "ON container_samples(container_id, sampled_at)",
+        "CREATE TABLE IF NOT EXISTS container_samples_hourly ("
+        "hour TEXT NOT NULL,"
+        "container_id TEXT NOT NULL,"
+        "name TEXT NOT NULL DEFAULT '',"
+        "cpu_pct_avg REAL NOT NULL DEFAULT 0,"
+        "cpu_pct_max REAL NOT NULL DEFAULT 0,"
+        "mem_usage_avg INTEGER NOT NULL DEFAULT 0,"
+        "mem_usage_max INTEGER NOT NULL DEFAULT 0,"
+        "mem_limit INTEGER,"
+        "samples INTEGER NOT NULL DEFAULT 0,"
+        "PRIMARY KEY (hour, container_id)"
+        ")",
+        "CREATE INDEX IF NOT EXISTS idx_csh_cid "
+        "ON container_samples_hourly(container_id, hour)",
+    ]),
+]
+
+# Versao de esquema no topo da lista. Os testes de migracao conferem "banco
+# totalmente migrado" contra isto em vez de um numero literal — a v9 quebrou
+# quatro testes de uma vez so por estarem escritos como `== 9`.
+SCHEMA_VERSION = _MIGRATIONS[-1][0]
+
 async def init_db():
     db = await get_db()
     await db.execute("""
@@ -59,159 +274,7 @@ async def init_db():
     cur = await db.execute("SELECT MAX(version) FROM schema_version")
     row = await cur.fetchone()
     current = row[0] if row and row[0] else 0
-    migrations = [
-        (1, [
-            "CREATE TABLE IF NOT EXISTS findings ("
-            "id TEXT PRIMARY KEY,"
-            "rule TEXT NOT NULL,"
-            "target TEXT NOT NULL,"
-            "scope TEXT NOT NULL,"
-            "severity TEXT NOT NULL,"
-            "score INTEGER NOT NULL,"
-            "caused_by TEXT,"
-            "status TEXT NOT NULL DEFAULT 'open',"
-            "ack_reason TEXT,"
-            "ack_note TEXT,"
-            "ack_until TEXT,"
-            "first_seen TEXT NOT NULL,"
-            "last_seen TEXT NOT NULL,"
-            "resolved_at TEXT,"
-            "occurrences INTEGER NOT NULL DEFAULT 1,"
-            "payload TEXT NOT NULL"
-            ")",
-            "CREATE INDEX IF NOT EXISTS idx_findings_status ON findings(status, score DESC)",
-        ]),
-        (2, [
-            "ALTER TABLE findings ADD COLUMN targets TEXT",
-        ]),
-        (3, [
-            "CREATE TABLE IF NOT EXISTS findings_v3 ("
-            "id TEXT PRIMARY KEY,"
-            "rule TEXT NOT NULL,"
-            "target TEXT,"
-            "targets TEXT,"
-            "scope TEXT NOT NULL,"
-            "severity TEXT NOT NULL,"
-            "score INTEGER NOT NULL,"
-            "caused_by TEXT,"
-            "status TEXT NOT NULL DEFAULT 'open',"
-            "ack_reason TEXT,"
-            "ack_note TEXT,"
-            "ack_until TEXT,"
-            "first_seen TEXT NOT NULL,"
-            "last_seen TEXT NOT NULL,"
-            "resolved_at TEXT,"
-            "occurrences INTEGER NOT NULL DEFAULT 1,"
-            "payload TEXT NOT NULL"
-            ")",
-            "INSERT OR IGNORE INTO findings_v3 "
-            "(id, rule, target, scope, severity, score, caused_by, status, "
-            "ack_reason, ack_note, ack_until, first_seen, last_seen, "
-            "resolved_at, occurrences, payload) "
-            "SELECT id, rule, target, scope, severity, score, caused_by, "
-            "status, ack_reason, ack_note, ack_until, first_seen, last_seen, "
-            "resolved_at, occurrences, payload FROM findings",
-            "DROP TABLE findings",
-            "ALTER TABLE findings_v3 RENAME TO findings",
-            "CREATE INDEX IF NOT EXISTS idx_findings_status ON findings(status, score DESC)",
-        ]),
-        (4, [
-            "CREATE TABLE IF NOT EXISTS audit_log ("
-            "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-            "action TEXT NOT NULL,"
-            "project TEXT NOT NULL,"
-            "result TEXT NOT NULL,"
-            "token_label TEXT NOT NULL DEFAULT '',"
-            "ip TEXT NOT NULL DEFAULT '',"
-            "created_at TEXT NOT NULL"
-            ")",
-        ]),
-        (5, [
-            "CREATE TABLE IF NOT EXISTS unlock_state ("
-            "token TEXT PRIMARY KEY,"
-            "remote_user TEXT NOT NULL DEFAULT '',"
-            "ip TEXT NOT NULL DEFAULT '',"
-            "motivo TEXT NOT NULL DEFAULT '',"
-            "created_at TEXT NOT NULL"
-            ")",
-        ]),
-        (6, [
-            "CREATE TABLE IF NOT EXISTS host_samples ("
-            "sampled_at TEXT PRIMARY KEY,"
-            "cpu_pct REAL NOT NULL,"
-            "mem_pct REAL NOT NULL,"
-            "mem_used INTEGER NOT NULL,"
-            "mem_total INTEGER NOT NULL,"
-            "disk_pct REAL NOT NULL,"
-            "swap_pct REAL NOT NULL DEFAULT 0"
-            ")",
-            "CREATE TABLE IF NOT EXISTS container_samples ("
-            "sampled_at TEXT NOT NULL,"
-            "container_id TEXT NOT NULL,"
-            "name TEXT NOT NULL,"
-            "cpu_pct REAL NOT NULL DEFAULT 0,"
-            "mem_usage INTEGER NOT NULL DEFAULT 0,"
-            "mem_limit INTEGER,"
-            "PRIMARY KEY (sampled_at, container_id)"
-            ")",
-        ]),
-        (7, [
-            "CREATE TABLE IF NOT EXISTS api_telemetry ("
-            "route TEXT NOT NULL,"
-            "hour TEXT NOT NULL,"
-            "total INTEGER NOT NULL DEFAULT 0,"
-            "errors INTEGER NOT NULL DEFAULT 0,"
-            "durations_total REAL NOT NULL DEFAULT 0,"
-            "durations_squared REAL NOT NULL DEFAULT 0,"
-            "durations_max REAL NOT NULL DEFAULT 0,"
-            "PRIMARY KEY (route, hour)"
-            ")",
-        ]),
-        # v8 — unlock_state deixa de ser chaveada pelo token em texto claro.
-        # As linhas antigas sao chaveadas pelo UNLOCK_TOKEN estatico: carrega-las
-        # para a frente preservaria exatamente a credencial que esta migracao revoga.
-        # Por isso a tabela e recriada VAZIA, de proposito — nao e perda acidental
-        # de dado (cf. v3/v5 e first_seen). Janela aberta no deploy fecha; o
-        # operador refaz o unlock e a linha nova ja nasce com usuario e prazo.
-        (8, [
-            "DROP TABLE IF EXISTS unlock_state",
-            "CREATE TABLE unlock_state ("
-            "token_hash TEXT PRIMARY KEY,"
-            "remote_user TEXT NOT NULL DEFAULT '',"
-            "ip TEXT NOT NULL DEFAULT '',"
-            "motivo TEXT NOT NULL DEFAULT '',"
-            "created_at TEXT NOT NULL,"
-            "expires_at TEXT NOT NULL"
-            ")",
-            "CREATE INDEX IF NOT EXISTS idx_unlock_expires ON unlock_state(expires_at)",
-        ]),
-        # v9 — tarefas (board do diagnostico).
-        # `origem` e COLUNA, nao inferida de finding_id IS NULL: uma tarefa manual
-        # pode legitimamente apontar para um achado, e e `origem` que decide se o
-        # motor tem permissao de mover o cartao.
-        (9, [
-            "CREATE TABLE IF NOT EXISTS tasks ("
-            "id TEXT PRIMARY KEY,"
-            "title TEXT NOT NULL,"
-            "detail TEXT NOT NULL DEFAULT '',"
-            "col TEXT NOT NULL DEFAULT 'todo',"
-            "origem TEXT NOT NULL DEFAULT 'manual',"
-            "finding_id TEXT,"
-            "target TEXT,"
-            "owner TEXT NOT NULL DEFAULT '',"
-            "due TEXT,"
-            "note TEXT NOT NULL DEFAULT '',"
-            "created_at TEXT NOT NULL,"
-            "updated_at TEXT NOT NULL"
-            ")",
-            "CREATE INDEX IF NOT EXISTS idx_tasks_col ON tasks(col, updated_at DESC)",
-            # No maximo UM cartao automatico por achado. E o que impede o ciclo de
-            # 10 s do motor de duplicar cartao a cada reabertura.
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_auto_finding "
-            "ON tasks(finding_id) WHERE origem = 'auto'",
-        ]),
-    ]
-    for ver, stmts in migrations:
+    for ver, stmts in _MIGRATIONS:
         if ver > current:
             for stmt in stmts:
                 await db.execute(stmt)
@@ -475,12 +538,142 @@ async def insert_container_samples(stats: dict):
     await db.commit()
 
 
-async def purge_samples():
+async def rollup_container_samples(window_hours: int = 3):
+    """Agrega container_samples raw em container_samples_hourly.
+
+    Incremental de proposito: reagrega apenas as ultimas `window_hours` horas em
+    vez de varrer a tabela toda a cada ciclo de 60 s. A hora corrente e
+    reescrita a cada passada (INSERT OR REPLACE) porque ela ainda esta
+    recebendo amostras — o valor final so estabiliza quando a hora fecha.
+
+    `window_hours` maior existe para o catch-up de boot: se o cockpit ficou
+    fora do ar mais que a janela, as horas do meio nunca teriam sido agregadas
+    e o purge de raw as levaria embora. O coletor chama com a janela cheia de
+    raw na primeira passada.
+    """
     db = await get_db()
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat().replace("+00:00", "Z")
-    await db.execute("DELETE FROM host_samples WHERE sampled_at < ?", (cutoff,))
-    await db.execute("DELETE FROM container_samples WHERE sampled_at < ?", (cutoff,))
+    desde = (
+        datetime.now(timezone.utc) - timedelta(hours=max(1, window_hours))
+    ).isoformat().replace("+00:00", "Z")
+    await db.execute(
+        "INSERT OR REPLACE INTO container_samples_hourly "
+        "(hour, container_id, name, cpu_pct_avg, cpu_pct_max,"
+        " mem_usage_avg, mem_usage_max, mem_limit, samples) "
+        "SELECT substr(sampled_at, 1, 13) || ':00:00Z' AS hour,"
+        " container_id,"
+        " MAX(name),"
+        " ROUND(AVG(cpu_pct), 2),"
+        " MAX(cpu_pct),"
+        " CAST(AVG(mem_usage) AS INTEGER),"
+        " MAX(mem_usage),"
+        " MAX(mem_limit),"
+        " COUNT(*)"
+        " FROM container_samples WHERE sampled_at >= ?"
+        " GROUP BY hour, container_id",
+        (desde,),
+    )
     await db.commit()
+
+
+async def purge_samples():
+    """Expurgo dos tres niveis de serie temporal.
+
+    Ordem importa: quem chama precisa ter rodado `rollup_container_samples`
+    antes, senao o raw sai da tabela sem ter virado agregado.
+    """
+    db = await get_db()
+    agora = datetime.now(timezone.utc)
+    corte_host = (agora - timedelta(days=RETENTION_HOST_DAYS)).isoformat().replace("+00:00", "Z")
+    corte_raw = (agora - timedelta(hours=RETENTION_RAW_HOURS)).isoformat().replace("+00:00", "Z")
+    corte_rollup = (agora - timedelta(days=RETENTION_ROLLUP_DAYS)).isoformat().replace("+00:00", "Z")
+    await db.execute("DELETE FROM host_samples WHERE sampled_at < ?", (corte_host,))
+    await db.execute("DELETE FROM container_samples WHERE sampled_at < ?", (corte_raw,))
+    await db.execute("DELETE FROM container_samples_hourly WHERE hour < ?", (corte_rollup,))
+    await db.commit()
+
+
+def _downsample(pontos: list, teto: int = MAX_HISTORY_POINTS) -> list:
+    """Reduz a serie a no maximo `teto` pontos preservando o primeiro e o ultimo.
+
+    Passo fixo em vez de media movel: a tela precisa que o ultimo ponto seja o
+    valor real mais recente, nao uma media que suaviza justamente o pico que o
+    operador abriu a tela para ver.
+    """
+    total = len(pontos)
+    if teto <= 0 or total <= teto:
+        return pontos
+    passo = total / teto
+    amostrados = [pontos[int(i * passo)] for i in range(teto)]
+    if amostrados[-1] is not pontos[-1]:
+        amostrados[-1] = pontos[-1]
+    return amostrados
+
+
+async def get_container_history(container_id: str, hours: int = 24, max_points: int = MAX_HISTORY_POINTS):
+    """Serie de um container, escolhendo a tabela pela idade do intervalo.
+
+    Devolve `{"points": [...], "resolution": "raw"|"hourly", ...}`. A resolucao
+    sai no payload porque a tela precisa dizer ao operador que 30 dias sao
+    medias horarias, nao leituras de 60 s — omitir isso e apresentar agregado
+    como se fosse medida.
+    """
+    db = await get_db()
+    hours = max(1, int(hours))
+    usar_raw = hours <= RETENTION_RAW_HOURS
+    corte = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat().replace("+00:00", "Z")
+
+    if usar_raw:
+        cur = await db.execute(
+            "SELECT sampled_at AS ts, cpu_pct, mem_usage, mem_limit"
+            " FROM container_samples WHERE container_id = ? AND sampled_at >= ?"
+            " ORDER BY sampled_at",
+            (container_id, corte),
+        )
+        rows = await cur.fetchall()
+        pontos = [
+            {
+                "ts": r[0],
+                "cpu_pct": r[1],
+                "mem_bytes": r[2],
+                "mem_limit": r[3],
+            }
+            for r in rows
+        ]
+    else:
+        cur = await db.execute(
+            "SELECT hour AS ts, cpu_pct_avg, cpu_pct_max, mem_usage_avg, mem_usage_max, mem_limit, samples"
+            " FROM container_samples_hourly WHERE container_id = ? AND hour >= ?"
+            " ORDER BY hour",
+            (container_id, corte),
+        )
+        rows = await cur.fetchall()
+        pontos = [
+            {
+                "ts": r[0],
+                "cpu_pct": r[1],
+                "cpu_pct_max": r[2],
+                "mem_bytes": r[3],
+                "mem_bytes_max": r[4],
+                "mem_limit": r[5],
+                "samples": r[6],
+            }
+            for r in rows
+        ]
+
+    total_bruto = len(pontos)
+    pontos = _downsample(pontos, max_points)
+    return {
+        "container_id": container_id,
+        "resolution": "raw" if usar_raw else "hourly",
+        "range_hours": hours,
+        "points": pontos,
+        "point_count": len(pontos),
+        "downsampled_from": total_bruto if total_bruto != len(pontos) else None,
+        "retention": {
+            "raw_hours": RETENTION_RAW_HOURS,
+            "rollup_days": RETENTION_ROLLUP_DAYS,
+        },
+    }
 
 
 async def get_host_series(metric: str, days: int = 30, step: str = "1d") -> list:

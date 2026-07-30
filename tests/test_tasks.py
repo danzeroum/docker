@@ -331,7 +331,7 @@ async def test_v9_sobre_banco_populado_preserva_tudo(tmp_path):
 
         conn = await aiosqlite.connect(db_path)
         cur = await conn.execute("SELECT MAX(version) FROM schema_version")
-        assert (await cur.fetchone())[0] == 9
+        assert (await cur.fetchone())[0] == db_mod.SCHEMA_VERSION
 
         cur = await conn.execute("SELECT COUNT(*) FROM findings")
         assert (await cur.fetchone())[0] == 6

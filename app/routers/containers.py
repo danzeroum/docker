@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 from fastapi import APIRouter, HTTPException, Response, WebSocket, WebSocketDisconnect, Request, Depends
 from fastapi.responses import StreamingResponse
 import httpx
@@ -9,7 +10,8 @@ from masking import mask_inspect
 from cache import cached_or_fetch
 from stats_util import calc_cpu_percent
 from auth import require_unlock
-from db import add_audit_entry
+from db import add_audit_entry, get_container_history, MAX_HISTORY_POINTS
+from sampler import get_container_inspects
 
 router = APIRouter(prefix="/api/containers", tags=["containers"])
 
@@ -32,10 +34,42 @@ def _demux_frame(data: bytes):
 # List
 # ---------------------------------------------------------------------------
 
+def _health_do_inspect(insp) -> str | None:
+    """State.Health.Status do inspect, ou None quando nao ha healthcheck.
+
+    Ausencia de healthcheck e ausencia de dado, nao "saudavel": devolver "ok"
+    aqui faria a listagem afirmar saude que ninguem mediu.
+    """
+    if not isinstance(insp, dict):
+        return None
+    estado = insp.get("State")
+    if not isinstance(estado, dict):
+        return None
+    saude = estado.get("Health")
+    if not isinstance(saude, dict):
+        return None
+    return saude.get("Status") or None
+
+
 @router.get("")
 async def list_containers():
     data, _ = await cached_or_fetch("containers_list", ttl=2.0, factory=lambda: proxy_get("/containers/json?all=1"))
-    return data
+    if not isinstance(data, list):
+        return data
+    # O inspect ja foi coletado pelo sampler; ler daqui deixa a rota com zero
+    # chamada extra ao daemon. Copia rasa por item porque `data` e o objeto
+    # cacheado sob "containers_list", compartilhado com /api/overview e
+    # /api/stats/all — mutar no lugar vazaria o campo para os dois.
+    inspects = get_container_inspects()
+    if not inspects:
+        return data
+    enriquecidos = []
+    for c in data:
+        if not isinstance(c, dict):
+            enriquecidos.append(c)
+            continue
+        enriquecidos.append({**c, "Health": _health_do_inspect(inspects.get(c.get("Id")))})
+    return enriquecidos
 
 
 # ---------------------------------------------------------------------------
@@ -128,6 +162,40 @@ async def container_logs_stream(container_id: str, tail: int = 100):
 @router.get("/{container_id}/stats")
 async def container_stats(container_id: str):
     return await proxy_get(f"/containers/{container_id}/stats?stream=false")
+
+
+# ---------------------------------------------------------------------------
+# Historico (serie persistida pelo coletor — nao toca o daemon)
+# ---------------------------------------------------------------------------
+
+_RANGE_RE = re.compile(r"^(\d{1,4})([hd])$")
+
+
+def _range_para_horas(valor: str) -> int:
+    """`24h` / `7d` -> horas. Fora do formato e 422, nao um default silencioso.
+
+    Um `range=ontem` respondido com 24 h por omissao faz a tela mostrar uma
+    janela que ninguem pediu; o operador le o grafico como se fosse o intervalo
+    dele. Errar alto aqui e mais honesto que adivinhar.
+    """
+    m = _RANGE_RE.match((valor or "").strip().lower())
+    if not m:
+        raise HTTPException(
+            status_code=422,
+            detail="range invalido — use Nh ou Nd (ex.: 1h, 24h, 7d, 30d)",
+        )
+    quantidade, unidade = int(m.group(1)), m.group(2)
+    if quantidade < 1:
+        raise HTTPException(status_code=422, detail="range precisa ser >= 1")
+    horas = quantidade if unidade == "h" else quantidade * 24
+    return min(horas, 366 * 24)
+
+
+@router.get("/{container_id}/history")
+async def container_history(container_id: str, range: str = "24h", max_points: int = 500):
+    horas = _range_para_horas(range)
+    max_points = max(1, min(max_points, MAX_HISTORY_POINTS))
+    return await get_container_history(container_id, hours=horas, max_points=max_points)
 
 
 # ---------------------------------------------------------------------------
