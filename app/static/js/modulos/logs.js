@@ -22,8 +22,21 @@
 
 import { apiGet, apiGetText } from '../data.js';
 import { escapeHtml } from '../fmt.js';
+import { atributo, deMolde, lista, mostrar, texto } from '../kernel/patch.js';
 
 const TETO_LINHAS = 400;
+
+/* A casca — e o campo de busca dentro dela — nasce no monte e nunca mais é
+ * reescrita (doc 13 §2). Antes o módulo inteiro era remontado a cada leitura do
+ * kernel, e com ele o `<input>`: digitar `oom` significava perder o `o` no
+ * ciclo seguinte, com o cursor voltando para o começo de um campo novo. É o
+ * único campo de texto do cockpit que fica dentro de um cartão que atualiza
+ * sozinho, e por isso era o mais fácil de flagrar e o mais irritante de usar. */
+const MOLDE_ACHADO = '<button type="button" class="log-achado" data-ir="">'
+  + '<span class="mod-tag" data-container></span>'
+  + '<span class="log-trecho" data-trecho></span>'
+  + '<span class="mod-meta" data-hora></span>'
+  + '</button>';
 
 export default {
   id: 'logs',
@@ -45,7 +58,10 @@ export default {
         ${soBusca ? '' : '<button type="button" class="logs-follow" data-acao="follow" aria-pressed="false">&#9679; follow</button>'}
         <span class="logs-nota" data-nota></span>
       </div>
-      <div data-resultados hidden></div>
+      <div data-resultados hidden>
+        <div class="empty" data-sem-achado hidden>Nenhuma linha encontrada nos ultimos 7 dias</div>
+        <div class="mod-lista" data-achados></div>
+      </div>
       ${soBusca ? '' : '<pre class="logs-pre" data-pre></pre>'}`;
 
     const pre = corpo.querySelector('[data-pre]');
@@ -53,12 +69,31 @@ export default {
     const btn = corpo.querySelector('[data-acao="follow"]');
     const campo = corpo.querySelector('[data-busca]');
     const painel = corpo.querySelector('[data-resultados]');
+    const semAchado = corpo.querySelector('[data-sem-achado]');
+    const listaAchados = corpo.querySelector('[data-achados]');
+
+    // Delegação numa lista que nasce vazia: o handler existe antes do primeiro
+    // resultado e sobrevive a todos os seguintes.
+    if (listaAchados) {
+      listaAchados.addEventListener('click', (ev) => {
+        const b = ev.target.closest ? ev.target.closest('[data-ir]') : null;
+        const abrir = dados && dados.abrirContainer;
+        if (b && typeof abrir === 'function') abrir(b.dataset.ir);
+      });
+    }
 
     function pintar() {
       if (!vivo || !pre) return;
+      /* Rolar para o fim só se o operador JÁ estava no fim.
+       *
+       * O `scrollTop = scrollHeight` incondicional era o pior caso de scroll
+       * roubado do cockpit: quem subia para ler a linha do erro era jogado de
+       * volta ao rodapé na linha seguinte do stream. A margem de 24px é o que
+       * separa "está acompanhando o vivo" de "parou para ler". */
+      const noFim = pre.scrollHeight - pre.scrollTop - pre.clientHeight < 24;
       // textContent, não innerHTML: log é conteúdo hostil por natureza.
       pre.textContent = linhas.join('\n');
-      pre.scrollTop = pre.scrollHeight;
+      if (noFim) pre.scrollTop = pre.scrollHeight;
     }
 
     async function fetchLines() {
@@ -116,42 +151,65 @@ export default {
 
     /* --- busca no indice (B5) -------------------------------------------- */
 
-    function trechoSeguro(texto, marcas) {
-      // Escapa PRIMEIRO, marca DEPOIS: os marcadores do servidor nao sao HTML,
-      // entao sobrevivem ao escape e so entao viram <mark>. Uma linha de log
-      // com `<script>alert(1)</script>` sai como texto visivel.
-      const escapado = escapeHtml(String(texto || ''));
-      const ini = escapeHtml(marcas.start);
-      const fim = escapeHtml(marcas.end);
-      return escapado.split(ini).join('<mark>').split(fim).join('</mark>');
+    function pintarTrecho(alvo, bruto, marcas) {
+      /* Escapa PRIMEIRO, marca DEPOIS — mas agora sem montar string de markup:
+       * o trecho e fatiado nos marcadores do servidor e cada pedaco entra por
+       * `textContent`, dentro de um `span` ou de um `mark` criados aqui. Uma
+       * linha com um `script` dentro sai como texto visivel porque nunca houve
+       * um caminho em que ela fosse parseada como markup.
+       *
+       * Os pedacos NAO sao chaveados como as listas de cima, e de proposito: o
+       * trecho e uma folha, sem hover, foco nem scroll a preservar. O que
+       * importa aqui e nao reescrever quando nada mudou — dai a assinatura. */
+      const texto_ = String(bruto || '');
+      const assinatura = `${marcas.start || ''}|${marcas.end || ''}|${texto_}`;
+      if (alvo.dataset.trecho === assinatura) return;
+      alvo.dataset.trecho = assinatura;
+      alvo.textContent = '';
+
+      const ini = marcas.start;
+      const fim = marcas.end;
+      const pedacos = [];
+      if (!ini || !fim) {
+        pedacos.push({ marcado: false, txt: texto_ });
+      } else {
+        for (const bloco of texto_.split(ini)) {
+          const corte = bloco.indexOf(fim);
+          if (corte < 0) { pedacos.push({ marcado: false, txt: bloco }); continue; }
+          pedacos.push({ marcado: true, txt: bloco.slice(0, corte) });
+          pedacos.push({ marcado: false, txt: bloco.slice(corte + fim.length) });
+        }
+      }
+      for (const p of pedacos) {
+        if (p.txt === '') continue;
+        const el = document.createElement(p.marcado ? 'mark' : 'span');
+        el.textContent = p.txt;
+        alvo.appendChild(el);
+      }
     }
 
     function pintarResultados(data) {
       if (!vivo || !painel) return;
-      painel.hidden = false;
+      mostrar(painel, true);
       if (pre) pre.hidden = true;
       const achados = data.results || [];
-      if (!achados.length) {
-        painel.innerHTML = '<div class="empty">Nenhuma linha encontrada nos ultimos 7 dias</div>';
-        return;
-      }
-      painel.innerHTML = `<div class="mod-lista">${achados.map((r) =>
-        `<button type="button" class="log-achado" data-ir="${escapeHtml(r.container || '')}">
-          <span class="mod-tag">${escapeHtml(r.container || '')}</span>
-          <span class="log-trecho">${trechoSeguro(r.trecho, data.marks || {})}</span>
-          <span class="mod-meta">${escapeHtml(String(r.ts || '').slice(11, 19))}</span>
-        </button>`).join('')}</div>`;
-
-      const abrir = dados && dados.abrirContainer;
-      if (typeof abrir === 'function') {
-        painel.querySelectorAll('[data-ir]').forEach((b) => {
-          b.addEventListener('click', () => abrir(b.dataset.ir));
-        });
-      }
+      mostrar(semAchado, !achados.length);
+      lista(listaAchados, achados, {
+        // Chave por (container, instante): a mesma linha de log continua sendo
+        // a mesma linha entre duas buscas do mesmo termo.
+        chave: (r) => `${r.container || ''}|${r.ts || ''}`,
+        criar: () => deMolde(MOLDE_ACHADO),
+        atualizar: (el, r) => {
+          atributo(el, 'data-ir', r.container || '');
+          texto(el.querySelector('[data-container]'), r.container || '');
+          pintarTrecho(el.querySelector('[data-trecho]'), r.trecho, data.marks || {});
+          texto(el.querySelector('[data-hora]'), String(r.ts || '').slice(11, 19));
+        },
+      });
     }
 
     function limparBusca() {
-      if (painel) { painel.hidden = true; painel.innerHTML = ''; }
+      if (painel) mostrar(painel, false);
       if (pre) pre.hidden = false;
       if (nota && !seguindo) nota.textContent = '';
     }
@@ -195,9 +253,20 @@ export default {
 
     if (!soBusca) fetchLines();
 
-    return () => {
-      vivo = false;
-      pararFollow();
+    return {
+      /* Reler o tail é o que mantém o log fresco sem follow ligado. Não relê em
+       * dois casos, e cada um é uma forma de não atropelar o operador:
+       * com o follow ligado o stream já traz cada linha, e com o painel de
+       * busca aberto o `pre` nem está visível — reler seria I/O para ninguém. */
+      atualizar: () => {
+        if (soBusca || seguindo) return;
+        if (painel && !painel.hidden) return;
+        fetchLines();
+      },
+      dispose: () => {
+        vivo = false;
+        pararFollow();
+      },
     };
   },
 };

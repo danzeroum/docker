@@ -14,6 +14,7 @@
 import { escapeHtml } from '../fmt.js';
 import { doEscopo, porId } from './registry.js';
 import { doTipo } from './presets.js';
+import { pausarVivo } from './regua.js';
 import {
   alternarCheio, alternarOculto, aplicarPreset, mover, restaurar, trocar,
 } from './layout.js';
@@ -113,10 +114,14 @@ export function pintarPainel(alvo, escopo, estado, onMudanca) {
     onMudanca(novo);
   });
 
-  // Drag: swap ao soltar, mesma operação dos ↑↓ (estado idêntico).
+  /* Drag: swap ao soltar, mesma operação dos ↑↓ (estado idêntico).
+   *
+   * A pílula vira `pausado` (cinza) enquanto se arrasta — contrato visual do
+   * protótipo. Não é enfeite: durante o arraste o operador está movendo caixas,
+   * e uma leitura entrando no meio do gesto move o alvo debaixo do cursor. */
   painel.querySelectorAll('.pz-linha').forEach((li) => {
-    li.addEventListener('dragstart', () => { _arrastando = li.dataset.modulo; });
-    li.addEventListener('dragend', () => { _arrastando = null; });
+    li.addEventListener('dragstart', () => { _arrastando = li.dataset.modulo; pausarVivo(true); });
+    li.addEventListener('dragend', () => { _arrastando = null; pausarVivo(false); });
     li.addEventListener('dragover', (ev) => ev.preventDefault());
     li.addEventListener('drop', (ev) => {
       ev.preventDefault();
@@ -124,6 +129,7 @@ export function pintarPainel(alvo, escopo, estado, onMudanca) {
       if (!_arrastando || _arrastando === destino) return;
       onMudanca(trocar(tipo, estado, _arrastando, destino));
       _arrastando = null;
+      pausarVivo(false);
     });
   });
 }

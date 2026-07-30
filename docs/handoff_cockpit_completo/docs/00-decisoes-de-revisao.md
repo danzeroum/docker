@@ -19,6 +19,7 @@ outros documentos — vários pontos aqui **corrigem** a primeira versão deles.
 | Sprint 1 — B1/B2/B4 | [#25](https://github.com/danzeroum/docker/pull/25) | na `main` |
 | Sprint 2a — fundação do Cockpit Vivo | [#26](https://github.com/danzeroum/docker/pull/26) | na `main` |
 | Sprint 2b — B3 + B10 residuais | [#27](https://github.com/danzeroum/docker/pull/27) | na `main` |
+| Sprint 6 — percepção de travamento (doc 13) | — | na `main` |
 
 Pendências: deploy na VPS (validar `TRUSTED_GATEWAY_CIDR` real + `ack`/`unlock` end-to-end).
 
@@ -576,6 +577,122 @@ que se recupera o diff, a discussão e o corpo com o racional de cada decisão.
 Estado ao fechar: **894 testes**, `SCHEMA_VERSION = 15`, migrações **v10 a v15
 todas com teste sobre banco populado** — a regra que subiu de lembrete a aceite
 na 2b, depois que a v3 perdeu `first_seen` em produção.
+
+## Decisões da Sprint 6 — percepção de desempenho vira atributo de qualidade
+
+O pedido chegou como "a interface parece travada". Não era lentidão: as rotas
+respondiam, os testes passavam e o dado estava certo na tela. O que estava
+errado era a **mecânica de render**, e o diagnóstico completo está no doc 13.
+
+### O alvo, escrito para poder falhar
+
+> **Nenhuma reconstrução de árvore por leitura.**
+>
+> Uma leitura com o mesmo payload não pode criar nem destruir nó nenhum. Uma
+> leitura com payload diferente só pode tocar nos nós cuja identidade mudou.
+
+Isto é um **atributo de qualidade** — como disponibilidade ou latência —, e
+entra aqui pelo mesmo motivo que eles: atributo que não é declarado não é
+projetado, e o que não é projetado aparece como reclamação depois. O nome que a
+literatura dá é *percepção de desempenho*, e ele tem uma propriedade
+desconfortável: é o único atributo em que o sistema pode estar objetivamente
+rápido e subjetivamente quebrado ao mesmo tempo.
+
+**Como se mede:** `tests/test_render_vivo.py`, por identidade de nó via
+`MutationObserver`. A medida NÃO é comparação de HTML, e a diferença é o ponto
+inteiro: um `innerHTML =` idempotente produz string final idêntica e mesmo assim
+matou toda a árvore no caminho — levando junto o `:hover`, o foco, a seleção e o
+`scrollTop` que viviam nos nós antigos.
+
+### O que a causa raiz explicava de uma vez
+
+`alvo.innerHTML =` a cada poll produzia quatro sintomas que pareciam
+independentes e tinham uma origem só:
+
+1. `:hover` morrendo no meio do movimento — o ponteiro passa a pairar sobre um
+   nó que nasceu agora;
+2. foco e seleção perdidos; digitar na busca de logs era interrompido a cada
+   ciclo, porque `app/static/js/modulos/logs.js` recriava o próprio `input`;
+3. `scrollTop` de qualquer área interna de volta a zero;
+4. **nenhuma `transition` rodando** — o nó novo nasce no valor final, então não
+   há estado anterior de onde animar. Era por isso que barra e número saltavam,
+   e por isso adicionar `transition` ao CSS não teria resolvido nada.
+
+### Decisões que saíram daqui
+
+- **`app/static/js/kernel/patch.js`** — lista chaveada pela identidade do item
+  (`container_name`, id da stack, id do achado). Item que continua no payload
+  mantém o mesmo nó; item que sai leva só a própria linha. Órfãos saem **antes**
+  do posicionamento: com eles saindo depois, remover um container do meio de
+  quinze produzia quatorze `insertBefore` — nenhum nó recriado, e ainda assim
+  DOM mexido à toa.
+- **`app/static/js/kernel/relogio.js`** — um relógio, período declarado como
+  múltiplo do tick. Eram seis `setInterval` independentes, e viraram dez quando
+  o código foi lido de perto. Além dos piscas desalinhados, cada um tinha de
+  lembrar de pausar com a aba oculta, e `app/static/js/commands.js` não lembrava.
+- **Ao voltar de aba oculta, UMA atualização por assinante.** Repor os ticks
+  perdidos entregaria a rajada acumulada no instante em que o operador olha —
+  que é o pior momento possível para doze requisições simultâneas.
+- **Skeleton pertence à primeira carga e só a ela.** Recarga preserva o
+  conteúdo e sinaliza a atualização pelo flash do valor. Cinco módulos apagavam
+  um cartão já preenchido a cada leitura, o que fazia o cockpit parecer
+  reiniciar sozinho.
+- **Erro depois de dado bom não apaga o dado bom.** Decorre do anterior: trocar
+  40 eventos por "Sem timeline" porque UMA leitura falhou é perder o que já se
+  sabia por causa de um soluço de rede. Vale para eventos, achados, auditoria,
+  drift, storage e capacidade.
+- **Cor é sinal e mora no CSS.** `style="border-left:3px solid ${cor}"` nos
+  cartões de achado era o último lugar onde a paleta vivia no JS — e não
+  acompanhava a troca de tema. Descobriu-se de quebra que
+  `app/static/js/screens/capacidade.js` pintava com `var(--tx2)`, `var(--bd0)` e
+  `var(--sf)`: tokens do protótipo que **nunca existiram** no
+  `app/static/css/themes.css`. Metade das bordas e dos textos secundários dessa
+  tela vinha caindo no valor inicial do navegador desde o porte.
+- **`prefers-reduced-motion: reduce` desliga movimento, nunca informação.** O
+  flash some, o valor continua trocando; o pulso some, a pílula continua verde.
+  Nenhum estado do cockpit é comunicado só por movimento — é o que torna a
+  regra segura de aplicar sem exceção.
+
+### Dois bugs preexistentes que a conversão revelou
+
+- `app/static/js/screens/attention.js` usava `setState` sem importá-lo. O
+  caminho "abrir achado agregado de ingress" levantava `ReferenceError` e o
+  clique não fazia nada. Só dispara em achado de ingress com `targets`, que é
+  por que ninguém tinha visto.
+- Botão de ação em voo era **reabilitado pela leitura seguinte** em Projetos e
+  em Tarefas: o operador clicava em "Parar", o cartão era refeito, e um segundo
+  clique disparava a mesma mutação. Agora a ação em voo é estado do módulo, não
+  do DOM.
+
+### Pendência declarada, não escondida
+
+Quatro telas continuam redesenhando por `innerHTML` quando o dado muda:
+`app/static/js/screens/backend.js`, `app/static/js/screens/executivo.js`,
+`app/static/js/screens/plantao.js` e `app/static/js/screens/topologia.js`.
+
+Ficam **fora de todo preset padrão** (decisão de escopo do doc 14), então só
+aparecem se o operador as acrescentar pelo Personalizar. O que já vale para elas
+é `redesenharSeMudou`: a leitura de 30s compara a assinatura do payload e só
+toca no DOM quando o dado mudou de fato — o que, numa tela de leitura, é o caso
+raro. O teto de `innerHTML` de cada uma está travado em
+`tests/test_render_vivo.py`: baixá-lo é o trabalho pendente, subi-lo é regressão.
+
+Converter pela metade seria pior que declarar: um módulo com metade das listas
+chaveadas tem o mesmo sintoma do original e a aparência de resolvido.
+
+### O harness de teste mudou junto
+
+`tests/fixtures/dom_stub.mjs` responde ao que os módulos **chamam**; ele não tem
+nós. Isso bastou enquanto a pergunta era "o módulo carrega e escreve alguma
+coisa". A partir daqui a pergunta é sobre identidade de nó, e patch sobre um
+objeto descartável fabricado por regex não é observável.
+
+`tests/fixtures/dom_min.mjs` é uma árvore de verdade — pai, filhos,
+`insertBefore`, atributos, `textContent`, um `innerHTML` que parseia e
+`MutationObserver`. Não é um navegador e não tenta ser: sem layout, sem CSS
+aplicado, sem `:hover` real. O que precisa de navegador continua no roteiro
+manual do doc 12; o que se afirma sem um é que o nó sobreviveu — e se o nó
+sobrevive, o resto é CSS.
 
 ## Pendências abertas — dono: operador da VPS
 

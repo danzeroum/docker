@@ -30,7 +30,7 @@ mais o protótipo completo com a face de interface dos blocos B1–B11 e os docs
 | `docs/10` | Modelo DDD da interface + validações UI/frontend + prompt do dev |
 | `docs/11` | B1–B11 × interface: o que vira módulo, o que é só backend + prompt de integração UI |
 | `docs/12` | **Roteiro de validação do protótipo completo** (comece por aqui) |
-| `docs/13` | Blocos agregados (compilação final B1–B11) |
+| `docs/13` | **Sensação de "travada"**: causa raiz (rebuild por leitura), as cinco correções e o contrato de movimento |
 | `docs/14` | **Plano consolidado** — §15 a §19, uma seção por sprint executada; §19 fecha o plano |
 | `docs/anexo-blocos-b1-b11` | Resumo dos prompts de backend do autor, com as decisões que a UI assume |
 | `github.md` | Vínculo com danzeroum/docker e histórico |

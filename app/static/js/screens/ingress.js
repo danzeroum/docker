@@ -1,25 +1,90 @@
 import { apiGet, cancel } from '../data.js';
-import { escapeHtml } from '../fmt.js';
 import { showToast } from '../notifications.js';
-import { navigate } from '../main.js';
 import { getState, setState } from '../store.js';
+import { assinar, TICK_MS } from '../kernel/relogio.js';
+import { atributo, casca, classe, classeUnica, deMolde, lista, mostrar, texto } from '../kernel/patch.js';
 
 let _disposed = false;
 let _highlightedHosts = [];
-let _allHosts = [];
-let _allFindings = [];
 let _pollTimer = null;
 
-const POLL_MS = 300000;
+/* 5 min = 60 ticks. Ingress é a leitura mais cara e a mais estável do cockpit
+ * (nginx.conf muda por deploy, não por minuto), então continua sendo a mais
+ * espaçada — mas agora em fase com as outras, e pausando com a aba oculta. */
+const PERIODO_TICKS = 60;
 
-function el(id) { return document.getElementById(id); }
+/* A tabela de hosts é onde o operador CLICA para destacar uma linha e depois
+ * procura essa linha no painel de achados ao lado. Recriá-la apagava o destaque
+ * e desfazia o `scrollIntoView` que o próprio clique tinha feito — o operador
+ * clicava, a tela rolava até o host, e a leitura seguinte devolvia tudo ao
+ * começo. Chaveada pelo `server_name`, o destaque é uma classe que sobrevive
+ * (doc 13). */
+const MOLDE_ROW = '<button type="button" class="ig-row" data-host="">'
+  + '<div class="ig-cell ig-cell-name"><strong data-nome></strong></div>'
+  + '<div class="ig-cell ig-cell-p80" data-p80></div>'
+  + '<div class="ig-cell ig-cell-p443" data-p443></div>'
+  + '<div class="ig-cell ig-cell-bool" data-hsts></div>'
+  + '<div class="ig-cell ig-cell-bool" data-bots></div>'
+  + '<div class="ig-cell ig-cell-bool" data-auth></div>'
+  + '<div class="ig-cell ig-cell-cert" data-cert></div>'
+  + '</button>';
 
-function sevColor(s) {
-  if (s === 'critical') return 'var(--bad)';
-  if (s === 'high') return 'var(--warn)';
-  if (s === 'medium') return 'var(--accent)';
-  return 'var(--text-dim)';
+const MOLDE_KPI = '<div class="kpi"><div class="kpi-label" data-rot></div>'
+  + '<div class="kpi-value" data-val></div></div>';
+
+const MOLDE_CERT = '<div class="ig-cert-item">'
+  + '<div class="ig-cert-path" data-path></div>'
+  + '<div class="ig-cert-hosts" data-hosts></div></div>';
+
+const MOLDE_ACHADO = '<div class="ig-finding">'
+  + '<button type="button" class="card-open"><span class="sr-only">Abrir achado</span></button>'
+  + '<div class="ig-finding-head">'
+  + '<span class="ig-finding-sev" data-sev></span>'
+  + '<span class="ig-finding-score" data-score></span>'
+  + '<span class="ig-finding-targets" data-alvos></span>'
+  + '</div>'
+  + '<div class="ig-finding-title" data-titulo></div>'
+  + '<div class="ig-finding-actions">'
+  + '<span class="ig-finding-evidence" data-evidencia></span>'
+  + '<a class="ig-finding-link" data-link hidden></a>'
+  + '</div></div>';
+
+const CASCA = '<div class="content ingress-layout">'
+  + '<div class="ingress-kpis" id="igKpis">'
+  + '<div class="skeleton" data-skeleton style="height:70px"></div>'
+  + '<div class="kpis" data-kpis hidden></div>'
+  + '<div class="empty-field" data-indisponivel hidden>Ingress indisponível</div>'
+  + '</div>'
+  + '<div class="ingress-body">'
+  + '<div class="ingress-center" id="igCenter">'
+  + '<div class="skeleton" data-skeleton-tabela style="height:400px"></div>'
+  + '<div class="ig-table-wrap" data-tabela hidden>'
+  + '<div class="ig-header">'
+  + '<div class="ig-cell ig-cell-name ig-th">Host</div>'
+  + '<div class="ig-cell ig-th">:80</div>'
+  + '<div class="ig-cell ig-th">:443</div>'
+  + '<div class="ig-cell ig-cell-bool ig-th" title="HSTS">HSTS</div>'
+  + '<div class="ig-cell ig-cell-bool ig-th" title="Bot filter">Bots</div>'
+  + '<div class="ig-cell ig-cell-bool ig-th" title="Auth basic">Auth</div>'
+  + '<div class="ig-cell ig-cell-cert ig-th">Certificado</div>'
+  + '</div><div data-rows></div></div></div>'
+  + '<div class="ingress-right" id="igRight"><div class="ig-panel">'
+  + '<div class="ig-panel-section"><h3 class="ig-panel-title">Certificados</h3>'
+  + '<div class="ig-cert-list" data-certs></div>'
+  + '<div class="empty-field" data-sem-cert hidden>Nenhum certificado SSL</div></div>'
+  + '<div class="ig-panel-section"><h3 class="ig-panel-title">Achados de Ingress</h3>'
+  + '<div class="ig-finding-list" data-achados></div>'
+  + '<div class="empty-field" data-sem-achado hidden>Nenhum achado de ingress ativo</div></div>'
+  + '</div></div></div>'
+  + '<div class="ingress-footer" id="igFooter"><span class="ig-internos" data-internos></span></div>'
+  + '</div>';
+
+const SEVERIDADES = ['sev-critical', 'sev-high', 'sev-medium', 'sev-low'];
+
+function sevClass(s) {
+  return SEVERIDADES.includes(`sev-${s}`) ? `sev-${s}` : 'sev-low';
 }
+
 function sevLabel(s) {
   if (s === 'critical') return 'Crítico';
   if (s === 'high') return 'Alto';
@@ -27,177 +92,157 @@ function sevLabel(s) {
   return 'Baixo';
 }
 
-function yesno(v) {
-  return v ? '<span style="color:var(--ok);font-weight:700">✓</span>' : '<span style="color:var(--text-mute)">—</span>';
+function p80De(h) {
+  const p = h.port_80;
+  if (!p) return { txt: '—', tom: null };
+  if (p.https_redirect) return { txt: '→ 301', tom: 'ig-ok' };
+  if (p.upstream) return { txt: 'HTTP', tom: 'ig-bad' };
+  if (p.acme_challenge) return { txt: 'ACME', tom: 'ig-mute' };
+  return { txt: '—', tom: null };
 }
 
-function renderKpis(hosts, totals) {
+function p443De(h) {
+  if (!h.port_443) return { txt: '—', tom: null };
+  const us = h.upstreams || [];
+  if (!us.length) return { txt: 'sem proxy', tom: 'ig-mute' };
+  return { txt: `${us[0]}${us.length > 1 ? ` +${us.length - 1}` : ''}`, tom: 'ig-mono' };
+}
+
+const TONS_CELULA = ['ig-ok', 'ig-bad', 'ig-mute', 'ig-mono'];
+
+function destacar(hosts) {
+  _highlightedHosts = hosts;
+  document.querySelectorAll('.ig-row').forEach((rw) => {
+    classe(rw, 'ig-highlight', hosts.includes(rw.dataset.host));
+  });
+  hosts.forEach((h) => {
+    try {
+      const alvo = document.querySelector(`.ig-row[data-host="${h.replace(/"/g, '\\"')}"]`);
+      if (alvo && alvo.scrollIntoView) alvo.scrollIntoView({ block: 'nearest' });
+    } catch { /* seletor com aspas exóticas: destaque perdido, tela intacta */ }
+  });
+}
+
+function renderKpis(container, hosts, totals) {
   const publics = Object.entries(hosts).filter(([, h]) => !h.internal);
   const httpPlain = publics.filter(([, h]) => {
     const p80 = h.port_80;
     return p80 && !p80.https_redirect && p80.upstream;
   }).length;
-  const html = `
-    <div class="kpi kpi-accent"><div class="kpi-label">Públicos</div><div class="kpi-value">${totals.public}</div></div>
-    <div class="kpi kpi-ok"><div class="kpi-label">Com TLS</div><div class="kpi-value">${totals.with_ssl}</div></div>
-    <div class="kpi ${httpPlain > 0 ? 'kpi-bad' : 'kpi-ok'}"><div class="kpi-label">HTTP texto claro</div><div class="kpi-value">${httpPlain}</div></div>
-    <div class="kpi kpi-ok"><div class="kpi-label">HSTS</div><div class="kpi-value">${totals.with_hsts}</div></div>
-    <div class="kpi kpi-warn"><div class="kpi-label">Filtro bots</div><div class="kpi-value">${totals.with_bot_filter}</div></div>`;
-  const k = el('igKpis');
-  if (k) k.innerHTML = html;
-}
-
-function renderHostRow(name, h) {
-  const p80 = h.port_80;
-  const p443 = h.port_443;
-  let p80html = '—';
-  if (p80) {
-    if (p80.https_redirect) p80html = '<span style="color:var(--ok);font-weight:500">→ 301</span>';
-    else if (p80.upstream) p80html = `<span style="color:var(--bad);font-weight:600">HTTP</span>`;
-    else if (p80.acme_challenge) p80html = '<span style="color:var(--text-dim)">ACME</span>';
-  }
-  let p443html = '—';
-  if (p443) {
-    const us = h.upstreams || [];
-    p443html = us.length ? `<span style="font-family:JetBrains Mono;font-size:.7rem">${escapeHtml(us[0])}${us.length > 1 ? ` +${us.length - 1}` : ''}</span>` : '<span style="color:var(--text-dim)">sem proxy</span>';
-  }
-  const highlighted = _highlightedHosts.includes(name);
-  return `<button type="button" class="ig-row${highlighted ? ' ig-highlight' : ''}" data-host="${escapeHtml(name)}">
-    <div class="ig-cell ig-cell-name"><strong>${escapeHtml(name)}</strong></div>
-    <div class="ig-cell ig-cell-p80">${p80html}</div>
-    <div class="ig-cell ig-cell-p443">${p443html}</div>
-    <div class="ig-cell ig-cell-bool">${yesno(h.hsts)}</div>
-    <div class="ig-cell ig-cell-bool">${yesno(h.bot_filter)}</div>
-    <div class="ig-cell ig-cell-bool">${yesno(h.auth_basic)}</div>
-    <div class="ig-cell ig-cell-cert" title="${escapeHtml(h.cert_path || '')}">${h.cert_path ? `<span style="font-family:JetBrains Mono;font-size:.7rem;color:var(--text-dim)">${escapeHtml(h.cert_path.split('/').slice(-2).join('/'))}</span>` : '—'}</div>
-  </button>`;
-}
-
-function renderTable(hosts) {
-  const publics = Object.entries(hosts).filter(([, h]) => !h.internal);
-  const rows = publics.map(([name, h]) => renderHostRow(name, h)).join('');
-  const c = el('igCenter');
-  if (!c) return;
-  c.innerHTML = `<div class="ig-table-wrap">
-    <div class="ig-header">
-      <div class="ig-cell ig-cell-name" style="color:var(--text-mute);font-weight:600;font-size:.7rem;text-transform:uppercase">Host</div>
-      <div class="ig-cell" style="color:var(--text-mute);font-weight:600;font-size:.7rem;text-transform:uppercase">:80</div>
-      <div class="ig-cell" style="color:var(--text-mute);font-weight:600;font-size:.7rem;text-transform:uppercase">:443</div>
-      <div class="ig-cell ig-cell-bool" style="color:var(--text-mute);font-weight:600;font-size:.7rem;text-transform:uppercase" title="HSTS">HSTS</div>
-      <div class="ig-cell ig-cell-bool" style="color:var(--text-mute);font-weight:600;font-size:.7rem;text-transform:uppercase" title="Bot filter">Bots</div>
-      <div class="ig-cell ig-cell-bool" style="color:var(--text-mute);font-weight:600;font-size:.7rem;text-transform:uppercase" title="Auth basic">Auth</div>
-      <div class="ig-cell ig-cell-cert" style="color:var(--text-mute);font-weight:600;font-size:.7rem;text-transform:uppercase">Certificado</div>
-    </div>
-    ${rows}
-  </div>`;
-  c.querySelectorAll('.ig-row').forEach(row => {
-    row.addEventListener('click', () => {
-      _highlightedHosts = [row.dataset.host];
-      c.querySelectorAll('.ig-row').forEach(r => r.classList.toggle('ig-highlight', _highlightedHosts.includes(r.dataset.host)));
-    });
+  const itens = [
+    { chave: 'publicos', rot: 'Públicos', val: totals.public, tom: 'kpi-accent' },
+    { chave: 'tls', rot: 'Com TLS', val: totals.with_ssl, tom: 'kpi-ok' },
+    { chave: 'claro', rot: 'HTTP texto claro', val: httpPlain, tom: httpPlain > 0 ? 'kpi-bad' : 'kpi-ok' },
+    { chave: 'hsts', rot: 'HSTS', val: totals.with_hsts, tom: 'kpi-ok' },
+    { chave: 'bots', rot: 'Filtro bots', val: totals.with_bot_filter, tom: 'kpi-warn' },
+  ];
+  lista(container, itens, {
+    chave: (k) => k.chave,
+    criar: () => deMolde(MOLDE_KPI),
+    atualizar: (elKpi, k) => {
+      classeUnica(elKpi, ['kpi-accent', 'kpi-ok', 'kpi-bad', 'kpi-warn'], k.tom);
+      texto(elKpi.querySelector('[data-rot]'), k.rot);
+      texto(elKpi.querySelector('[data-val]'), String(k.val), { flash: true });
+    },
   });
-  if (_highlightedHosts.length) {
-    _highlightedHosts.forEach(h => {
-      try {
-        const sel = `.ig-row[data-host="${h.replace(/"/g, '\\"')}"]`;
-        const hl = c.querySelector(sel);
-        if (hl) hl.scrollIntoView({ block: 'nearest' });
-      } catch {}
-    });
-  }
 }
 
-function renderCerts(hosts) {
+function renderTable(recipiente, hosts) {
   const publics = Object.entries(hosts).filter(([, h]) => !h.internal);
-  const certMap = {};
-  publics.forEach(([name, h]) => {
-    const cp = h.cert_path;
-    if (!cp) return;
-    if (!certMap[cp]) certMap[cp] = [];
-    certMap[cp].push(name);
+  lista(recipiente, publics, {
+    chave: ([name]) => name,
+    criar: () => deMolde(MOLDE_ROW),
+    atualizar: (row, [name, h]) => {
+      atributo(row, 'data-host', name);
+      classe(row, 'ig-highlight', _highlightedHosts.includes(name));
+      texto(row.querySelector('[data-nome]'), name);
+
+      const p80 = p80De(h);
+      const c80 = row.querySelector('[data-p80]');
+      texto(c80, p80.txt);
+      classeUnica(c80, TONS_CELULA, p80.tom);
+
+      const p443 = p443De(h);
+      const c443 = row.querySelector('[data-p443]');
+      texto(c443, p443.txt);
+      classeUnica(c443, TONS_CELULA, p443.tom);
+
+      // Booleano é ✓ ou —, nunca ✗: "não tem HSTS" é ausência de configuração,
+      // e um X vermelho leria como falha onde pode ser escolha.
+      texto(row.querySelector('[data-hsts]'), h.hsts ? '✓' : '—');
+      classeUnica(row.querySelector('[data-hsts]'), TONS_CELULA, h.hsts ? 'ig-ok' : 'ig-mute');
+      texto(row.querySelector('[data-bots]'), h.bot_filter ? '✓' : '—');
+      classeUnica(row.querySelector('[data-bots]'), TONS_CELULA, h.bot_filter ? 'ig-ok' : 'ig-mute');
+      texto(row.querySelector('[data-auth]'), h.auth_basic ? '✓' : '—');
+      classeUnica(row.querySelector('[data-auth]'), TONS_CELULA, h.auth_basic ? 'ig-ok' : 'ig-mute');
+
+      const cert = row.querySelector('[data-cert]');
+      texto(cert, h.cert_path ? h.cert_path.split('/').slice(-2).join('/') : '—');
+      atributo(cert, 'title', h.cert_path || null);
+      classeUnica(cert, TONS_CELULA, h.cert_path ? 'ig-mono' : null);
+    },
   });
-  const entries = Object.entries(certMap).sort((a, b) => b[1].length - a[1].length);
-  if (!entries.length) return '<div class="empty-field" style="margin:0">Nenhum certificado SSL</div>';
-  return entries.map(([path, hostsList]) => `<div class="ig-cert-item">
-    <div class="ig-cert-path" title="${escapeHtml(path)}">${escapeHtml(path.split('/').slice(-2).join('/'))}</div>
-    <div class="ig-cert-hosts">${hostsList.map(n => `<span class="ig-cert-host">${escapeHtml(n)}</span>`).join('')}</div>
-  </div>`).join('');
 }
 
-function renderFindingsPanel(findings) {
-  if (!findings || !findings.length) return '<div class="empty-field" style="margin:0">Nenhum achado de ingress ativo</div>';
-  const sorted = [...findings].sort((a, b) => (b.score || 0) - (a.score || 0));
-  return sorted.map(f => {
-    const color = sevColor(f.severity);
-    const rel = f.related_container;
-    const isAgg = Array.isArray(f.targets);
-    const targetsAttr = isAgg ? JSON.stringify(f.targets) : '';
-    const hostAttr = isAgg ? '' : escapeHtml(f.target || '');
-    const targetLabel = isAgg ? `${f.targets.length} hosts` : escapeHtml(f.target || '');
-    return `<div class="ig-finding" data-finding-id="${escapeHtml(f.id)}" data-host="${hostAttr}" data-targets="${escapeHtml(targetsAttr)}" style="border-left:3px solid ${color}">
-      <button type="button" class="card-open" data-open="${escapeHtml(f.id)}"><span class="sr-only">Abrir achado</span></button>
-      <div class="ig-finding-head">
-        <span class="ig-finding-sev" style="background:${color}">${sevLabel(f.severity)}</span>
-        <span class="ig-finding-score">${f.score}</span>
-        <span class="ig-finding-targets" style="margin-left:auto;font-size:.65rem;color:var(--text-mute)">${escapeHtml(targetLabel)}</span>
-      </div>
-      <div class="ig-finding-title">${escapeHtml(f.title_plain || f.title || f.id)}</div>
-      <div class="ig-finding-actions">
-        <span class="ig-finding-evidence">${escapeHtml(f.evidence || '')}</span>
-        ${rel ? `<a href="#/dossie?c=${encodeURIComponent(rel)}" class="ig-finding-link" title="Ver dossiê do container">→ ${escapeHtml(rel)}</a>` : ''}
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function renderRight(hosts, findings) {
-  const r = el('igRight');
-  if (!r) return;
-  r.innerHTML = `<div class="ig-panel">
-    <div class="ig-panel-section">
-      <h3 class="ig-panel-title">Certificados</h3>
-      <div class="ig-cert-list">${renderCerts(hosts)}</div>
-    </div>
-    <div class="ig-panel-section">
-      <h3 class="ig-panel-title">Achados de Ingress</h3>
-      <div class="ig-finding-list">${renderFindingsPanel(findings)}</div>
-    </div>
-  </div>`;
-  r.querySelectorAll('.ig-finding .card-open').forEach(botao => {
-    const card = botao.closest('.ig-finding');
-    botao.addEventListener('click', (e) => {
-      if (e.target.closest('.ig-finding-link')) return;
-      const targetsRaw = card.dataset.targets;
-      let hosts = [];
-      if (targetsRaw) {
-        try { hosts = JSON.parse(targetsRaw); } catch { hosts = []; }
-      } else if (card.dataset.host) {
-        hosts = [card.dataset.host];
-      }
-      _highlightedHosts = hosts;
-      const rows = document.querySelectorAll('.ig-row');
-      rows.forEach(rw => rw.classList.toggle('ig-highlight', hosts.includes(rw.dataset.host)));
-      hosts.forEach(h => {
-        try {
-          const sel = `.ig-row[data-host="${h.replace(/"/g, '\\"')}"]`;
-          const hl = document.querySelector(sel);
-          if (hl) hl.scrollIntoView({ block: 'nearest' });
-        } catch {}
+function renderCerts(recipiente, vazio, hosts) {
+  const certMap = new Map();
+  Object.entries(hosts).filter(([, h]) => !h.internal).forEach(([name, h]) => {
+    if (!h.cert_path) return;
+    if (!certMap.has(h.cert_path)) certMap.set(h.cert_path, []);
+    certMap.get(h.cert_path).push(name);
+  });
+  const entries = [...certMap.entries()].sort((a, b) => b[1].length - a[1].length);
+  mostrar(vazio, !entries.length);
+  lista(recipiente, entries, {
+    chave: ([path]) => path,
+    criar: () => deMolde(MOLDE_CERT),
+    atualizar: (item, [path, hostsList]) => {
+      const alvo = item.querySelector('[data-path]');
+      texto(alvo, path.split('/').slice(-2).join('/'));
+      atributo(alvo, 'title', path);
+      lista(item.querySelector('[data-hosts]'), hostsList, {
+        chave: (n) => n,
+        criar: () => {
+          const s = document.createElement('span');
+          s.className = 'ig-cert-host';
+          return s;
+        },
+        atualizar: (s, n) => texto(s, n),
       });
-    });
+    },
   });
 }
 
-function renderFooter(hosts) {
-  const internal = Object.entries(hosts).filter(([, h]) => h.internal);
-  const f = el('igFooter');
-  if (!f) return;
-  if (internal.length) {
-    f.innerHTML = `<span style="color:var(--text-mute);font-size:.7rem">${internal.length} bloco interno (healthcheck do gateway)</span>`;
-  }
+function renderFindings(recipiente, vazio, findings) {
+  const sorted = [...(findings || [])].sort((a, b) => (b.score || 0) - (a.score || 0));
+  mostrar(vazio, !sorted.length);
+  lista(recipiente, sorted, {
+    chave: (f) => String(f.id),
+    criar: () => deMolde(MOLDE_ACHADO),
+    atualizar: (card, f) => {
+      const isAgg = Array.isArray(f.targets);
+      atributo(card, 'data-finding-id', f.id);
+      atributo(card, 'data-host', isAgg ? '' : (f.target || ''));
+      atributo(card, 'data-targets', isAgg ? JSON.stringify(f.targets) : '');
+      classeUnica(card, SEVERIDADES, sevClass(f.severity));
+      texto(card.querySelector('[data-sev]'), sevLabel(f.severity));
+      texto(card.querySelector('[data-score]'), String(f.score), { flash: true });
+      texto(card.querySelector('[data-alvos]'),
+        isAgg ? `${f.targets.length} hosts` : (f.target || ''));
+      texto(card.querySelector('[data-titulo]'), f.title_plain || f.title || f.id);
+      texto(card.querySelector('[data-evidencia]'), f.evidencia || f.evidence || '');
+      const link = card.querySelector('[data-link]');
+      mostrar(link, !!f.related_container);
+      if (f.related_container) {
+        atributo(link, 'href', `#/dossie?c=${encodeURIComponent(f.related_container)}`);
+        atributo(link, 'title', 'Ver dossiê do container');
+        texto(link, `→ ${f.related_container}`);
+      }
+    },
+  });
 }
 
-async function fetchIngress() {
+async function fetchIngress(container) {
   if (_disposed) return;
   const [ingRes, findRes] = await Promise.all([
     apiGet('ig_data', '/api/ingress'),
@@ -207,20 +252,38 @@ async function fetchIngress() {
   const hosts = ingRes.data && ingRes.data.hosts;
   const totals = ingRes.data && ingRes.data.totals;
   const findings = findRes.data || [];
-  _allHosts = hosts ? Object.entries(hosts) : [];
-  _allFindings = findings;
+
+  const kpis = container.querySelector('[data-kpis]');
+  const indisponivel = container.querySelector('[data-indisponivel]');
+  mostrar(container.querySelector('[data-skeleton]'), false);
+  mostrar(container.querySelector('[data-skeleton-tabela]'), false);
+
   if (!hosts || ingRes.error) {
-    const msg = ingRes.error || 'Erro ao carregar ingress';
-    el('igKpis').innerHTML = '<div class="empty-field" style="margin:.5rem 0">Ingress indisponível</div>';
-    el('igCenter').innerHTML = '';
-    el('igRight').innerHTML = '';
-    if (ingRes.error !== 'abortado') showToast(msg, 'error');
+    // Sem hosts a tela declara indisponibilidade em vez de zerar os KPIs: "0
+    // públicos" e "não consegui ler o nginx.conf" são fatos diferentes, e o
+    // primeiro seria uma afirmação falsa sobre a infraestrutura.
+    mostrar(indisponivel, true);
+    mostrar(kpis, false);
+    if (ingRes.error && ingRes.error !== 'abortado') showToast(ingRes.error, 'error');
     return;
   }
-  renderKpis(hosts, totals);
-  renderTable(hosts);
-  renderRight(hosts, findings);
-  renderFooter(hosts);
+  mostrar(indisponivel, false);
+  mostrar(kpis, true);
+  mostrar(container.querySelector('[data-tabela]'), true);
+
+  renderKpis(kpis, hosts, totals || {});
+  renderTable(container.querySelector('[data-rows]'), hosts);
+  renderCerts(
+    container.querySelector('[data-certs]'), container.querySelector('[data-sem-cert]'), hosts
+  );
+  renderFindings(
+    container.querySelector('[data-achados]'), container.querySelector('[data-sem-achado]'), findings
+  );
+
+  const internos = Object.entries(hosts).filter(([, h]) => h.internal).length;
+  const rodape = container.querySelector('[data-internos]');
+  mostrar(rodape, internos > 0);
+  if (internos) texto(rodape, `${internos} bloco interno (healthcheck do gateway)`);
 }
 
 export function renderIngress(container) {
@@ -229,40 +292,39 @@ export function renderIngress(container) {
   const p = new URLSearchParams(location.hash.split('?')[1] || '');
   const hostParam = p.get('host');
   const st = getState();
-  if (hostParam) {
-    _highlightedHosts = [hostParam];
-  }
+  if (hostParam) _highlightedHosts = [hostParam];
   if (st.highlightedTargets) {
     _highlightedHosts = st.highlightedTargets;
     setState({ highlightedTargets: null });
   }
-  if (p.get('c')) {
-    setState({ selectedContainer: p.get('c') });
-  }
+  if (p.get('c')) setState({ selectedContainer: p.get('c') });
 
-  container.innerHTML = `<div class="content ingress-layout">
-    <div class="ingress-kpis" id="igKpis"><div class="skeleton" style="height:70px"></div></div>
-    <div class="ingress-body">
-      <div class="ingress-center" id="igCenter"><div class="skeleton" style="height:400px"></div></div>
-      <div class="ingress-right" id="igRight"><div class="skeleton" style="height:400px"></div></div>
-    </div>
-    <div class="ingress-footer" id="igFooter"></div>
-  </div>`;
+  casca(container, 'ingress-v1', (elCont) => {
+    elCont.innerHTML = CASCA;
+    // Dois listeners para a tela inteira, instalados uma vez: a linha e o
+    // cartão podem ser recriados, o handler não.
+    elCont.addEventListener('click', (ev) => {
+      const row = ev.target.closest ? ev.target.closest('.ig-row') : null;
+      if (row) { destacar([row.dataset.host]); return; }
+      const aberto = ev.target.closest ? ev.target.closest('.ig-finding .card-open') : null;
+      if (!aberto || (ev.target.closest && ev.target.closest('.ig-finding-link'))) return;
+      const card = aberto.closest('.ig-finding');
+      const raw = card.dataset.targets;
+      let alvos = [];
+      if (raw) { try { alvos = JSON.parse(raw); } catch { alvos = []; } }
+      else if (card.dataset.host) alvos = [card.dataset.host];
+      destacar(alvos);
+    });
+  });
 
-  fetchIngress();
-  _pollTimer = setInterval(fetchIngress, POLL_MS);
-
-  function onVis() {
-    if (_disposed) return;
-    if (!document.hidden) fetchIngress();
-  }
-  document.addEventListener('visibilitychange', onVis);
+  fetchIngress(container);
+  _pollTimer = assinar(() => fetchIngress(container), PERIODO_TICKS * TICK_MS);
 
   return () => {
     _disposed = true;
-    if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+    if (typeof _pollTimer === 'function') _pollTimer();
+    _pollTimer = null;
     cancel('ig_data');
     cancel('ig_findings');
-    document.removeEventListener('visibilitychange', onVis);
   };
 }

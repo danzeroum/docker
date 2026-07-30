@@ -113,3 +113,27 @@ def test_modulo_desmontado_nao_recebe_selo(u):
     """Navegar para outro escopo antes de a resposta chegar pintaria num corpo
     que ja nao esta na tela — e o proximo render duplicaria o selo."""
     assert u["aposDisposeSemSelo"] is True
+
+
+# --- doc 13: a leitura nao reconstroi a lista ------------------------------
+
+def test_leitura_com_payload_identico_nao_recria_no_nenhum(u):
+    """O aceite central do doc 13, medido por IDENTIDADE de no.
+
+    Comparar o HTML final nao serve: um `innerHTML =` idempotente produz string
+    identica e mesmo assim matou toda a arvore no caminho. A pergunta e se o
+    elemento e o MESMO objeto — porque e nele que vivem `:hover`, foco e scroll.
+    """
+    assert u["mesmosNosAposLeitura"] is True
+
+
+def test_selo_sobrevive_a_leitura(u):
+    """O selo vem de uma rota de cadencia diaria; a lista relê a cada 15s.
+
+    Com rebuild, cada leitura apagava o selo e ele so voltava na proxima
+    resposta de `/api/updates` — que pode estar a 5 minutos de distancia por
+    causa do cache. Na pratica o selo piscava e sumia."""
+    por_imagem = {l["imagem"]: l["selos"] for l in u["selosAposLeitura"]}
+    assert len(por_imagem["nginx:1.25"]) == 1
+    assert FORMATO.match(por_imagem["nginx:1.25"][0]["texto"])
+    assert por_imagem["redis:7"] == []

@@ -18,12 +18,18 @@ import { registrarTodos } from '../modulos/index.js';
 import { doEscopo, porId, todos } from './registry.js';
 import { deHash, mesmo, paraHash, rotulo, tipoDeCockpit, host, stack, container } from './escopo.js';
 import { carregar, reconciliar, alternarOculto } from './layout.js';
-import { montarRegua, pintarRegua, pintarFaixaCritica } from './regua.js';
+import {
+  montarRegua, pintarRegua, pintarFaixaCritica, marcarLeitura, pausarVivo,
+} from './regua.js';
 import { pintarCockpit, desmontar } from './cockpit.js';
 import { abrir as abrirPz, alternar as alternarPz, aberto as pzAberto, pintarPainel } from './personalizar.js';
-import { abrirSubtela, fecharSubtela } from './subtela.js';
+import { abrirSubtela, fecharSubtela, corpoSubtela } from './subtela.js';
+import { assinar, desligar as pararRelogio, TICK_MS } from './relogio.js';
 
-const INTERVALO_MS = 15000;
+/* 15s continua sendo o período — agora declarado como MÚLTIPLO do tick do
+ * relógio compartilhado, e não como um `setInterval` próprio. É o que mantém a
+ * leitura do kernel em fase com a dos módulos: um pisca só, não seis. */
+const PERIODO_TICKS = 3;
 
 let _escopo = host();
 let _estado = null;
@@ -106,22 +112,21 @@ function pintar() {
     );
     // A grade de fundo continua sendo a do host: o kernel e a faixa seguem
     // visíveis por construção (doc 10 §2).
-    pintarCockpitEm(_els.grade, host(), estadoDoEscopo(host()));
-    if (alvo) pintarCockpitEm(alvo, _escopo, _estado, { manter: true });
+    pintarCockpit(_els.grade, host(), estadoDoEscopo(host()), contexto());
+    if (alvo) pintarCockpit(alvo, _escopo, _estado, contexto());
   } else {
+    // Sair do escopo de container é a única hora em que os módulos da subtela
+    // morrem. O desmonte é por ALVO: a grade de fundo continua montada, e é
+    // justamente por isso que voltar para a Visão geral não recarrega nada.
+    // O `if` não é defensivo à toa: `desmontar()` sem alvo desmonta TUDO, e sem
+    // ele fechar uma subtela já fechada derrubaria a grade de fundo.
+    const corpoAnterior = corpoSubtela(_els.subtela);
+    if (corpoAnterior) desmontar(corpoAnterior);
     fecharSubtela(_els.subtela);
-    pintarCockpitEm(_els.grade, _escopo, _estado);
+    pintarCockpit(_els.grade, _escopo, _estado, contexto());
   }
 
   atualizarTitulo();
-}
-
-/* Dois cockpits podem estar na tela ao mesmo tempo (fundo + subtela), então o
- * desmonte é explícito e por alvo em vez de global. */
-function pintarCockpitEm(alvo, escopo, estado, opts) {
-  if (!alvo) return;
-  if (!opts || !opts.manter) desmontar();
-  pintarCockpit(alvo, escopo, estado, contexto());
 }
 
 function rotuloDaStack(idContainer) {
@@ -149,19 +154,21 @@ async function buscar() {
   ]);
   if (!ov.error && ov.data) _dados.overview = ov.data;
   if (!fd.error && Array.isArray(fd.data)) _dados.findings = fd.data;
+  // A varredura da pílula reinicia AQUI, com o dado na mão: é o único instante
+  // em que ela é verdade. Reiniciar no disparo do relógio anunciaria leitura
+  // antes de haver leitura.
+  marcarLeitura();
   pintar();
 }
 
 function iniciarPolling() {
   pararPolling();
-  _timer = setInterval(() => {
-    // Pausa com aba oculta — mantido do comportamento anterior (doc 00).
-    if (!document.hidden) buscar();
-  }, INTERVALO_MS);
+  // Nenhum `setInterval` novo: o kernel é mais um assinante do relógio.
+  _timer = assinar(buscar, PERIODO_TICKS * TICK_MS);
 }
 
 function pararPolling() {
-  if (_timer) clearInterval(_timer);
+  if (typeof _timer === 'function') _timer();
   _timer = null;
 }
 
@@ -178,8 +185,12 @@ export function iniciar(els) {
   window.addEventListener('hashchange', () => {
     irPara(deHash(location.hash), { semHash: true });
   });
+  /* A busca de retorno é do relógio, não daqui: ele dispara UMA atualização por
+   * assinante ao voltar. O que sobra para o kernel é dizer a verdade na régua —
+   * com a aba oculta nada é lido, e a pílula não pode continuar dizendo "ao
+   * vivo" enquanto isso. */
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) buscar();
+    pausarVivo(document.hidden);
   });
 
   const btn = document.getElementById('personalizarBtn');
@@ -225,5 +236,10 @@ export const _interno = {
   estadoAtual: () => _estado,
   definirDados: (d) => { _dados = { ..._dados, ...d }; },
   irPara,
+  buscar,
   modulosRegistrados: () => todos().map((m) => m.id),
+  // Encerra o kernel inteiro: assinatura do relógio, relógio e módulos montados.
+  // Usado no `beforeunload` e entre casos de teste, onde um relógio sobrevivente
+  // ticaria sobre o DOM do caso seguinte.
+  parar: () => { pararPolling(); pararRelogio(); desmontar(); },
 };

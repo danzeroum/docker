@@ -5,51 +5,20 @@
  * o job nunca rodou — o `summary=null` do contrato, que regex sobre o fonte não
  * distingue de `summary={outdated_count:0}`.
  */
-import './dom_stub.mjs';
+import { instalar, documento } from './dom_min.mjs';
 
-/* --- DOM suficiente para `pintarSelos` ------------------------------------ */
+instalar();
 
-function fazerNo(marca) {
-  return {
-    className: '',
-    textContent: '',
-    title: '',
-    dataset: {},
-    filhos: [],
-    appendChild(f) { this.filhos.push(f); return f; },
-    querySelector(sel) {
-      if (sel === '.mod-nome-cel') return this._nome || (this._nome = fazerNo(`${marca}:nome`));
-      return null;
-    },
-    querySelectorAll() { return []; },
-    addEventListener() {},
-  };
+/* O DOM aqui era um par de objetos com `querySelectorAll` por regex sobre uma
+ * string. Bastava enquanto `pintarSelos` criava um `span` e o pendurava na
+ * linha. A partir do doc 13 o selo JÁ EXISTE no molde da linha e o que muda é o
+ * `hidden` — o que só é observável numa árvore de verdade. */
+
+function visiveis(linha) {
+  return linha.querySelectorAll('.selo-update')
+    .filter((s) => !s.hidden)
+    .map((s) => ({ classe: s.className, texto: s.textContent }));
 }
-
-function fazerCorpo() {
-  return {
-    _html: '',
-    _linhas: new Map(),
-    get innerHTML() { return this._html; },
-    set innerHTML(v) { this._html = String(v); this._linhas = new Map(); },
-    querySelectorAll(sel) {
-      if (!sel.includes('data-imagem')) return [];
-      const achados = [];
-      for (const m of this._html.matchAll(/data-imagem="([^"]*)"/g)) {
-        const imagem = m[1];
-        if (!this._linhas.has(imagem)) {
-          const no = fazerNo(imagem);
-          no.dataset = { imagem, abrir: imagem };
-          this._linhas.set(imagem, no);
-        }
-        achados.push(this._linhas.get(imagem));
-      }
-      return achados;
-    },
-  };
-}
-
-globalThis.document.createElement = () => fazerNo('novo');
 
 /* --- fetch de mentira ----------------------------------------------------- */
 
@@ -125,7 +94,8 @@ falhar = false;
 /* 6. render de verdade do módulo `containers` ------------------------------- */
 _resetarCache();
 resposta = comDados();
-const corpo = fazerCorpo();
+const corpo = documento.createElement('div');
+documento.body.appendChild(corpo);
 const dados = {
   overview: {
     containers: [
@@ -134,24 +104,37 @@ const dados = {
     ],
   },
 };
-const dispose = containers.render({ t: 'host' }, dados, corpo);
+const montado = containers.render({ t: 'host' }, dados, corpo);
 saida.listaPintaAntesDoSelo = corpo.innerHTML.includes('data-abrir="api"');
 await new Promise((r) => setTimeout(r, 10));
-const linhas = corpo.querySelectorAll('[data-imagem]');
-saida.selosNaLista = linhas.map((l) => ({
+saida.selosNaLista = corpo.querySelectorAll('[data-imagem]').map((l) => ({
   imagem: l.dataset.imagem,
-  selos: (l._nome ? l._nome.filhos : []).map((f) => ({ classe: f.className, texto: f.textContent })),
+  selos: visiveis(l),
 }));
 
 /* 7. dispose antes da resposta: nada é pintado num corpo já desmontado ------ */
 _resetarCache();
-const corpo2 = fazerCorpo();
-const dispose2 = containers.render({ t: 'host' }, dados, corpo2);
-dispose2();
+const corpo2 = documento.createElement('div');
+documento.body.appendChild(corpo2);
+const montado2 = containers.render({ t: 'host' }, dados, corpo2);
+montado2.dispose();
 await new Promise((r) => setTimeout(r, 10));
 saida.aposDisposeSemSelo = corpo2.querySelectorAll('[data-imagem]')
-  .every((l) => !l._nome || !l._nome.filhos.length);
+  .every((l) => visiveis(l).length === 0);
 
-if (typeof dispose === 'function') dispose();
+/* 8. doc 13: leitura nova com o MESMO payload não recria nó nenhum ---------- */
+const antes = corpo.querySelectorAll('[data-abrir]');
+montado.atualizar(dados);
+const depois = corpo.querySelectorAll('[data-abrir]');
+saida.mesmosNosAposLeitura = antes.length === depois.length
+  && antes.every((no, i) => no === depois[i]);
+
+/* 9. e o selo sobrevive à leitura: linha reaproveitada mantém o que ganhou -- */
+saida.selosAposLeitura = corpo.querySelectorAll('[data-imagem]').map((l) => ({
+  imagem: l.dataset.imagem,
+  selos: visiveis(l),
+}));
+
+montado.dispose();
 
 process.stdout.write(JSON.stringify(saida, null, 2));
