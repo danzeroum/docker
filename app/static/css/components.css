@@ -86,6 +86,15 @@
   font-size:.7rem;color:var(--text-mute);font-family:'JetBrains Mono',monospace;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis
 }
+/* Selo de healthcheck (B4). So aparece com saude falhando ou em partida —
+   container sem healthcheck nao ganha selo, porque nao ha medida a exibir. */
+.item-health{
+  margin-left:6px;padding:1px 5px;border-radius:3px;vertical-align:middle;
+  font-family:'JetBrains Mono',monospace;font-size:.6rem;font-weight:600;
+  letter-spacing:.04em;text-transform:uppercase
+}
+.item-health.unhealthy{background:rgba(239,68,68,.16);color:var(--bad)}
+.item-health.starting{background:rgba(245,158,11,.16);color:var(--warn)}
 
 .topbar{
   height:60px;background:rgba(10,16,32,.85);backdrop-filter:blur(12px);

@@ -184,6 +184,19 @@ function getStackName(c) {
   return (c.Labels && c.Labels['com.docker.compose.project']) || null;
 }
 
+// Saude do container a partir do campo explicito que /api/containers passou a
+// devolver (B4). O sniff em `Status` fica como fallback porque um cockpit
+// recem-subido serve a listagem antes do coletor preencher o inspect — mas ele
+// e fallback, nao a fonte: "Up 2 hours (unhealthy)" e texto de UI do daemon e
+// muda de formato entre versoes.
+export function saudeDe(c) {
+  if (!c) return null;
+  if (c.Health) return c.Health;
+  if (c.State === 'unhealthy') return 'unhealthy';
+  if (c.Status && c.Status.includes('unhealthy')) return 'unhealthy';
+  return null;
+}
+
 function renderContainerList() {
   const listEl = document.getElementById('containerList');
   if (!listEl) return;
@@ -192,7 +205,7 @@ function renderContainerList() {
   let filtered = [...containers];
   if (curFilter === 'running') filtered = filtered.filter(c => c.State === 'running');
   else if (curFilter === 'exited') filtered = filtered.filter(c => ['exited', 'created', 'dead'].includes(c.State));
-  else if (curFilter === 'unhealthy') filtered = filtered.filter(c => c.State === 'unhealthy' || (c.Status && c.Status.includes('unhealthy')));
+  else if (curFilter === 'unhealthy') filtered = filtered.filter(c => saudeDe(c) === 'unhealthy');
 
   if (curSearch) {
     const t = curSearch.toLowerCase();
@@ -228,12 +241,18 @@ function renderContainerList() {
     ctrs.forEach(c => {
       const id = c.Id;
       const name = (c.Names && c.Names[0] || '').replace(/^\//, '');
+      const saude = saudeDe(c);
       let statusCls = c.State || 'unknown';
-      if (c.Status && c.Status.includes('unhealthy')) statusCls = 'unhealthy';
+      if (saude === 'unhealthy') statusCls = 'unhealthy';
+      // Badge so aparece com healthcheck falhando ou em partida. Container sem
+      // healthcheck nao ganha selo nenhum: nao ha saude medida para afirmar.
+      const badge = (saude === 'unhealthy' || saude === 'starting')
+        ? `<span class="item-health ${saude}" title="Healthcheck: ${saude}">${saude === 'unhealthy' ? 'unhealthy' : 'starting'}</span>`
+        : '';
       html += `<button type="button" class="list-item ${id === selId ? 'active' : ''}" data-id="${id}"${id === selId ? ' aria-current="true"' : ''}>
         <div class="item-status ${statusCls}"></div>
         <div class="item-info">
-          <div class="item-name" title="${escapeHtml(name)}">${escapeHtml(name)}</div>
+          <div class="item-name" title="${escapeHtml(name)}">${escapeHtml(name)}${badge}</div>
           <div class="item-image" title="${escapeHtml(c.Image || '')}">${escapeHtml(c.Image || '')}</div>
         </div>
       </button>`;
@@ -613,7 +632,7 @@ document.getElementById('themeToggle')?.addEventListener('click', () => {
 subscribe((s) => {
   const total = s.containers.length;
   const running = s.containers.filter(c => c.State === 'running').length;
-  const unhealthy = s.containers.filter(c => c.State === 'unhealthy' || (c.Status && c.Status.includes('unhealthy'))).length;
+  const unhealthy = s.containers.filter(c => saudeDe(c) === 'unhealthy').length;
   const el = document.getElementById('globalSummary');
   if (el) el.textContent = unhealthy > 0 ? `${running}/${total} UP · ${unhealthy} unhealthy` : `${running}/${total} UP`;
 });
