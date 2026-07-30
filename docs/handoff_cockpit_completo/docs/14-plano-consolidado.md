@@ -69,7 +69,7 @@ botão de ação existe no DOM (não é `display:none`)"*. Para cumprir isso o f
 
 Menor esforço coerente com o resto: a flag entra no próprio `summary`
 (`summary.capabilities.actions_enabled`), junto com `unlock.active`. Um endpoint
-`/api/capabilities` separado custaria mais um fetch por poll, contra a economia que motiva o
+`/api/capabilities` separado custaria mais um fetch por poll, contra a economia que motiva o <!-- docs-ref-ok: desenho RECUSADO, citado para registrar por que a flag foi para dentro do summary; a rota nunca existiu -->
 `summary`.
 
 ---
@@ -575,3 +575,61 @@ máquina do dev e sumiriam como erro de import no CI.
   drift e certificados recém-nascidos. É do operador (bloco `4-runbook`).
 - **Acabamento visual dos 9 módulos delegados** — dívida deliberada registrada
   na 2a. É decisão de prioridade do dono do produto, não requisito técnico.
+
+---
+
+# 19 · Plano B1–B11 — CONCLUÍDO
+
+· 2026-07-30 · ratificado pelo revisor
+
+Os onze blocos estão em `main`. Nenhum critério de aceitação ficou marcado como
+cumprido sem ter sido.
+
+| Bloco | O que entrega | Sprint | PR |
+|---|---|---|---|
+| B1 | `/api/storage` com órfãos | 1 | #25 |
+| B2 | retenção em dois níveis + histórico por container | 1 | #25 |
+| B3 | timeline de eventos persistida (v11) | 2b | #27 |
+| B4 | score de segurança + health explícito | 1 | #25 |
+| B5 | busca full-text em logs (FTS5, v13) | 3 | #28 |
+| B6 | imagem desatualizada via Docker Hub (v14) | 4 | #29 |
+| B7 | motor de notificações (v15) | 4 | #29 |
+| B8 | drift compose × runtime + chip | 5 | #30 |
+| B9 | `/metrics` no formato exposition | 4 | #29 |
+| B10 | prune com barreira e auditoria-antes (v12) | 2b | #27 |
+| B11 | rate-limit, backup e gzip | 5 | #30 |
+
+Mais o que não era bloco e sem o que nada disso teria caído em pé: o **kernel de
+módulos** e o bloco **`summary`** da Sprint 2a (PR #26), e o **guarda de schema
+literal** da Sprint 3 (PR #28).
+
+## Números ao fechar
+
+- **894 testes** (181 quando o pacote de handoff foi escrito);
+- **`SCHEMA_VERSION = 15`** — v10 a v15 entregues neste ciclo, cada uma com
+  teste sobre banco populado;
+- **6 PRs**, todas revisadas antes do merge e todas com o racional no corpo —
+  que é onde ele sobrevive, já que o squash apagou os commits individuais.
+
+## Roteiro do doc 12
+
+Executa **inteiro no código**, verificado por teste automatizado. Os dois passos
+que estavam pendentes fecharam nesta ordem:
+
+| Passo | Onde fechou |
+|---|---|
+| Buscar `oom` nos logs | B5, Sprint 3 |
+| Chip Drift na régua | B8, Sprint 5 — saiu de "ausência esperada" para dado real |
+
+**Falta executá-lo na VPS.** É o item (d) do doc 00, e é do operador.
+
+## O que fica fora do código
+
+Registrado com dono e critério de fechamento no doc 00, seção "Fechamento do
+plano B1–B11":
+
+1. **Runbook na VPS** — operador. Vale dobrado agora: drift e certs são os dois
+   blocos cujo comportamento depende do disco daquele host.
+2. **Acabamento visual dos 9 módulos delegados** — dono do produto. Sprint 6
+   módulo a módulo, ou dívida declarada aceita em definitivo. Não é requisito
+   técnico.
