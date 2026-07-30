@@ -26,6 +26,7 @@ from routers.prune import router as prune_router
 from routers.metrics_prom import router as metrics_prom_router
 from routers.updates import router as updates_router
 from routers.drift import router as drift_router
+from routers.certs import router as certs_router
 from routers.notificacoes import router as notificacoes_router
 from sampler import sampler_loop
 from findings.engine import findings_loop
@@ -194,4 +195,5 @@ app.include_router(prune_router)
 app.include_router(metrics_prom_router)
 app.include_router(updates_router)
 app.include_router(drift_router)
+app.include_router(certs_router)
 app.include_router(notificacoes_router)

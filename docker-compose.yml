@@ -68,6 +68,15 @@ services:
       # um dia o destino mudar, o drift passa a mostrar "nao encontrado" por
       # projeto, em vez de sumir em silencio.
       - /opt/btv:/opt/btv:ro
+      # 5-certs: descomente as DUAS linhas para o cockpit ler notAfter dos
+      # certificados. live/ e feito de symlinks para archive/, entao montar so
+      # o primeiro entrega um diretorio de links quebrados — o cockpit reporta
+      # isso como aviso, corretamente, mas sem ler certificado nenhum.
+      # Comentadas por padrao: a decisao de expor /etc/letsencrypt e do operador,
+      # e sem elas a chave certs_expiring segue null, que e a leitura honesta de
+      # "nao estou olhando".
+      # - /etc/letsencrypt/live:/etc/letsencrypt/live:ro
+      # - /etc/letsencrypt/archive:/etc/letsencrypt/archive:ro
       - cockpit-data:/data
     networks:
       - internal

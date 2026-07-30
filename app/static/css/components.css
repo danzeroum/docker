@@ -825,3 +825,12 @@
 /* O highlight e marcacao NOSSA, por cima do texto ja escapado. */
 .log-trecho mark{background:rgba(96,165,250,.28);color:inherit;border-radius:2px;padding:0 1px}
 .log-achado:focus-visible{outline:2px solid var(--accent,#60a5fa);outline-offset:1px}
+
+/* Certificados (5-certs). Tres estados com tres tons: sem fonte fica esmaecido
+   (nao estou olhando), "nenhum vence" fica no tom normal (olhei e esta bem), e
+   so o alerta ganha cor. Pintar "sem fonte" de amarelo confundiria a nossa
+   configuracao faltando com um problema na infraestrutura do operador. */
+.cert-bloco{margin-top:.6rem;border-top:1px solid var(--border);padding-top:.4rem}
+.cert-linha{font-size:.7rem;display:flex;align-items:baseline;gap:.4rem;flex-wrap:wrap}
+.cert-sem-fonte{color:var(--text-dim)}
+.cert-alerta{color:var(--warn);font-weight:600}
