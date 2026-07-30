@@ -22,6 +22,7 @@ from routers.tasks import router as tasks_router
 from routers.executive import router as executive_router
 from routers.storage import router as storage_router
 from routers.security import router as security_router
+from routers.prune import router as prune_router
 from sampler import sampler_loop
 from findings.engine import findings_loop
 from db import init_db, close_db
@@ -149,3 +150,4 @@ app.include_router(events_router)
 app.include_router(backend_router)
 app.include_router(storage_router)
 app.include_router(security_router)
+app.include_router(prune_router)

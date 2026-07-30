@@ -38,6 +38,14 @@ def _popula_v9(path, amostras):
         "PRIMARY KEY (sampled_at, container_id)"
         ")"
     )
+    # audit_log existe desde a v4 em qualquer banco real; a v12 faz ALTER nela.
+    # Omiti-la aqui tornava a fixture irreal e quebrava a migracao no teste.
+    conn.execute(
+        "CREATE TABLE audit_log ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, action TEXT NOT NULL, project TEXT NOT NULL,"
+        "result TEXT NOT NULL, token_label TEXT NOT NULL DEFAULT '', ip TEXT NOT NULL DEFAULT '',"
+        "created_at TEXT NOT NULL)"
+    )
     conn.execute(
         "CREATE TABLE host_samples ("
         "sampled_at TEXT PRIMARY KEY,"
@@ -124,7 +132,11 @@ async def test_v10_preserva_amostras_existentes(tmp_path):
             assert linha[3] >= 10.0
 
         cur = await db.execute("SELECT MAX(version) FROM schema_version")
-        assert (await cur.fetchone())[0] == 10
+        # Contra SCHEMA_VERSION, nao contra 10: este teste valida que a v10 nao
+        # perde dado, e `init_db` aplica TODAS as migrations pendentes. Escrever
+        # o numero aqui faz o teste quebrar a cada migration nova — foi
+        # exatamente o que a v9 fez com quatro testes de uma vez.
+        assert (await cur.fetchone())[0] == mod.SCHEMA_VERSION >= 10
 
         cur = await db.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='container_samples_hourly'"

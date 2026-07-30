@@ -256,6 +256,55 @@ _MIGRATIONS = [
         "CREATE INDEX IF NOT EXISTS idx_csh_cid "
         "ON container_samples_hourly(container_id, hour)",
     ]),
+    # v11 — timeline de eventos do daemon (B3).
+    #
+    # O stream `/events` ja existia e ja alimentava o SSE; o que faltava era
+    # sobreviver a um restart do cockpit. Sem persistencia, a pergunta "esse
+    # container reiniciou quantas vezes hoje?" so tinha resposta se alguem
+    # estivesse com a aba aberta na hora.
+    #
+    # `id` AUTOINCREMENT em vez de chave por timestamp: o daemon emite varios
+    # eventos no mesmo segundo (die + stop + start de um restart chegam juntos),
+    # e uma PK temporal descartaria justamente a sequencia que a timeline existe
+    # para mostrar. O AUTOINCREMENT tambem da o corte do ring de graca.
+    #
+    # Os indices sao os dois eixos da tela: filtro por container e filtro por
+    # tipo de acao, ambos sempre em ordem cronologica reversa.
+    (11, [
+        "CREATE TABLE IF NOT EXISTS docker_events ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "ts TEXT NOT NULL,"
+        "type TEXT NOT NULL DEFAULT '',"
+        "action TEXT NOT NULL DEFAULT '',"
+        "actor_id TEXT NOT NULL DEFAULT '',"
+        "actor_name TEXT NOT NULL DEFAULT '',"
+        "stack TEXT NOT NULL DEFAULT '',"
+        "exit_code TEXT NOT NULL DEFAULT '',"
+        "severity TEXT NOT NULL DEFAULT 'info'"
+        ")",
+        "CREATE INDEX IF NOT EXISTS idx_events_ts ON docker_events(id DESC)",
+        "CREATE INDEX IF NOT EXISTS idx_events_actor ON docker_events(actor_name, id DESC)",
+        "CREATE INDEX IF NOT EXISTS idx_events_action ON docker_events(action, id DESC)",
+        "CREATE INDEX IF NOT EXISTS idx_events_stack ON docker_events(stack, id DESC)",
+    ]),
+    # v12 — auditoria gravada ANTES de executar (B10).
+    #
+    # Ate aqui `_mutate_container` chamava `add_audit_entry` DEPOIS do proxy
+    # retornar, ou no except. Isso perde exatamente o caso grave: acao que trava
+    # o daemon nao gera linha nenhuma, e o incidente fica sem rastro de quem
+    # pediu o que. Auditar depois audita o que deu certo.
+    #
+    # `started_at` e `finished_at` sao colunas NOVAS; `created_at` fica onde
+    # esta, com os dados antigos intactos. As linhas anteriores a esta migracao
+    # tem `started_at` NULL de proposito: elas nasceram no modelo antigo e
+    # afirmar um inicio que ninguem mediu seria inventar dado. `status` nasce
+    # 'done' para elas, porque toda linha antiga so existia se a acao terminou.
+    (12, [
+        "ALTER TABLE audit_log ADD COLUMN status TEXT NOT NULL DEFAULT 'done'",
+        "ALTER TABLE audit_log ADD COLUMN started_at TEXT",
+        "ALTER TABLE audit_log ADD COLUMN finished_at TEXT",
+        "CREATE INDEX IF NOT EXISTS idx_audit_status ON audit_log(status, id DESC)",
+    ]),
 ]
 
 # Versao de esquema no topo da lista. Os testes de migracao conferem "banco
@@ -413,6 +462,45 @@ async def add_audit_entry(action: str, project: str, result: str, token_label: s
         (action, project, result, token_label, ip, now),
     )
     await db.commit()
+
+async def audit_iniciar(action: str, project: str, token_label: str = "", ip: str = "") -> int:
+    """Grava a INTENCAO e devolve o id da linha. Chamar ANTES de executar.
+
+    E o ponto do B10: a linha existe a partir do momento em que a acao foi
+    autorizada, nao a partir do momento em que ela terminou. Se o daemon travar,
+    a linha fica em `running` para sempre — e essa linha orfa e o rastro do
+    incidente, nao sujeira.
+    """
+    db = await get_db()
+    agora = _now()
+    cur = await db.execute(
+        "INSERT INTO audit_log (action, project, result, token_label, ip, created_at,"
+        " status, started_at, finished_at) VALUES (?, ?, '', ?, ?, ?, 'running', ?, NULL)",
+        (action, project, token_label, ip, agora, agora),
+    )
+    await db.commit()
+    return cur.lastrowid
+
+
+async def audit_concluir(audit_id: int, result: str, status: str = "done"):
+    """Fecha a linha aberta por `audit_iniciar`.
+
+    Nao levanta: uma falha ao registrar o RESULTADO nao pode mascarar o
+    resultado real da acao para quem chamou. A linha fica em `running`, que ja
+    conta a historia.
+    """
+    if not audit_id:
+        return
+    try:
+        db = await get_db()
+        await db.execute(
+            "UPDATE audit_log SET result = ?, status = ?, finished_at = ? WHERE id = ?",
+            (result, status, _now(), audit_id),
+        )
+        await db.commit()
+    except Exception:
+        return
+
 
 async def get_audit_log(limit: int = 100):
     db = await get_db()
@@ -708,6 +796,164 @@ async def get_container_samples_since(hours: int = 24):
     )
     rows = await cur.fetchall()
     return _parse_rows(rows, cur.description)
+
+
+# --- eventos do daemon (v11) ----------------------------------------------
+
+# Ring por contagem. 10 mil eventos numa VPS de 15 containers cobrem semanas de
+# operacao normal e alguns dias de crash loop — que e justamente quando a
+# timeline importa e quando o volume explode.
+EVENTS_RING = _env_int("EVENTS_RING", 10000, 100)
+
+# Acoes que valem uma linha na timeline. O daemon emite dezenas de tipos por
+# minuto (exec_create, exec_start, health_status a cada 30s); guardar tudo
+# encheria o ring com ruido e expulsaria os `die` que o operador procura.
+EVENTS_ACOES = {
+    "create", "start", "stop", "die", "kill", "restart", "destroy", "oom",
+    "pause", "unpause", "rename", "update", "health_status",
+}
+
+# Severidade por acao — a timeline colore por isto e o `summary.events` procura
+# o ultimo critico. Nao e opiniao: `oom` e `die` com exit != 0 sao os dois
+# eventos que respondem "por que caiu".
+#
+# `die` NAO entra nesta lista: ele tem regra propria logo abaixo, porque o mesmo
+# evento significa coisas opostas conforme o exit code. `docker stop` emite
+# `die` com exit 0 — parada limpa, pedida por alguem. Marcar isso como `warn`
+# encheria a timeline de alarme falso toda vez que o operador desliga um
+# servico, e o alarme que sempre toca deixa de ser lido.
+_EVENTOS_DE_ALERTA = {"kill", "destroy"}
+
+
+def _severidade_evento(action: str, exit_code: str) -> str:
+    if action == "oom":
+        return "critical"
+    if action == "die":
+        # exit vazio = daemon nao informou; nao da para afirmar que foi falha.
+        return "critical" if exit_code not in ("", "0") else "info"
+    if action in _EVENTOS_DE_ALERTA:
+        return "warn"
+    if action == "health_status" and "unhealthy" in (exit_code or ""):
+        return "warn"
+    return "info"
+
+
+async def insert_event(event: dict):
+    """Grava um evento do daemon. Devolve o dict gravado, ou None se ignorado.
+
+    Ignorar silenciosamente acao fora de EVENTS_ACOES e proposital: o consumidor
+    chama isto para TODO evento do stream, e o filtro tem de estar aqui e nao no
+    chamador — senao cada novo consumidor reimplementaria a mesma lista.
+    """
+    tipo = str(event.get("Type") or "")
+    acao = str(event.get("Action") or "")
+    # `health_status: unhealthy` chega como acao composta.
+    acao_base = acao.split(":")[0].strip()
+    if tipo != "container" or acao_base not in EVENTS_ACOES:
+        return None
+
+    ator = event.get("Actor") if isinstance(event.get("Actor"), dict) else {}
+    attrs = ator.get("Attributes") if isinstance(ator.get("Attributes"), dict) else {}
+    detalhe = acao.split(":", 1)[1].strip() if ":" in acao else str(attrs.get("exitCode") or "")
+
+    quando = event.get("time")
+    ts = (
+        datetime.fromtimestamp(quando, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+        if isinstance(quando, (int, float)) else _now()
+    )
+
+    linha = {
+        "ts": ts,
+        "type": tipo,
+        "action": acao_base,
+        "actor_id": str(ator.get("ID") or "")[:64],
+        "actor_name": str(attrs.get("name") or ""),
+        "stack": str(attrs.get("com.docker.compose.project") or ""),
+        "exit_code": str(detalhe),
+        "severity": _severidade_evento(acao_base, str(detalhe)),
+    }
+
+    db = await get_db()
+    await db.execute(
+        "INSERT INTO docker_events (ts, type, action, actor_id, actor_name, stack, exit_code, severity)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        tuple(linha[k] for k in
+              ("ts", "type", "action", "actor_id", "actor_name", "stack", "exit_code", "severity")),
+    )
+    await db.commit()
+    return linha
+
+
+async def purge_events(ring: int = None):
+    """Corta o ring por CONTAGEM, no ciclo de retencao que ja existe.
+
+    Por contagem e nao por idade porque o problema que o ring resolve e volume,
+    nao antiguidade: um crash loop gera em uma hora o que a operacao normal gera
+    em semanas. Cortar por data deixaria o pior caso sem teto.
+    """
+    teto = ring or EVENTS_RING
+    db = await get_db()
+    await db.execute(
+        "DELETE FROM docker_events WHERE id <= ("
+        "  SELECT MAX(id) - ? FROM docker_events"
+        ")",
+        (teto,),
+    )
+    await db.commit()
+
+
+async def get_events(container: str = None, stack: str = None, action: str = None,
+                     severity: str = None, limit: int = 100, before_id: int = None):
+    """Historico paginado. Filtros SEMPRE no servidor.
+
+    Paginacao por `before_id` (keyset) e nao por OFFSET: a tabela recebe escrita
+    continua, e OFFSET numa lista que cresce pela frente devolve linha repetida
+    ou pulada entre duas paginas.
+    """
+    db = await get_db()
+    partes = ["SELECT * FROM docker_events WHERE 1=1"]
+    params = []
+    if container:
+        partes.append("AND actor_name = ?")
+        params.append(container)
+    if stack:
+        partes.append("AND stack = ?")
+        params.append(stack)
+    if action:
+        partes.append("AND action = ?")
+        params.append(action)
+    if severity:
+        partes.append("AND severity = ?")
+        params.append(severity)
+    if before_id:
+        partes.append("AND id < ?")
+        params.append(before_id)
+    partes.append("ORDER BY id DESC LIMIT ?")
+    params.append(max(1, min(int(limit or 100), 500)))
+
+    cur = await db.execute(" ".join(partes), tuple(params))
+    rows = await cur.fetchall()
+    return _parse_rows(rows, cur.description)
+
+
+async def get_events_resumo():
+    """Para `summary.events`: contagem e o ultimo critico.
+
+    A regua precisa do chip do modulo Eventos vivo mesmo com o modulo oculto —
+    e este resumo nasce junto com a fonte, nao numa passada depois.
+    """
+    db = await get_db()
+    cur = await db.execute("SELECT COUNT(*), MAX(ts) FROM docker_events")
+    total, ultimo = (await cur.fetchone()) or (0, None)
+    cur = await db.execute(
+        "SELECT ts, action, actor_name, exit_code FROM docker_events"
+        " WHERE severity = 'critical' ORDER BY id DESC LIMIT 1"
+    )
+    row = await cur.fetchone()
+    critico = None
+    if row:
+        critico = {"ts": row[0], "action": row[1], "container": row[2], "exit_code": row[3]}
+    return {"total": total or 0, "last_at": ultimo, "last_critical": critico}
 
 
 async def get_first_sample_time():

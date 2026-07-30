@@ -60,30 +60,69 @@ export default {
       return null;
     }
 
-    // container: série real da rota do B2
+    // container: série real da rota do B2, com toggle de janela
     let vivo = true;
-    corpo.innerHTML = '<div class="skeleton" style="height:90px"></div>';
-    (async () => {
-      const { data, error } = await apiGet(
-        `mod_hist_${escopo.id}`, `/api/containers/${encodeURIComponent(escopo.id)}/history?range=24h`
-      );
-      if (!vivo) return;
-      if (error || !data) {
-        corpo.innerHTML = `<div class="empty">${escapeHtml(error || 'Sem histórico')}</div>`;
-        return;
-      }
+    let janela = '24h';
+    const cache = new Map();  // uma requisição por troca, com a anterior guardada
+
+    corpo.innerHTML = `<div class="met-topo">
+        <button type="button" class="met-jan met-ativo" data-range="24h">24h</button>
+        <button type="button" class="met-jan" data-range="7d">7d</button>
+      </div>
+      <div data-serie><div class="skeleton" style="height:90px"></div></div>`;
+
+    const alvo = corpo.querySelector('[data-serie]');
+
+    function marcarBotoes() {
+      corpo.querySelectorAll('[data-range]').forEach((b) => {
+        b.classList.toggle('met-ativo', b.dataset.range === janela);
+        b.setAttribute('aria-pressed', b.dataset.range === janela ? 'true' : 'false');
+      });
+    }
+
+    function pintar(data) {
+      if (!vivo || !alvo) return;
       const pontos = data.points || [];
       if (!pontos.length) {
         // Borda do primeiro dia de uso: todo container novo passa por ela.
+        // "coletando…" é diferente de gráfico vazio quebrado.
         definirSub('metricas', 'coletando…');
-        corpo.innerHTML = '<div class="empty">Coletando… a série aparece após os primeiros minutos</div>';
+        alvo.innerHTML = '<div class="empty">Coletando… a série aparece após os primeiros minutos</div>';
         return;
       }
       const resolucao = data.resolution === 'hourly' ? 'média horária' : 'leitura de 60s';
       definirSub('metricas', `${resolucao} · janela ${data.range_hours}h · ${pontos.length} pontos`);
-      corpo.innerHTML = `<div class="met-serie"><span>CPU</span>${sparkline(pontos, 'cpu_pct')}</div>`
+      // Uma passada: monta o HTML inteiro e escreve uma vez. Escrever por ponto
+      // provocaria 500 reflows num container com histórico cheio.
+      alvo.innerHTML = `<div class="met-serie"><span>CPU</span>${sparkline(pontos, 'cpu_pct')}</div>`
         + `<div class="met-serie"><span>Memória</span>${sparkline(pontos, 'mem_bytes')}</div>`;
-    })();
+    }
+
+    async function carregar() {
+      if (cache.has(janela)) { pintar(cache.get(janela)); return; }
+      const { data, error } = await apiGet(
+        `mod_hist_${escopo.id}_${janela}`,
+        `/api/containers/${encodeURIComponent(escopo.id)}/history?range=${janela}`
+      );
+      if (!vivo) return;
+      if (error || !data) {
+        if (alvo) alvo.innerHTML = `<div class="empty">${escapeHtml(error || 'Sem histórico')}</div>`;
+        return;
+      }
+      cache.set(janela, data);
+      pintar(data);
+    }
+
+    corpo.querySelectorAll('[data-range]').forEach((b) => {
+      b.addEventListener('click', () => {
+        if (janela === b.dataset.range) return;
+        janela = b.dataset.range;
+        marcarBotoes();
+        carregar();
+      });
+    });
+
+    carregar();
     return () => { vivo = false; };
   },
 };

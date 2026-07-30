@@ -29,8 +29,12 @@ def mock_db():
         # so o token emitido pela sessao vale; qualquer outro valor e negado
         return valid_session if token == SESSION_TOKEN else None
 
-    with patch("routers.projects.add_audit_entry", new=AsyncMock()):
-        with patch("routers.containers.add_audit_entry", new=AsyncMock()):
+    # A auditoria virou o par iniciar->concluir na v12: a linha nasce ANTES da
+    # execucao, para que acao que trava o daemon deixe rastro.
+    with patch("routers.projects.audit_iniciar", new=AsyncMock(return_value=1)), \
+         patch("routers.projects.audit_concluir", new=AsyncMock()):
+        with patch("routers.containers.audit_iniciar", new=AsyncMock(return_value=1)), \
+             patch("routers.containers.audit_concluir", new=AsyncMock()):
             with patch("auth.get_valid_unlock_session", new=_sessao):
                 yield
 
@@ -143,9 +147,11 @@ def test_audit_log_mocked():
                 "/api/projects/meu-app/start",
                 headers={"X-Cockpit-Unlock": SESSION_TOKEN},
             )
-    from routers.projects import add_audit_entry
+    from routers.projects import audit_iniciar, audit_concluir
     # o "quem" e o usuario do basic auth guardado na sessao, nao a string "unlock"
-    add_audit_entry.assert_awaited_with("start", "meu-app", "success", "test", "testclient")
+    audit_iniciar.assert_awaited_with("start", "meu-app", "test", "testclient")
+    # e a linha aberta e fechada com o resultado
+    audit_concluir.assert_awaited_with(1, "success")
 
 
 CONTAINER_ID = "abc123"

@@ -59,15 +59,17 @@ def test_finding_aggregado_ingress():
 
 def test_events_broadcast_error():
     """broadcast de EVENTS desabilitado propaga mensagem de erro."""
-    from events import _broadcast, _clients
+    from events import _broadcast, subscribe, unsubscribe
     import asyncio
-    q = asyncio.Queue()
-    _clients.append(q)
+    # (fila, filtro) desde a 2b-B3; `error` e plano de controle e passa por
+    # qualquer filtro — um cliente que so pediu um container ainda precisa saber
+    # que o stream do daemon caiu.
+    q = asyncio.run(subscribe({"container": "so_esse"}))
     _broadcast({"type": "error", "detail": "EVENTS nao habilitado no socket-proxy"})
     msg = q.get_nowait()
     assert msg["type"] == "error"
     assert "EVENTS" in msg["detail"]
-    _clients.remove(q)
+    unsubscribe(q)
 
 
 def test_events_subscribe_fanout():
@@ -86,6 +88,6 @@ def test_events_subscribe_fanout():
         assert m2["type"] == "docker_event"
         unsubscribe(q1)
         unsubscribe(q2)
-        assert q1 not in _clients
+        assert all(par[0] is not q1 for par in _clients)
 
     asyncio.run(run())

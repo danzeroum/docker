@@ -157,11 +157,19 @@ FAKE_PROJECTS = {"meu-app": {"path": "/opt/btv/meu-app", "compose_file": "/opt/b
 
 
 def _do_start(client, token, session_mock, audit_mock=None):
+    """Dispara start de stack com a auditoria mockada.
+
+    Na v12 a auditoria virou o par iniciar->concluir: a linha nasce ANTES da
+    execucao, porque `docker compose up` pode travar ate o timeout de 60s e
+    auditar depois perderia exatamente essa linha.
+    """
     fake_proc = MagicMock()
     fake_proc.returncode = 0
     fake_proc.communicate = AsyncMock(return_value=(b"", b""))
+    inicio = audit_mock or AsyncMock(return_value=1)
     with patch("auth.get_valid_unlock_session", new=session_mock):
-        with patch("routers.projects.add_audit_entry", new=audit_mock or AsyncMock()):
+        with patch("routers.projects.audit_iniciar", new=inicio), \
+             patch("routers.projects.audit_concluir", new=AsyncMock()):
             with patch("routers.projects._find_projects", return_value=FAKE_PROJECTS):
                 with patch("asyncio.create_subprocess_exec", new=AsyncMock(return_value=fake_proc)):
                     return client.post(
@@ -192,14 +200,15 @@ def test_mutation_sem_header_falha(client):
 
 def test_auditoria_registra_o_usuario_da_sessao(client):
     """O 'quem' da auditoria vem do basic auth, nao da string 'unlock'."""
-    audit = AsyncMock()
+    audit = AsyncMock(return_value=1)
     r = _do_start(
         client, "tok-de-sessao",
         AsyncMock(return_value=_valid_session(remote_user="danniel")),
         audit_mock=audit,
     )
     assert r.status_code == 200
+    # audit_iniciar(action, project, ator, ip) — o resultado vai no concluir
     args, _ = audit.call_args
     assert args[0] == "start"
-    assert args[2] == "success"
-    assert args[3] == "danniel", f"esperava o usuario do ingress, veio {args[3]!r}"
+    assert args[1] == "meu-app"
+    assert args[2] == "danniel", f"esperava o usuario do ingress, veio {args[2]!r}"
