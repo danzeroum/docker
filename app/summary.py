@@ -273,6 +273,29 @@ def _storage(storage_data):
     }
 
 
+def _drift(drift_data):
+    """`summary.drift`. Fecha o contrato de TRÊS estados que a régua construiu
+    sem nomear:
+
+    - `count: null` — sem fonte: o cálculo nunca rodou, e o chip se cala;
+    - `count: 0` — a fonte rodou e diz que está limpo. **Informação**, e o chip
+      mostra 0 em vez de sumir;
+    - `count: N` — a fonte acusa.
+
+    Desde a 2a o chip vivia no primeiro estado por falta de B8. Agora percorre
+    os três, e o `0` que aparece é uma afirmação, não uma ausência disfarçada.
+    """
+    if not isinstance(drift_data, dict):
+        return {"count": None}
+    return {
+        "count": drift_data.get("count"),
+        "projetos": len(drift_data.get("projects") or []),
+        "fora_de_projeto": len(drift_data.get("fora_de_projeto") or []),
+        "nao_avaliadas": sum(len(p.get("nao_avaliadas") or [])
+                             for p in drift_data.get("projects") or []),
+    }
+
+
 def _security(security_data):
     """Mapeia score_minimo → min_score.
 
@@ -310,6 +333,7 @@ async def montar(containers: list) -> dict:
     capacity_data, capacity_stale = _do_cache("capacity")
     storage_data, storage_stale = _do_cache("storage")
     security_data, security_stale = _do_cache("security")
+    drift_data, drift_stale = _do_cache("drift")
 
     resultado = {
         "findings": registra("findings", await _seguro(_findings)),
@@ -323,9 +347,7 @@ async def montar(containers: list) -> dict:
         "notifications": registra("notifications", await _seguro(_notifications)),
         "storage": _storage(storage_data),
         "security": _security(security_data),
-        # B8 pendente. A chave já sai no contrato para a régua não precisar
-        # mudar de forma quando o drift chegar.
-        "drift": {"count": None},
+        "drift": _drift(drift_data),
         "capabilities": {
             "actions_enabled": actions_enabled(),
             "terminal_enabled": _flag("ENABLE_TERMINAL"),
@@ -337,6 +359,7 @@ async def montar(containers: list) -> dict:
         ("capacity", capacity_stale),
         ("storage", storage_stale),
         ("security", security_stale),
+        ("drift", drift_stale),
     ):
         if quando or resultado.get(chave) is None:
             stale[chave] = quando or _agora()
@@ -373,6 +396,7 @@ async def aquecer():
     from routers.metrics import get_metrics_history
     from routers.security import get_security
     from routers.storage import get_storage
+    from drift import calcular as calcular_drift
 
     async def projecao_disco():
         # A mesma janela que a tela Capacidade desenha: 30 d por dia.
@@ -383,6 +407,9 @@ async def aquecer():
         ("capacity", 300.0, projecao_disco),
         ("security", 30.0, get_security),
         ("storage", 30.0, get_storage),
+        # Sem esta linha o chip Drift só teria dado depois de alguém ABRIR o
+        # módulo — que é justamente o invariante 3 do doc 10 ao contrário.
+        ("drift", 60.0, calcular_drift),
     ):
         try:
             await cached_or_fetch(chave, ttl=ttl, factory=fn, timeout=45.0)

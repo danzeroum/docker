@@ -651,6 +651,29 @@
 }
 .empty.ok{color:var(--ok)}
 
+/* Drift (B8). O par esperado -> atual fica lado a lado: a pergunta e sempre
+   comparativa, e forcar o olho a saltar entre duas colunas distantes e o que
+   faz uma tabela de drift virar tabela que ninguem le. */
+.drift-projeto{
+  display:flex;align-items:baseline;gap:.4rem;margin:.6rem 0 .2rem;
+  font-size:.7rem;font-weight:600;letter-spacing:.02em
+}
+.drift-projeto:first-child{margin-top:0}
+.drift-par{
+  display:flex;align-items:center;gap:.3rem;flex-shrink:0;
+  font-family:'JetBrains Mono',monospace;font-size:.62rem
+}
+.drift-esperado{color:var(--text-mute)}
+.drift-seta{color:var(--text-mute)}
+.drift-atual{color:var(--warn)}
+/* Aviso e "nao avaliada" NAO usam o tom de divergencia: o primeiro diz que a
+   comparacao nao aconteceu e o segundo que ela nao alcanca aquela chave.
+   Nenhum dos dois afirma que algo esta errado na infraestrutura. */
+.drift-aviso{color:var(--text-dim);font-style:italic;padding:.3rem 0}
+.drift-pendente{
+  font-size:.62rem;color:var(--text-mute);padding:.3rem 0 .1rem;line-height:1.4
+}
+
 .stg-total{font-family:'JetBrains Mono',monospace;font-size:1.3rem;font-weight:600;margin-bottom:.4rem}
 .stg-total span{font-family:inherit;font-size:.7rem;font-weight:400;color:var(--text-dim);margin-left:.3rem}
 

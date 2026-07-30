@@ -62,6 +62,11 @@ services:
       # Se ausente, /session/unlock retorna 403 (fail-closed) e loga warning.
     volumes:
       - /opt/btv/ingress/nginx:/etc/nginx-ingress:ro
+      # B8: os compose files das stacks vivem aqui, e o rotulo
+      # com.docker.compose.project.config_files grava o caminho DO HOST. Como o
+      # mount usa o mesmo caminho dos dois lados, o rotulo resolve direto — se
+      # um dia o destino mudar, o drift passa a mostrar "nao encontrado" por
+      # projeto, em vez de sumir em silencio.
       - /opt/btv:/opt/btv:ro
       - cockpit-data:/data
     networks:
