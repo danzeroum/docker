@@ -1,5 +1,6 @@
 import hashlib
 import os
+import re
 import secrets
 import aiosqlite
 from datetime import datetime, timedelta, timezone
@@ -304,6 +305,37 @@ _MIGRATIONS = [
         "ALTER TABLE audit_log ADD COLUMN started_at TEXT",
         "ALTER TABLE audit_log ADD COLUMN finished_at TEXT",
         "CREATE INDEX IF NOT EXISTS idx_audit_status ON audit_log(status, id DESC)",
+    ]),
+    # v13 — busca full-text em logs (B5).
+    #
+    # FTS5 externo-conteudo NAO: a tabela `logs_fts` guarda o texto ela mesma.
+    # Conteudo externo economizaria espaco, mas exigiria uma tabela espelho e
+    # triggers de sincronia — mais peca para manter do que o ganho justifica
+    # numa VPS com retencao de 7 dias.
+    #
+    # `container` e `ts` sao UNINDEXED: entram como coluna para voltarem no
+    # resultado, mas nao viram termo de busca. Sem isso, procurar "api" acharia
+    # toda linha do container chamado api, e a busca por texto viraria busca por
+    # nome — que ja e o filtro, nao a pergunta.
+    #
+    # `tokenize=porter unicode61`: log tem acento (mensagem em portugues) e o
+    # operador digita "erro" esperando achar "erros".
+    (13, [
+        "CREATE VIRTUAL TABLE IF NOT EXISTS logs_fts USING fts5("
+        "  linha,"
+        "  container UNINDEXED,"
+        "  ts UNINDEXED,"
+        "  stream UNINDEXED,"
+        "  tokenize='porter unicode61'"
+        ")",
+        # Marca d'agua por container: de onde continuar a ingestao. Tabela
+        # comum, nao FTS — e chave-valor, e FTS5 nao tem indice unico.
+        "CREATE TABLE IF NOT EXISTS logs_ingest ("
+        "container TEXT PRIMARY KEY,"
+        "last_ts TEXT NOT NULL DEFAULT '',"
+        "last_run TEXT NOT NULL DEFAULT '',"
+        "linhas INTEGER NOT NULL DEFAULT 0"
+        ")",
     ]),
 ]
 
@@ -954,6 +986,121 @@ async def get_events_resumo():
     if row:
         critico = {"ts": row[0], "action": row[1], "container": row[2], "exit_code": row[3]}
     return {"total": total or 0, "last_at": ultimo, "last_critical": critico}
+
+
+# --- logs full-text (v13) -------------------------------------------------
+
+RETENTION_LOGS_DAYS = _env_int("RETENTION_LOGS_DAYS", 7, 1)
+
+# Piso do termo de busca. Menos de 3 caracteres num indice de milhoes de linhas
+# devolve tudo e nao responde nada — e o custo cai no SQLite, nao no operador.
+BUSCA_MINIMA = 3
+
+
+def sanitiza_fts(q: str) -> str:
+    """Transforma a consulta do usuario em uma expressao FTS5 LITERAL.
+
+    Todo operador vira texto. `erro NEAR/2 falha` procura essas tres palavras,
+    nao invoca o operador NEAR; `"api"` procura api, nao uma frase exata.
+
+    Sanitizar e nao escapar: FTS5 nao tem escape universal, e uma sintaxe
+    invalida nao devolve zero resultados — ela LEVANTA, e a busca inteira morre
+    por causa de uma aspa que o operador digitou sem querer. Aqui a query e
+    reconstruida a partir dos tokens, entao nao existe entrada que quebre.
+    """
+    if not q:
+        return ""
+    # Mantem letra, numero e o que costuma compor identificador em log.
+    tokens = re.findall(r"[\w\-./:@]+", q, flags=re.UNICODE)
+    limpos = [t for t in tokens if t.strip('-./:@')]
+    if not limpos:
+        return ""
+    # Cada token entre aspas duplas (com as internas dobradas) = termo literal.
+    # AND implicito: quem digita duas palavras quer as duas.
+    return " ".join('"{}"'.format(t.replace('"', '""')) for t in limpos)
+
+
+async def get_log_watermark(container: str) -> str:
+    db = await get_db()
+    cur = await db.execute("SELECT last_ts FROM logs_ingest WHERE container = ?", (container,))
+    row = await cur.fetchone()
+    return (row[0] if row else "") or ""
+
+
+async def insert_log_lines(container: str, linhas: list, stream: str = "stdout"):
+    """Grava linhas no indice e avanca a marca d'agua.
+
+    `linhas` e uma lista de (ts, texto). Stack trace chega como VARIAS linhas
+    com o MESMO ts — e cada uma entra como registro proprio, de proposito: o
+    `oom` que o operador procura costuma estar no meio do traceback, e juntar
+    tudo num registro so faria o highlight apontar para um bloco de 40 linhas.
+    """
+    if not linhas:
+        return 0
+    db = await get_db()
+    await db.executemany(
+        "INSERT INTO logs_fts (linha, container, ts, stream) VALUES (?, ?, ?, ?)",
+        [(texto, container, ts, stream) for ts, texto in linhas if texto],
+    )
+    ultimo = max((ts for ts, _ in linhas if ts), default="")
+    await db.execute(
+        "INSERT INTO logs_ingest (container, last_ts, last_run, linhas) VALUES (?, ?, ?, ?)"
+        " ON CONFLICT(container) DO UPDATE SET"
+        "   last_ts = CASE WHEN excluded.last_ts > logs_ingest.last_ts"
+        "                  THEN excluded.last_ts ELSE logs_ingest.last_ts END,"
+        "   last_run = excluded.last_run,"
+        "   linhas = logs_ingest.linhas + excluded.linhas",
+        (container, ultimo, _now(), len(linhas)),
+    )
+    await db.commit()
+    return len(linhas)
+
+
+async def purge_logs(dias: int = None):
+    """Expurgo por idade, no ciclo de retencao que ja existe."""
+    corte = (
+        datetime.now(timezone.utc) - timedelta(days=dias or RETENTION_LOGS_DAYS)
+    ).isoformat().replace("+00:00", "Z")
+    db = await get_db()
+    await db.execute("DELETE FROM logs_fts WHERE ts < ?", (corte,))
+    await db.commit()
+
+
+async def search_logs(q: str, container: str = None, limit: int = 50, offset: int = 0):
+    """Busca com trecho destacado. Devolve (linhas, expressao_usada).
+
+    O highlight vem do proprio FTS5 (`snippet`), com marcadores que NAO sao
+    HTML: a UI recebe texto e monta a marcacao por cima. Mandar `<mark>` daqui
+    obrigaria o cliente a confiar no conteudo do log, que e texto arbitrario
+    vindo de dentro dos containers.
+    """
+    expressao = sanitiza_fts(q)
+    if not expressao:
+        return [], ""
+    db = await get_db()
+    partes = [
+        "SELECT container, ts, stream,"
+        " snippet(logs_fts, 0, ?, ?, ' … ', 20) AS trecho,"
+        " linha"
+        " FROM logs_fts WHERE logs_fts MATCH ?"
+    ]
+    params = [MARCA_INICIO, MARCA_FIM, expressao]
+    if container:
+        partes.append("AND container = ?")
+        params.append(container)
+    partes.append("ORDER BY ts DESC LIMIT ? OFFSET ?")
+    params.extend([max(1, min(int(limit or 50), 200)), max(0, int(offset or 0))])
+
+    cur = await db.execute(" ".join(partes), tuple(params))
+    rows = await cur.fetchall()
+    return _parse_rows(rows, cur.description), expressao
+
+
+# Marcadores do trecho. Deliberadamente NAO sao HTML: sao sequencias que nao
+# ocorrem em log real e que a UI troca por marcacao propria depois de escapar o
+# texto. Um `<mark>` vindo daqui obrigaria o cliente a injetar HTML de log.
+MARCA_INICIO = "\u2062<"
+MARCA_FIM = ">\u2062"
 
 
 async def get_first_sample_time():

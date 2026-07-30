@@ -348,7 +348,7 @@ async def test_v12_sobre_audit_log_populado_preserva_tudo(tmp_path):
         assert (await cur.fetchone())[0] == 1, "a v12 mexeu na tabela de eventos"
 
         cur = await db.execute("SELECT MAX(version) FROM schema_version")
-        assert (await cur.fetchone())[0] == mod.SCHEMA_VERSION == 12
+        assert (await cur.fetchone())[0] == mod.SCHEMA_VERSION >= 12
         await mod.close_db()
     finally:
         if anterior is None:

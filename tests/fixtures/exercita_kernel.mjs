@@ -32,7 +32,13 @@ function fazerNo(id) {
     },
     get textContent() { return this._texto || ''; },
     set textContent(v) { this._texto = String(v); },
-    addEventListener() {},
+    _handlers: null,
+    addEventListener(evt, fn) {
+      if (evt === 'input' || evt === 'click') {
+        this._handlers = this._handlers || [];
+        this._handlers.push(fn);
+      }
+    },
     setAttribute(k, v) { this.dataset[k] = v; },
     getAttribute(k) { return this.dataset[k]; },
     scrollIntoView() {},
@@ -388,5 +394,47 @@ saida.armazenamento_caido = await corpoDe(mods2b.armazenamento, esc.host());
 servir({ ...ROTAS_2B, '/api/events': null });
 saida.eventos_caido = await corpoDe(mods2b.eventos, esc.host());
 servir(ROTAS_2B);
+
+/* --- 3-B5: busca em logs ------------------------------------------------- */
+const MARCAS = { start: '\u2062<', end: '>\u2062' };
+const BUSCA = {
+  results: [
+    { container: 'criptotrade-app', ts: '2026-07-30T12:00:00Z', stream: 'stderr',
+      trecho: `MemoryError: ${MARCAS.start}oom${MARCAS.end} killed at 512MB`,
+      linha: 'MemoryError: oom killed at 512MB' },
+    // linha hostil: o unico lugar do cockpit que renderiza texto de dentro do container
+    { container: 'api', ts: '2026-07-30T12:01:00Z', stream: 'stdout',
+      trecho: `<script>alert(1)</script> ${MARCAS.start}oom${MARCAS.end}`,
+      linha: '<script>alert(1)</script> oom' },
+  ],
+  count: 2, query: 'oom', expression: '\"oom\"', marks: MARCAS, next_offset: null,
+};
+
+const modLogs = await import(new URL('../../app/static/js/modulos/logs.js', import.meta.url));
+
+// A rota mais especifica PRIMEIRO: `servir` casa por prefixo na ordem das
+// chaves, e o catch-all '/api' do ROTAS_2B engoliria a busca.
+servir({ '/api/logs/search': BUSCA, '/api/containers': 'linha de tail\n', ...ROTAS_2B });
+
+const alvoLogs = fazerNo('corpo-logs');
+registro.set('corpo-logs', alvoLogs);
+const disposeLogs = modLogs.default.render(esc.container('criptotrade-app'),
+  { overview: OVERVIEW, abrirContainer: () => {} }, alvoLogs);
+for (let i = 0; i < 40; i++) await Promise.resolve();
+
+saida.logs_topo = alvoLogs.innerHTML;
+
+// digita e dispara a busca (o modulo usa debounce de 300ms)
+const campo = alvoLogs.querySelectorAll('[data-busca]')[0];
+if (campo) {
+  campo.value = 'oom';
+  (campo._handlers || []).forEach((h) => h());
+}
+await new Promise((r) => setTimeout(r, 400));
+for (let i = 0; i < 40; i++) await Promise.resolve();
+const painelLogs = alvoLogs._filhos.get('resultados=');
+saida.logs_busca = painelLogs ? painelLogs.innerHTML : '';
+saida.logs_nota = (alvoLogs._filhos.get('nota=') || {}).textContent || '';
+if (typeof disposeLogs === 'function') disposeLogs();
 
 process.stdout.write(JSON.stringify(saida), () => process.exit(0));

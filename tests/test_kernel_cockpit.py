@@ -269,3 +269,41 @@ def test_subtela_tem_toggle_de_janela_nas_metricas(k):
     html = k["metricas_container"]
     assert 'data-range="24h"' in html and 'data-range="7d"' in html
     assert "met-serie" in html, "sparkline não desenhou"
+
+
+# --- 3-B5: busca em logs ---------------------------------------------------
+
+def test_campo_de_busca_existe_no_modulo_logs(k):
+    assert "data-busca" in k["logs_topo"], "o campo de busca não foi portado"
+
+
+def test_busca_pinta_resultados_com_highlight(k):
+    html = k["logs_busca"]
+    assert "log-achado" in html, "os resultados não pintaram"
+    assert "<mark>" in html, "o termo não foi destacado"
+    assert "criptotrade-app" in html, "o container do resultado não aparece"
+
+
+def test_linha_de_log_com_script_renderiza_como_TEXTO(k):
+    """O único lugar do cockpit que renderiza texto de dentro dos containers.
+
+    O servidor devolve o trecho com marcadores que NÃO são HTML; a UI escapa
+    primeiro e marca depois. Uma linha com `<script>alert(1)</script>` tem de
+    sair visível como texto, com o termo destacado — nunca executável.
+    """
+    html = k["logs_busca"]
+    assert "&lt;script&gt;" in html, "a linha hostil não foi escapada"
+    assert "<script>" not in html, "HTML de dentro do container vazou para o DOM"
+    # e mesmo escapada, ela continua com o highlight funcionando
+    assert html.count("<mark>") >= 2
+
+
+def test_nota_mostra_a_expressao_efetivamente_usada(k):
+    """Quem digita `erro NEAR/2` precisa ver que virou busca por duas palavras.
+
+    Sem isso, o operador conclui que o NEAR funcionou e que o log é que não tem
+    o que ele procura.
+    """
+    nota = k["logs_nota"]
+    assert "resultado(s)" in nota
+    assert '"oom"' in nota, "a expressão sanitizada não aparece na tela"
