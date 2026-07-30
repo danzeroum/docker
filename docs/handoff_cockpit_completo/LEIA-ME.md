@@ -39,4 +39,13 @@ Personalizar (arrastar, presets, restaurar).
    morrem na implementação.
 2. Kernel é invariante: vitais + faixa crítica visíveis em qualquer cockpit.
 3. Módulo oculto mantém chip vivo na régua (via `summary`).
-4. Ações de escrita: fail-closed, atrás do unlock, auditadas antes de executar (B10).
+4. Ações de escrita: fail-closed, atrás do unlock, auditadas ANTES de executar (B10);
+   sem `capabilities.actions_enabled` os botões nem existem no DOM.
+5. Prune: a confirmação sempre parte da lista do dry-run — o protótipo exige dry-run
+   antes de habilitar o prune real.
+
+## Status (2026-07-30)
+
+Sprint 2a merged (kernel + summary + capabilities); 2b autorizada (v11 eventos, v12
+audit-antes, UI armazenamento/eventos/subtela). Pós-2b o roteiro do doc 12 executa contra
+dados reais, exceto a busca `oom` (B5, Sprint 3). `certs_expiring`: backlog de fonte.

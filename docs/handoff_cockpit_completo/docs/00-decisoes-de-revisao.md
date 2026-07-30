@@ -249,3 +249,27 @@ treinar plantonista.
 `system.js` chamava `fmtBytes(sys.memory.used)` enquanto a API devolvia `used_gb` — os
 subtítulos de memória e disco renderizavam "—" desde sempre. Corrigido junto da padronização
 de unidades da F0a.
+
+
+## Sprint 2a aprovada + 2b autorizada (2026-07-30)
+
+- **2a merged**: kernel de módulos + `app/summary.py` (`montar()`/`aquecer_loop()`/`peek`) com
+  `capabilities.actions_enabled`; `main.js` sem o switch de rotas (18 módulos; órfão
+  `projetos` anotado); dívidas pagas: sw.js v3, `mod-linha`→`mod-item`, follow SSE; 8 testes
+  migrados. Correções do dev à spec (capacity nas fontes certas, `stacks` sem subprocessos
+  por poll, `aquecer_loop` para chip de módulo oculto) aceitas como melhorias legítimas —
+  viabilizam o invariante 3 (chip vivo).
+- **`certs_expiring`/`cert_window_days` = backlog de fonte**: ou o certbot entra montado
+  read-only numa sprint futura, ou a chave sai do contrato — decisão na Sprint 5 junto do
+  B11. Até lá a UI degrada com "—"; nunca inventa prazo.
+- **Regra do "mesmo commit"** (doc 14 do dev, §15): inversão do padrão `ENABLE_ACTIONS`→0
+  no código + pin `=1` explícito no compose de produção no MESMO commit — nenhum estado
+  intermediário onde produção perde ações ou instalação nova nasce aberta.
+- **v11** (ring de eventos 10k no ciclo de retenção da v10) e **v12** (audit grava "started"
+  ANTES de executar; entrada órfã é rastro legítimo de travamento — nunca limpar): a regra
+  deste doc de migration só com teste de banco populado subiu de lembrete para aceite.
+- **UX do prune virou contrato**: a confirmação sempre parte da lista do dry-run — o
+  protótipo `Cockpit Vivo Completo.dc.html` foi atualizado para exigir dry-run antes do
+  prune real.
+- `summary.events` via `peek`: o chip do módulo Eventos oculto nasce junto com a fonte.
+- Pós-2b, o roteiro do doc 12 executa contra dados reais, exceto a busca `oom` (B5, Sprint 3).

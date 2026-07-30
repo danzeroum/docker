@@ -8,11 +8,10 @@ commit: 7f33a40
 nota: main está 18 commits / 39 arquivos à frente de 7f33a40 — leitura apenas (themes.css, overview.js, test_frontend_modulos.py) para fundamentar a proposta 08; telas não foram rebuildadas.
 
 ### Updated in this project
-- Proposta 08: tema `claro-minimal` + módulos ajustáveis — novo DC `Cockpit Claro Modular.dc.html` + `design_handoff_cockpit_vps/08-proposta-tema-claro-modular.md` (validação de densidade com volumes reais).
-- Handoff 09: `design_handoff_cockpit_vps/09-handoff-claro-modular.md` — diff frontend/backend da Visão geral modular, mapa dado→endpoint (zero mock, endpoints reais da `main`), plano de 2 PRs e prompt padrão para o dev.
-- Proposta 10 "Cockpit Vivo": `Cockpit Vivo.dc.html` + `design_handoff_cockpit_vps/10-cockpit-vivo-validacao.md` — módulos como read models por escopo (host/projeto/container), drag+presets, subtela central de container, kernel como invariante; validação DDD + UI + frontend.
-- Doc 11: análise dos blocos B1–B11 (compilação do backend) contra a UI — 8 aparecem na tela (3 módulos novos: Armazenamento, Eventos, Drift), B9/B11 só dev; prompt de integração UI.
-- Protótipo completo: `Cockpit Vivo Completo.dc.html` + doc 12 (roteiro de validação B1–B11 na tela) + anexo com o resumo dos prompts de backend; pacote final em `handoff_cockpit_completo/`.
+- Propostas 08–10: tema `claro-minimal`, Visão geral modular e "Cockpit Vivo" (módulos como read models por escopo, subtela central, kernel invariante) — 3 DCs + docs 08/09/10.
+- Docs 11/12 + anexo: blocos B1–B11 na UI (3 módulos novos: Armazenamento, Eventos, Drift), protótipo `Cockpit Vivo Completo.dc.html` e roteiro de validação; pacote em `handoff_cockpit_completo/`.
+- Sprint 2a do dev aprovada e merged (kernel de módulos, `summary` com `capabilities.actions_enabled`, fim do switch no `main.js`, 18 módulos); decisões 2a/2b registradas no doc 00.
+- `certs_expiring` = backlog de fonte (Sprint 5, com B11) — Ingress degrada com "—"; UX do prune exige dry-run antes do real (protótipo atualizado).
 - Produção está **cinco merges atrás** — `scripts/deploy-cockpit.sh` sobe e valida v8+v9; executivo pede `servicos.json` + `COST_MONTHLY`.
 
 ## Screen map

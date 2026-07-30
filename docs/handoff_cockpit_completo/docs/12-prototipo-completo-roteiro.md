@@ -38,4 +38,10 @@ Fontes por módulo: docs 09 §C e 11 (§ mapa). Novos endpoints exigidos: `/api/
 `security.min_score`, `updates.outdated`. Os cenários de demo deste protótipo morrem na
 implementação (regra do doc 01: grep não encontra dado de negócio no JS).
 
+Atualizações pós-Sprint 2a (2026-07-30): `summary` real expõe `capabilities.actions_enabled`
+(botões de ação nem existem no DOM sem ela) e `summary.events` via peek; `certs_expiring`
+pode vir `null` (backlog de fonte — Ingress degrada com "—", decisão na Sprint 5); a
+confirmação do prune sempre parte da lista do dry-run — o protótipo exige dry-run antes de
+habilitar o prune real.
+
 Prompt de integração UI: doc 11. Prompts de backend B1–B11: anexo.

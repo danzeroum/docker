@@ -367,7 +367,7 @@
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 1440, &quot;height&quot;: 900}, &quot;cenario&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;normal&quot;, &quot;incidente&quot;, &quot;disco&quot;], &quot;default&quot;: &quot;incidente&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Demonstração&quot;}, &quot;profundidade&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;dado&quot;, &quot;informacao&quot;, &quot;conhecimento&quot;], &quot;default&quot;: &quot;informacao&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Interface&quot;}}">
 class Component extends DCLogic {
   LS = 'cockpitVivoCompletoV1';
-  state = { cenario: null, depth: null, pers: false, destravado: false, layouts: {}, modo: 'lista', scope: { t: 'host' }, foco: null, dragId: null, logQ: '', acao: null, extraAudit: [], pruneRes: '' };
+  state = { cenario: null, depth: null, pers: false, destravado: false, layouts: {}, modo: 'lista', scope: { t: 'host' }, foco: null, dragId: null, logQ: '', acao: null, extraAudit: [], pruneRes: '', dryOk: false };
 
   nomes = { atencao: 'Atenção agora', containers: 'Containers', stacks: 'Stacks', ingress: 'Ingress & TLS', capacidade: 'Capacidade', armazenamento: 'Armazenamento', eventos: 'Eventos', drift: 'Drift', metricas: 'Métricas', logs: 'Logs', config: 'Configuração', auditoria: 'Auditoria', tarefas: 'Tarefas' };
   rotChip = { atencao: 'Atenção', containers: 'Containers', stacks: 'Stacks', ingress: 'HTTPS', capacidade: 'Projeção', armazenamento: 'Recuperável', eventos: 'Eventos', drift: 'Drift', metricas: 'CPU escopo', logs: 'Logs', config: 'Versão', auditoria: 'Auditoria', tarefas: 'Tarefas' };
@@ -734,10 +734,10 @@ class Component extends DCLogic {
         m.rec = stg.rec;
         m.orfaos = stg.itens.map(o => ({ tipo: o[0], nome: o[1], tam: o[2] }));
         m.pruneRes = this.state.pruneRes;
-        m.onDry = () => this.setState({ pruneRes: 'dry-run: liberaria ' + stg.rec + ' · ' + stg.itens.length + ' itens — nada removido.' });
+        m.onDry = () => this.setState({ pruneRes: 'dry-run: liberaria ' + stg.rec + ' · ' + stg.itens.length + ' itens — nada removido.', dryOk: true });
         m.dryEstilo = 'padding:4px 10px;border-radius:7px;font-size:10.5px;font-weight:600;cursor:pointer;background:#f1f3f7;color:#334155;white-space:nowrap';
-        const pode = this.state.destravado;
-        m.pruneDica = pode ? 'remove dangling e órfãos — vai para a auditoria' : 'exige sessão destravada (barra lateral)';
+        const pode = this.state.destravado && this.state.dryOk;
+        m.pruneDica = !this.state.destravado ? 'exige sessão destravada (barra lateral)' : (!this.state.dryOk ? 'rode o dry-run primeiro — a confirmação parte da lista dele' : 'remove só o listado no dry-run — vai para a auditoria');
         m.onPrune = pode ? (() => { this.registrar('prune executado · ' + stg.rec + ' recuperados (dry-run antes)', 'host', null); this.setState({ pruneRes: 'prune executado — registrado na auditoria.' }); }) : null;
         m.pruneEstilo = 'padding:4px 10px;border-radius:7px;font-size:10.5px;font-weight:600;white-space:nowrap;' + (pode ? 'cursor:pointer;background:rgba(217,119,6,.1);color:#b45309' : 'background:#f6f7f9;color:#c3cad6;cursor:not-allowed');
         m.anota = stg.nota; m.anotaEstilo = 'font-size:10.5px;color:#b45309;background:rgba(217,119,6,.07);border-radius:6px;padding:6px 9px' + (stg.nota ? '' : ';display:none');
@@ -849,7 +849,7 @@ class Component extends DCLogic {
         : 'srv1351082 · 15 containers · 12 stacks · 13 domínios · leitura a cada 5s',
       voltarEstilo: 'flex-shrink:0;font-size:11px;font-weight:600;color:#2563eb;background:#eff6ff;border-radius:7px;padding:6px 10px;cursor:pointer' + (this.state.scope.t === 'host' ? ';display:none' : ''),
       onVoltar: () => this.setState({ scope: { t: 'host' }, foco: null }),
-      cenarioBtns: [['Normal', 'normal'], ['API caindo', 'incidente'], ['Disco cheio', 'disco']].map(c => ({ label: c[0], estilo: this.seg(this.cenario === c[1]), onClick: () => this.setState({ cenario: c[1], pruneRes: '' }) })),
+      cenarioBtns: [['Normal', 'normal'], ['API caindo', 'incidente'], ['Disco cheio', 'disco']].map(c => ({ label: c[0], estilo: this.seg(this.cenario === c[1]), onClick: () => this.setState({ cenario: c[1], pruneRes: '', dryOk: false }) })),
       depthBtns: [['A', 'dado', 'Dado: métrica crua e imagem'], ['B', 'informacao', 'Informação: o achado interpretado'], ['C', 'conhecimento', 'Conhecimento: o que fazer com isso']].map(d => ({ label: d[0], dica: d[2], estilo: this.seg(depth === d[1]), onClick: () => this.setState({ depth: d[1] }) })),
       onPersonalizar: () => this.setState({ pers: !pers }),
       personalizarEstilo: 'display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;flex-shrink:0;' +
