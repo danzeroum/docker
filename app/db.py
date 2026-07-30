@@ -287,6 +287,24 @@ _MIGRATIONS = [
         "CREATE INDEX IF NOT EXISTS idx_events_action ON docker_events(action, id DESC)",
         "CREATE INDEX IF NOT EXISTS idx_events_stack ON docker_events(stack, id DESC)",
     ]),
+    # v12 — auditoria gravada ANTES de executar (B10).
+    #
+    # Ate aqui `_mutate_container` chamava `add_audit_entry` DEPOIS do proxy
+    # retornar, ou no except. Isso perde exatamente o caso grave: acao que trava
+    # o daemon nao gera linha nenhuma, e o incidente fica sem rastro de quem
+    # pediu o que. Auditar depois audita o que deu certo.
+    #
+    # `started_at` e `finished_at` sao colunas NOVAS; `created_at` fica onde
+    # esta, com os dados antigos intactos. As linhas anteriores a esta migracao
+    # tem `started_at` NULL de proposito: elas nasceram no modelo antigo e
+    # afirmar um inicio que ninguem mediu seria inventar dado. `status` nasce
+    # 'done' para elas, porque toda linha antiga so existia se a acao terminou.
+    (12, [
+        "ALTER TABLE audit_log ADD COLUMN status TEXT NOT NULL DEFAULT 'done'",
+        "ALTER TABLE audit_log ADD COLUMN started_at TEXT",
+        "ALTER TABLE audit_log ADD COLUMN finished_at TEXT",
+        "CREATE INDEX IF NOT EXISTS idx_audit_status ON audit_log(status, id DESC)",
+    ]),
 ]
 
 # Versao de esquema no topo da lista. Os testes de migracao conferem "banco
@@ -444,6 +462,45 @@ async def add_audit_entry(action: str, project: str, result: str, token_label: s
         (action, project, result, token_label, ip, now),
     )
     await db.commit()
+
+async def audit_iniciar(action: str, project: str, token_label: str = "", ip: str = "") -> int:
+    """Grava a INTENCAO e devolve o id da linha. Chamar ANTES de executar.
+
+    E o ponto do B10: a linha existe a partir do momento em que a acao foi
+    autorizada, nao a partir do momento em que ela terminou. Se o daemon travar,
+    a linha fica em `running` para sempre — e essa linha orfa e o rastro do
+    incidente, nao sujeira.
+    """
+    db = await get_db()
+    agora = _now()
+    cur = await db.execute(
+        "INSERT INTO audit_log (action, project, result, token_label, ip, created_at,"
+        " status, started_at, finished_at) VALUES (?, ?, '', ?, ?, ?, 'running', ?, NULL)",
+        (action, project, token_label, ip, agora, agora),
+    )
+    await db.commit()
+    return cur.lastrowid
+
+
+async def audit_concluir(audit_id: int, result: str, status: str = "done"):
+    """Fecha a linha aberta por `audit_iniciar`.
+
+    Nao levanta: uma falha ao registrar o RESULTADO nao pode mascarar o
+    resultado real da acao para quem chamou. A linha fica em `running`, que ja
+    conta a historia.
+    """
+    if not audit_id:
+        return
+    try:
+        db = await get_db()
+        await db.execute(
+            "UPDATE audit_log SET result = ?, status = ?, finished_at = ? WHERE id = ?",
+            (result, status, _now(), audit_id),
+        )
+        await db.commit()
+    except Exception:
+        return
+
 
 async def get_audit_log(limit: int = 100):
     db = await get_db()

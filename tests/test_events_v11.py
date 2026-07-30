@@ -142,7 +142,10 @@ async def test_v11_sobre_banco_v10_populado_nao_perde_nada(tmp_path):
         assert tuple(await cur.fetchone()) == (60, 20.0), "colunas do rollup embaralharam"
 
         cur = await db.execute("SELECT MAX(version) FROM schema_version")
-        assert (await cur.fetchone())[0] == mod.SCHEMA_VERSION == 11
+        # >= 11, nao == 11: este teste valida que a v11 nao perde dado, e
+        # `init_db` aplica TODAS as pendentes. Fixar o numero faz o teste
+        # quebrar a cada migration nova — foi o que acabou de acontecer.
+        assert (await cur.fetchone())[0] == mod.SCHEMA_VERSION >= 11
 
         cur = await db.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='docker_events'"

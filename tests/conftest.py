@@ -19,6 +19,16 @@ STATIC_DIR = os.path.join(APP_DIR, "static")
 if APP_DIR not in sys.path:
     sys.path.insert(0, APP_DIR)
 
+# A barreira do B10 decide no IMPORT se as rotas de mutacao existem, e o padrao
+# do codigo virou 0 (instalacao nova nasce sem superficie de escrita). A suite
+# roda com 1 porque e assim que a producao roda — o compose fixa "1" — e porque
+# a maioria dos testes exercita o app inteiro.
+#
+# O proprio comportamento da barreira NAO fica sem cobertura: test_prune_v12.py
+# controla a flag explicitamente e reimporta os modulos, cobrindo os dois lados
+# (instalacao limpa da 404, producao com pin mantem as 7 rotas).
+os.environ.setdefault("ENABLE_ACTIONS", "1")
+
 
 @pytest.fixture(scope="session", autouse=True)
 def ensure_static_dir():

@@ -6,6 +6,7 @@ continua vivo. A segunda é o que obriga o aquecimento em background — sem ele
 módulo oculto nunca seria buscado e o chip morreria.
 """
 
+import importlib
 import os
 import sys
 import time
@@ -44,7 +45,10 @@ def _limpa():
     cache_mod.invalidate()
     yield
     cache_mod.invalidate()
-    os.environ.pop("ENABLE_ACTIONS", None)
+    # Restaura o padrao da suite (conftest liga as acoes, como a producao roda).
+    os.environ["ENABLE_ACTIONS"] = "1"
+    import actions
+    importlib.reload(actions)
 
 
 def _sem_banco():
@@ -216,11 +220,24 @@ def test_falha_no_sqlite_nao_derruba_o_overview():
 
 # --- capabilities ----------------------------------------------------------
 
-def test_actions_enabled_padrao_ligado_na_2a():
-    """As 4 rotas de mutação da F5 existem hoje; a UI não pode mentir sobre isso."""
-    os.environ.pop("ENABLE_ACTIONS", None)
+def test_actions_enabled_espelha_a_flag_ligada():
+    """Com a flag ligada (como a suíte e a produção rodam), a capability é true."""
+    os.environ["ENABLE_ACTIONS"] = "1"
     s = _pede_overview().json()["summary"]
     assert s["capabilities"]["actions_enabled"] is True
+
+
+def test_capability_le_da_mesma_fonte_que_a_barreira():
+    """Duas leituras da mesma env são duas verdades esperando divergir.
+
+    A divergência aqui seria a pior possível: a UI escondendo botão de rota que
+    existe, ou mostrando botão de rota que não existe.
+    """
+    import actions
+    for valor in ("1", "0"):
+        os.environ["ENABLE_ACTIONS"] = valor
+        importlib.reload(actions)
+        assert summary_mod.actions_enabled() == actions.habilitadas()
 
 
 def test_enable_actions_zero_desliga_a_capability():

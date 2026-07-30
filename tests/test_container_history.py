@@ -38,6 +38,14 @@ def _popula_v9(path, amostras):
         "PRIMARY KEY (sampled_at, container_id)"
         ")"
     )
+    # audit_log existe desde a v4 em qualquer banco real; a v12 faz ALTER nela.
+    # Omiti-la aqui tornava a fixture irreal e quebrava a migracao no teste.
+    conn.execute(
+        "CREATE TABLE audit_log ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, action TEXT NOT NULL, project TEXT NOT NULL,"
+        "result TEXT NOT NULL, token_label TEXT NOT NULL DEFAULT '', ip TEXT NOT NULL DEFAULT '',"
+        "created_at TEXT NOT NULL)"
+    )
     conn.execute(
         "CREATE TABLE host_samples ("
         "sampled_at TEXT PRIMARY KEY,"

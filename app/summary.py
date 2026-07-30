@@ -25,17 +25,27 @@ from datetime import datetime, timezone
 
 from cache import cached_or_fetch, peek
 
-# Espelho de ENABLE_ACTIONS. Padrão 1 na Sprint 2a de propósito: as 4 rotas de
-# mutação da F5 (start/stop/restart/DELETE) EXISTEM e funcionam atrás do unlock
-# hoje. Nascer 0 faria a UI esconder botões de rotas que respondem — o painel
-# mentiria sobre o sistema.
+# Espelho de ENABLE_ACTIONS, lido de `actions.habilitadas` — fonte unica.
 #
-# Na Sprint 2b (B10-residual), quando `ENABLE_ACTIONS=0` passar a desregistrar
-# as rotas, o padrão inverte para 0. Decisão registrada: a inversão do padrão e
-# o pin explícito `ENABLE_ACTIONS=1` no compose de produção vão no MESMO commit
-# da barreira — separá-los derrubaria o fluxo unlock→reiniciar em produção.
+# O padrao virou 0 nesta sprint, junto com a barreira que faz a flag desligada
+# DESREGISTRAR as rotas (404, nao 403). Como prometido no doc 14 §15, a inversao
+# do padrao e o pin `ENABLE_ACTIONS: "1"` no compose de producao entraram no
+# MESMO commit — separa-los derrubaria o fluxo unlock->reiniciar entre um deploy
+# e outro.
 def _flag(nome: str, padrao: str = "") -> bool:
     return (os.getenv(nome, padrao) or "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _padrao_acoes() -> bool:
+    """Fonte unica da flag: `actions.habilitadas`.
+
+    O summary NAO reimplementa a leitura. Duas leituras da mesma env sao duas
+    verdades esperando divergir, e aqui a divergencia seria a pior possivel: a
+    UI escondendo botao de rota que existe, ou mostrando botao de rota que nao
+    existe.
+    """
+    from actions import habilitadas
+    return habilitadas()
 
 
 def _agora() -> str:
@@ -43,7 +53,7 @@ def _agora() -> str:
 
 
 def actions_enabled() -> bool:
-    return _flag("ENABLE_ACTIONS", "1")
+    return _padrao_acoes()
 
 
 def _do_cache(chave: str):

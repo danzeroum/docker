@@ -10,7 +10,8 @@ from masking import mask_inspect
 from cache import cached_or_fetch
 from stats_util import calc_cpu_percent
 from auth import require_unlock
-from db import add_audit_entry, get_container_history, MAX_HISTORY_POINTS
+from db import audit_iniciar, audit_concluir, get_container_history, MAX_HISTORY_POINTS
+from actions import habilitadas as acoes_habilitadas
 from sampler import get_container_inspects
 
 router = APIRouter(prefix="/api/containers", tags=["containers"])
@@ -255,76 +256,95 @@ async def container_stats_ws(websocket: WebSocket, container_id: str):
 # ---------------------------------------------------------------------------
 
 async def _mutate_container(ctid: str, action: str, ip: str, ator: str, proxy_fn, *args, **kwargs):
+    """Executa uma mutacao com auditoria gravada ANTES (B10).
+
+    A ordem e o ponto do bloco. Ate a v11 a linha nascia depois do proxy
+    retornar, o que perde exatamente o caso grave: acao que trava o daemon nao
+    gerava linha nenhuma e o incidente ficava sem rastro de quem pediu o que.
+    Auditar depois audita o que deu certo.
+
+    Se algo travar aqui, a linha fica em `running` para sempre — e essa linha
+    orfa e o rastro, nao sujeira. Nada neste codigo a limpa.
+    """
+    audit_id = await audit_iniciar(action, ctid, ator, ip)
     try:
         result = await proxy_fn(*args, **kwargs)
-        await add_audit_entry(action, ctid, "success", ator, ip)
+        await audit_concluir(audit_id, "success")
         return result
     except HTTPException as exc:
-        await add_audit_entry(action, ctid, f"error: {exc.status_code} {exc.detail}", ator, ip)
+        await audit_concluir(audit_id, f"error: {exc.status_code} {exc.detail}", status="error")
         raise
     except Exception as e:
-        await add_audit_entry(action, ctid, f"error: {e}", ator, ip)
+        await audit_concluir(audit_id, f"error: {e}", status="error")
         raise
 
 
-@router.post("/{container_id}/stop")
-async def stop_container(
-    container_id: str,
-    request: Request,
-    session: dict = Depends(require_unlock),
-    t: int = 10,
-):
-    ip = request.client.host if request.client else ""
-    ator = session.get("remote_user") or "—"
-    return await _mutate_container(
-        container_id, "container_stop", ip, ator,
-        proxy_post, f"/containers/{container_id}/stop", params={"t": t},
-    )
+# ---------------------------------------------------------------------------
+# As 4 rotas abaixo so sao REGISTRADAS com ENABLE_ACTIONS ligado. Com a flag
+# desligada elas nao existem: 404, nao 403. Um 403 confirmaria que a rota esta
+# la e que so falta credencial; o 404 nao confirma nada.
+# ---------------------------------------------------------------------------
+
+if acoes_habilitadas():
+
+    @router.post("/{container_id}/stop")
+    async def stop_container(
+        container_id: str,
+        request: Request,
+        session: dict = Depends(require_unlock),
+        t: int = 10,
+    ):
+        ip = request.client.host if request.client else ""
+        ator = session.get("remote_user") or "—"
+        return await _mutate_container(
+            container_id, "container_stop", ip, ator,
+            proxy_post, f"/containers/{container_id}/stop", params={"t": t},
+        )
 
 
-@router.post("/{container_id}/start")
-async def start_container(
-    container_id: str,
-    request: Request,
-    session: dict = Depends(require_unlock),
-):
-    ip = request.client.host if request.client else ""
-    ator = session.get("remote_user") or "—"
-    return await _mutate_container(
-        container_id, "container_start", ip, ator,
-        proxy_post, f"/containers/{container_id}/start",
-    )
+    @router.post("/{container_id}/start")
+    async def start_container(
+        container_id: str,
+        request: Request,
+        session: dict = Depends(require_unlock),
+    ):
+        ip = request.client.host if request.client else ""
+        ator = session.get("remote_user") or "—"
+        return await _mutate_container(
+            container_id, "container_start", ip, ator,
+            proxy_post, f"/containers/{container_id}/start",
+        )
 
 
-@router.post("/{container_id}/restart")
-async def restart_container(
-    container_id: str,
-    request: Request,
-    session: dict = Depends(require_unlock),
-    t: int = 10,
-):
-    ip = request.client.host if request.client else ""
-    ator = session.get("remote_user") or "—"
-    return await _mutate_container(
-        container_id, "container_restart", ip, ator,
-        proxy_post, f"/containers/{container_id}/restart", params={"t": t},
-    )
+    @router.post("/{container_id}/restart")
+    async def restart_container(
+        container_id: str,
+        request: Request,
+        session: dict = Depends(require_unlock),
+        t: int = 10,
+    ):
+        ip = request.client.host if request.client else ""
+        ator = session.get("remote_user") or "—"
+        return await _mutate_container(
+            container_id, "container_restart", ip, ator,
+            proxy_post, f"/containers/{container_id}/restart", params={"t": t},
+        )
 
 
-@router.delete("/{container_id}")
-async def remove_container(
-    container_id: str,
-    request: Request,
-    session: dict = Depends(require_unlock),
-    v: bool = False,
-    force: bool = False,
-):
-    ip = request.client.host if request.client else ""
-    ator = session.get("remote_user") or "—"
-    return await _mutate_container(
-        container_id, "container_remove", ip, ator,
-        proxy_delete, f"/containers/{container_id}", params={"v": v, "force": force},
-    )
+    @router.delete("/{container_id}")
+    async def remove_container(
+        container_id: str,
+        request: Request,
+        session: dict = Depends(require_unlock),
+        v: bool = False,
+        force: bool = False,
+    ):
+        ip = request.client.host if request.client else ""
+        ator = session.get("remote_user") or "—"
+        return await _mutate_container(
+            container_id, "container_remove", ip, ator,
+            proxy_delete, f"/containers/{container_id}", params={"v": v, "force": force},
+        )
 
 
 # ---------------------------------------------------------------------------

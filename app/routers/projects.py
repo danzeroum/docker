@@ -4,7 +4,8 @@ import subprocess
 import asyncio
 from fastapi import APIRouter, HTTPException, Request, Depends
 from auth import require_unlock
-from db import add_audit_entry
+from db import audit_iniciar, audit_concluir
+from actions import habilitadas as acoes_habilitadas
 
 router = APIRouter(prefix="/api", tags=["projects"])
 
@@ -78,81 +79,93 @@ async def list_projects():
     return {"projects": result}
 
 
-@router.post("/projects/{name}/start")
-async def start_project(
-    name: str,
-    request: Request,
-    session: dict = Depends(require_unlock),
-):
-    projects = _find_projects()
-    if name not in projects:
-        raise HTTPException(status_code=404, detail=f"Projeto '{name}' nao encontrado")
-    info = projects[name]
-    client_ip = request.client.host if request.client else ""
-    ator = session.get("remote_user") or "—"
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            "docker", "compose", "-f", info["compose_file"], "up", "-d",
-            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-        )
+# ---------------------------------------------------------------------------
+# As 2 rotas de stack seguem a mesma barreira das 4 de container: com
+# ENABLE_ACTIONS desligado elas nao existem. Uma flag que cobrisse so o prune
+# daria falsa sensacao de read-only com a superficie da F5 aberta ao lado.
+# ---------------------------------------------------------------------------
+
+if acoes_habilitadas():
+
+    @router.post("/projects/{name}/start")
+    async def start_project(
+        name: str,
+        request: Request,
+        session: dict = Depends(require_unlock),
+    ):
+        projects = _find_projects()
+        if name not in projects:
+            raise HTTPException(status_code=404, detail=f"Projeto '{name}' nao encontrado")
+        info = projects[name]
+        client_ip = request.client.host if request.client else ""
+        ator = session.get("remote_user") or "—"
+        # ANTES de executar: `docker compose up` pode travar até o timeout de
+        # 60s, e auditar depois perderia exatamente essa linha.
+        audit_id = await audit_iniciar("start", name, ator, client_ip)
         try:
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=COMPOSE_TIMEOUT)
-        except asyncio.TimeoutError:
-            proc.kill()
-            raise HTTPException(status_code=504, detail="Comando docker compose timed out")
-        if proc.returncode != 0:
-            detail = stderr.decode().strip() or stdout.decode().strip() or f"exit code {proc.returncode}"
-            await add_audit_entry("start", name, f"error: {detail}", ator, client_ip)
-            raise HTTPException(status_code=502, detail=detail)
-        await add_audit_entry("start", name, "success", ator, client_ip)
-        return {"status": "started", "name": name}
-    except HTTPException:
-        raise
-    except FileNotFoundError:
-        msg = "Docker compose nao disponivel no container"
-        await add_audit_entry("start", name, f"error: {msg}", ator, client_ip)
-        raise HTTPException(status_code=500, detail=msg)
-    except Exception as e:
-        msg = str(e)
-        await add_audit_entry("start", name, f"error: {msg}", ator, client_ip)
-        raise HTTPException(status_code=500, detail=msg)
+            proc = await asyncio.create_subprocess_exec(
+                "docker", "compose", "-f", info["compose_file"], "up", "-d",
+                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+            )
+            try:
+                stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=COMPOSE_TIMEOUT)
+            except asyncio.TimeoutError:
+                proc.kill()
+                raise HTTPException(status_code=504, detail="Comando docker compose timed out")
+            if proc.returncode != 0:
+                detail = stderr.decode().strip() or stdout.decode().strip() or f"exit code {proc.returncode}"
+                await audit_concluir(audit_id, f"error: {detail}", status="error")
+                raise HTTPException(status_code=502, detail=detail)
+            await audit_concluir(audit_id, "success")
+            return {"status": "started", "name": name}
+        except HTTPException:
+            raise
+        except FileNotFoundError:
+            msg = "Docker compose nao disponivel no container"
+            await audit_concluir(audit_id, f"error: {msg}", status="error")
+            raise HTTPException(status_code=500, detail=msg)
+        except Exception as e:
+            msg = str(e)
+            await audit_concluir(audit_id, f"error: {msg}", status="error")
+            raise HTTPException(status_code=500, detail=msg)
 
 
-@router.post("/projects/{name}/stop")
-async def stop_project(
-    name: str,
-    request: Request,
-    session: dict = Depends(require_unlock),
-):
-    projects = _find_projects()
-    if name not in projects:
-        raise HTTPException(status_code=404, detail=f"Projeto '{name}' nao encontrado")
-    info = projects[name]
-    client_ip = request.client.host if request.client else ""
-    ator = session.get("remote_user") or "—"
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            "docker", "compose", "-f", info["compose_file"], "down",
-            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-        )
+    @router.post("/projects/{name}/stop")
+    async def stop_project(
+        name: str,
+        request: Request,
+        session: dict = Depends(require_unlock),
+    ):
+        projects = _find_projects()
+        if name not in projects:
+            raise HTTPException(status_code=404, detail=f"Projeto '{name}' nao encontrado")
+        info = projects[name]
+        client_ip = request.client.host if request.client else ""
+        ator = session.get("remote_user") or "—"
+        audit_id = await audit_iniciar("stop", name, ator, client_ip)
         try:
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=COMPOSE_TIMEOUT)
-        except asyncio.TimeoutError:
-            proc.kill()
-            raise HTTPException(status_code=504, detail="Comando docker compose timed out")
-        if proc.returncode != 0:
-            detail = stderr.decode().strip() or stdout.decode().strip() or f"exit code {proc.returncode}"
-            await add_audit_entry("stop", name, f"error: {detail}", ator, client_ip)
-            raise HTTPException(status_code=502, detail=detail)
-        await add_audit_entry("stop", name, "success", ator, client_ip)
-        return {"status": "stopped", "name": name}
-    except HTTPException:
-        raise
-    except FileNotFoundError:
-        msg = "Docker compose nao disponivel no container"
-        await add_audit_entry("stop", name, f"error: {msg}", ator, client_ip)
-        raise HTTPException(status_code=500, detail=msg)
-    except Exception as e:
-        msg = str(e)
-        await add_audit_entry("stop", name, f"error: {msg}", ator, client_ip)
-        raise HTTPException(status_code=500, detail=msg)
+            proc = await asyncio.create_subprocess_exec(
+                "docker", "compose", "-f", info["compose_file"], "down",
+                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+            )
+            try:
+                stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=COMPOSE_TIMEOUT)
+            except asyncio.TimeoutError:
+                proc.kill()
+                raise HTTPException(status_code=504, detail="Comando docker compose timed out")
+            if proc.returncode != 0:
+                detail = stderr.decode().strip() or stdout.decode().strip() or f"exit code {proc.returncode}"
+                await audit_concluir(audit_id, f"error: {detail}", status="error")
+                raise HTTPException(status_code=502, detail=detail)
+            await audit_concluir(audit_id, "success")
+            return {"status": "stopped", "name": name}
+        except HTTPException:
+            raise
+        except FileNotFoundError:
+            msg = "Docker compose nao disponivel no container"
+            await audit_concluir(audit_id, f"error: {msg}", status="error")
+            raise HTTPException(status_code=500, detail=msg)
+        except Exception as e:
+            msg = str(e)
+            await audit_concluir(audit_id, f"error: {msg}", status="error")
+            raise HTTPException(status_code=500, detail=msg)

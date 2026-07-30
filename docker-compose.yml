@@ -45,6 +45,18 @@ services:
       # Sem isto o parser nao acha o arquivo, as 11 regras de ingress nunca
       # rodam e a tela Ingress & TLS fica vazia — sem erro nenhum.
       NGINX_CONFIG_PATH: /etc/nginx-ingress/nginx.conf
+      # Pin explicito, no MESMO commit que inverteu o padrao do codigo para 0.
+      #
+      # A partir da barreira do B10, ENABLE_ACTIONS desligado nao devolve 403:
+      # as rotas de mutacao nao sao REGISTRADAS (404). Instalacao nova nasce sem
+      # superficie de escrita, e ligar e ato deliberado — este pin e esse ato,
+      # para esta producao.
+      #
+      # Sem ele, o deploy deste commit derrubaria o fluxo unlock->reiniciar que
+      # ja funciona aqui: as 4 rotas de container e as 2 de stack sumiriam sem
+      # ninguem ter pedido. Se um dia o cockpit voltar a ser estritamente
+      # somente-leitura, o lugar de decidir isso e esta linha.
+      ENABLE_ACTIONS: "1"
       # TRUSTED_GATEWAY_CIDR: 172.x.0.0/16
       # Descubra com: docker network inspect btv-prod-net --format '{{range .IPAM.Config}}{{.Subnet}}{{end}}'
       # Se ausente, /session/unlock retorna 403 (fail-closed) e loga warning.
