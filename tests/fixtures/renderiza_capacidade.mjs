@@ -8,31 +8,16 @@
  * Tambem exercita `saudeDe` do main.js, que decide o selo unhealthy da
  * listagem — a regra "sem healthcheck nao ganha selo" e o ponto do bloco B4.
  */
-import './dom_stub.mjs';
+import { instalar, documento } from './dom_min.mjs';
 
-const registro = new Map();
+instalar();
 
-function fazerNo(id) {
-  return {
-    id,
-    _html: '',
-    style: {},
-    dataset: {},
-    get innerHTML() { return this._html; },
-    set innerHTML(v) {
-      this._html = String(v);
-      for (const m of this._html.matchAll(/id="([^"]+)"/g)) {
-        if (!registro.has(m[1])) registro.set(m[1], fazerNo(m[1]));
-      }
-    },
-    addEventListener() {},
-    querySelectorAll() { return []; },
-    querySelector() { return null; },
-  };
-}
-
-const raizTela = fazerNo('screenContainer');
-document.getElementById = (id) => registro.get(id) || null;
+/* DOM de verdade (dom_min): a Capacidade passou a fazer PATCH nas três listas e
+ * nas colunas do gráfico, e patch sobre nó de mentira não é observável. O stub
+ * por regex também não tinha `children`, que é por onde a reconciliação anda. */
+const raizTela = documento.createElement('div');
+raizTela.id = 'screenContainer';
+documento.body.appendChild(raizTela);
 
 const GB = 1024 ** 3;
 
@@ -117,15 +102,18 @@ const saida = {};
 
 async function rodar(nome, mapa) {
   servir(mapa);
-  registro.clear();
-  registro.set('screenContainer', raizTela);
+  // Casca nova a cada cenário: `casca()` é idempotente por desenho, então
+  // reaproveitar a raiz faria o segundo cenário pintar sobre o primeiro.
+  raizTela.innerHTML = '';
+  delete raizTela.dataset.casca;
   const dispose = renderCapacidade(raizTela);
-  for (let i = 0; i < 40; i++) await Promise.resolve();
+  for (let i = 0; i < 60; i++) await Promise.resolve();
   await new Promise(r => setTimeout(r, 0));
   await new Promise(r => setTimeout(r, 0));
-  saida[nome + '_storage'] = (registro.get('capStorage') || {})._html || '';
-  saida[nome + '_security'] = (registro.get('capSecurity') || {})._html || '';
-  saida[nome + '_body'] = (registro.get('capBody') || {})._html || '';
+  const ler = (id) => (documento.getElementById(id) || {}).innerHTML || '';
+  saida[nome + '_storage'] = ler('capStorage');
+  saida[nome + '_security'] = ler('capSecurity');
+  saida[nome + '_body'] = ler('capBody');
   if (typeof dispose === 'function') dispose();
 }
 

@@ -1,4 +1,4 @@
-/* Exercita o kernel do Cockpit Vivo de verdade sob node (Sprint 2a).
+/* Exercita o kernel do Cockpit Vivo de verdade sob node (Sprint 2a + doc 13).
  *
  * Os dois aceites que só um teste de execução pega:
  *  1. registrar um módulo em RUNTIME o faz aparecer na régua e no Personalizar
@@ -8,111 +8,36 @@
  *
  * Também cobre o que regex sobre o fonte não prova: layout corrompido volta ao
  * padrão, os ↑↓ e o drag produzem o mesmo estado, e módulo oculto mantém chip.
+ *
+ * O DOM saiu do stub por regex e passou a ser o `dom_min.mjs`: uma árvore de
+ * verdade, com pai, filhos e identidade de nó. O harness antigo casava
+ * `querySelectorAll` contra uma string de HTML e devolvia objetos descartáveis —
+ * o que bastava enquanto os módulos escreviam `innerHTML` e nada mais. A partir
+ * do doc 13 eles fazem PATCH, e patch sobre um nó descartável não é observável.
  */
-import './dom_stub.mjs';
+import { instalar, documento } from './dom_min.mjs';
 
-/* --- DOM com innerHTML + getElementById + querySelector(All) ------------- */
-const registro = new Map();
+instalar();
 
-function fazerNo(id) {
-  const no = {
-    id,
-    _html: '',
-    _filhos: new Map(),
-    hidden: false,
-    style: {},
-    dataset: {},
-    get innerHTML() { return this._html; },
-    set innerHTML(v) {
-      this._html = String(v);
-      this._filhos = new Map();
-      for (const m of this._html.matchAll(/id="([^"]+)"/g)) {
-        if (!registro.has(m[1])) registro.set(m[1], fazerNo(m[1]));
-      }
-    },
-    get textContent() { return this._texto || ''; },
-    set textContent(v) { this._texto = String(v); },
-    _handlers: null,
-    addEventListener(evt, fn) {
-      if (evt === 'input' || evt === 'click') {
-        this._handlers = this._handlers || [];
-        this._handlers.push(fn);
-      }
-    },
-    setAttribute(k, v) { this.dataset[k] = v; },
-    getAttribute(k) { return this.dataset[k]; },
-    scrollIntoView() {},
-    appendChild() {},
-    removeChild() {},
-    remove() {},
-    classList: { add() {}, remove() {}, contains: () => false },
-    querySelectorAll(sel) {
-      const m = /\[data-([a-z-]+)(?:="([^"]*)")?\]/.exec(sel)
-        || /\.([a-z-]+)/.exec(sel);
-      if (!m) return [];
-      const attr = m[1];
-      const achados = [];
-      for (const mm of this._html.matchAll(new RegExp(`data-${attr}(?:="([^"]*)")?`, 'g'))) {
-        const valor = mm[1] === undefined ? '' : mm[1];
-        // Nó PERSISTENTE por (pai, atributo, valor): um módulo que escreve em
-        // `querySelector('[data-serie]').innerHTML` precisa que esse nó
-        // sobreviva à chamada, senão o teste mede um objeto descartável e
-        // conclui que o render nao pintou nada.
-        const chave = `${attr}=${valor}`;
-        if (!this._filhos.has(chave)) {
-          const filho = fazerNo(`${this.id}::${chave}`);
-          filho.dataset = { [attr]: valor, modulo: valor, id: valor, acao: valor, range: valor };
-          filho.disabled = false;
-          this._filhos.set(chave, filho);
-        }
-        achados.push(this._filhos.get(chave));
-      }
-      if (!achados.length && sel.startsWith('.')) {
-        const cls = sel.slice(1);
-        const n = (this._html.match(new RegExp(`class="[^"]*\\b${cls}\\b`, 'g')) || []).length;
-        for (let i = 0; i < n; i++) achados.push({ dataset: {}, addEventListener() {} });
-      }
-      return achados;
-    },
-    querySelector(sel) { return this.querySelectorAll(sel)[0] || null; },
-  };
-  return no;
+function slot(id) {
+  const el = documento.createElement('div');
+  el.id = id;
+  documento.body.appendChild(el);
+  return el;
 }
 
 const els = {
-  regua: fazerNo('kernelReguaSlot'),
-  faixa: fazerNo('kernelFaixa'),
-  grade: fazerNo('screenContainer'),
-  painel: fazerNo('kernelPainel'),
-  subtela: fazerNo('kernelSubtela'),
+  regua: slot('kernelReguaSlot'),
+  faixa: slot('kernelFaixa'),
+  grade: slot('screenContainer'),
+  painel: slot('kernelPainel'),
+  subtela: slot('kernelSubtela'),
 };
-for (const [, no] of Object.entries(els)) registro.set(no.id, no);
-registro.set('mainTitle', fazerNo('mainTitle'));
-registro.set('mainSubtitle', fazerNo('mainSubtitle'));
+slot('mainTitle');
+slot('mainSubtitle');
 // `showToast` procura este container; sem ele um módulo que só quis avisar de
 // erro derruba o harness.
-registro.set('toastContainer', fazerNo('toastContainer'));
-
-document.getElementById = (id) => registro.get(id) || null;
-document.querySelector = (sel) => els.grade.querySelector(sel);
-document.querySelectorAll = (sel) => els.grade.querySelectorAll(sel);
-
-/* createElement precisa devolver algo consultável: `showToast` monta o nó e
- * procura o botão de fechar dentro dele. Sem isto o harness quebra por
- * limitação própria, e um corpo de módulo que só quis avisar de erro derrubaria
- * o teste como se fosse bug de produção. */
-globalThis.requestAnimationFrame = (fn) => setTimeout(fn, 0);
-
-document.createElement = () => {
-  const filho = { onclick: null, addEventListener() {}, remove() {}, style: {}, dataset: {}, classList: { add() {}, remove() {}, contains: () => false } };
-  return {
-    ...filho,
-    innerHTML: '', textContent: '', className: '',
-    appendChild() {}, setAttribute() {}, getAttribute: () => null,
-    querySelector: () => filho,
-    querySelectorAll: () => [filho],
-  };
-};
+slot('toastContainer');
 
 /* --- payloads ------------------------------------------------------------ */
 const GB = 1024 ** 3;
@@ -228,8 +153,8 @@ const saida = {};
 /* `montarRegua` cria um filho `#kernelRegua` e é NELE que os chips entram; cada
  * módulo escreve no próprio `#mod-<id>`. Ler o nó pai devolveria só o esqueleto,
  * e o teste passaria a medir o harness em vez do kernel. */
-const lerRegua = () => (registro.get('kernelRegua') || {}).innerHTML || '';
-const lerCorpo = (id) => (registro.get(`mod-${id}`) || {}).innerHTML || '';
+const lerRegua = () => (documento.getElementById('kernelRegua') || {}).innerHTML || '';
+const lerCorpo = (id) => (documento.getElementById(`mod-${id}`) || {}).innerHTML || '';
 
 kernel.iniciar(els);
 kernel._interno.definirDados({ overview: OVERVIEW, findings: FINDINGS });
@@ -293,8 +218,9 @@ kernel._interno.irPara(esc.host());
 kernel._interno.definirDados({ overview: SEM_ACOES, findings: FINDINGS });
 kernel._interno.repintar();
 await new Promise((r) => setTimeout(r, 0));
-saida.dom_sem_acoes = els.grade.innerHTML + lerRegua() + els.subtela.innerHTML
-  + [...registro.keys()].filter((k) => k.startsWith('mod-')).map((k) => registro.get(k).innerHTML).join('');
+// Com DOM de verdade o corpo de cada módulo já está DENTRO da grade: não é
+// mais preciso costurar os `#mod-*` de um registro paralelo.
+saida.dom_sem_acoes = els.grade.innerHTML + lerRegua() + els.subtela.innerHTML;
 
 /* --- layout: corrompido, ↑↓ vs drag, preset -> personalizado ------------- */
 localStorage.setItem('cockpit.layout.host', '{isso nao e json');
@@ -348,17 +274,23 @@ const mods2b = {
   metricas: await import(new URL('../../app/static/js/modulos/metricas.js', import.meta.url)),
 };
 
+function desmontarModulo(retorno) {
+  if (typeof retorno === 'function') retorno();
+  else if (retorno && typeof retorno.dispose === 'function') retorno.dispose();
+}
+
 async function corpoDe(mod, escopo, dadosExtra) {
-  const alvo = fazerNo('corpo-teste');
-  registro.set('corpo-teste', alvo);
-  const dispose = mod.default.render(escopo, { overview: OVERVIEW, findings: FINDINGS, ...dadosExtra }, alvo);
+  const alvo = documento.createElement('div');
+  documento.body.appendChild(alvo);
+  const montado = mod.default.render(
+    escopo, { overview: OVERVIEW, findings: FINDINGS, ...dadosExtra }, alvo
+  );
   for (let i = 0; i < 40; i++) await Promise.resolve();
   await new Promise((r) => setTimeout(r, 0));
-  // O HTML "visivel" inclui o que os filhos pintaram: modulos escrevem em
-  // sub-nos (`[data-serie]`, `[data-pre]`) depois do primeiro render.
-  let html = alvo.innerHTML;
-  for (const [, filho] of alvo._filhos) html += filho.innerHTML;
-  if (typeof dispose === 'function') dispose();
+  // Com árvore de verdade, `innerHTML` já serializa o que os sub-nós pintaram.
+  const html = alvo.innerHTML;
+  desmontarModulo(montado);
+  alvo.remove();
   return html;
 }
 
@@ -416,25 +348,25 @@ const modLogs = await import(new URL('../../app/static/js/modulos/logs.js', impo
 // chaves, e o catch-all '/api' do ROTAS_2B engoliria a busca.
 servir({ '/api/logs/search': BUSCA, '/api/containers': 'linha de tail\n', ...ROTAS_2B });
 
-const alvoLogs = fazerNo('corpo-logs');
-registro.set('corpo-logs', alvoLogs);
-const disposeLogs = modLogs.default.render(esc.container('criptotrade-app'),
+const alvoLogs = documento.createElement('div');
+documento.body.appendChild(alvoLogs);
+const logsMontado = modLogs.default.render(esc.container('criptotrade-app'),
   { overview: OVERVIEW, abrirContainer: () => {} }, alvoLogs);
 for (let i = 0; i < 40; i++) await Promise.resolve();
 
 saida.logs_topo = alvoLogs.innerHTML;
 
 // digita e dispara a busca (o modulo usa debounce de 300ms)
-const campo = alvoLogs.querySelectorAll('[data-busca]')[0];
+const campo = alvoLogs.querySelector('[data-busca]');
 if (campo) {
   campo.value = 'oom';
-  (campo._handlers || []).forEach((h) => h());
+  campo.dispatchEvent({ type: 'input', target: campo });
 }
 await new Promise((r) => setTimeout(r, 400));
 for (let i = 0; i < 40; i++) await Promise.resolve();
-const painelLogs = alvoLogs._filhos.get('resultados=');
+const painelLogs = alvoLogs.querySelector('[data-resultados]');
 saida.logs_busca = painelLogs ? painelLogs.innerHTML : '';
-saida.logs_nota = (alvoLogs._filhos.get('nota=') || {}).textContent || '';
-if (typeof disposeLogs === 'function') disposeLogs();
+saida.logs_nota = (alvoLogs.querySelector('[data-nota]') || {}).textContent || '';
+desmontarModulo(logsMontado);
 
 process.stdout.write(JSON.stringify(saida), () => process.exit(0));

@@ -22,9 +22,11 @@ discussão e o corpo com o racional de cada decisão.
 | 3 | B5 busca em logs + guarda de schema | #28 | `93efa5d` |
 | 4 | B6 updates · B7 notificações · B9 métricas | #29 | `23d6b90` |
 | 5 | B8 drift · B11 hardening · certs | #30 | `b0b7ef5` |
+| 6 | percepção de travamento (doc 13) — patch por linha, relógio único, movimento | — | — |
 
-Estado: **894 testes**, `SCHEMA_VERSION = 15`, migrações v10 a v15 todas com teste sobre
-banco populado.
+Estado: **997 testes**, `SCHEMA_VERSION = 15`, migrações v10 a v15 todas com teste sobre
+banco populado. A Sprint 6 não tocou no backend: é render, e os 62 testes novos são de
+frontend, executados no node sobre `tests/fixtures/dom_min.mjs`.
 
 ## Rotas novas neste ciclo
 
@@ -74,7 +76,26 @@ banco populado.
 2. **Acabamento visual de 9 módulos** — dono: dono do produto. Dado real desde a 2a; falta
    forma. Ou Sprint 6 módulo a módulo, ou dívida declarada aceita em definitivo.
 
+## Sprint 6 — percepção de travamento (frontend, sem backend)
+
+Causa raiz e correções em `docs/handoff_cockpit_completo/docs/13-percepcao-de-travamento.md`; a decisão como atributo
+de qualidade está no doc 00.
+
+| Arquivo novo | O que é |
+|---|---|
+| `app/static/js/kernel/patch.js` | escrever no nó que já existe; lista chaveada pela identidade do item |
+| `app/static/js/kernel/relogio.js` | o único dono de `setInterval` no frontend; período em múltiplos do tick |
+| `tests/fixtures/dom_min.mjs` | DOM de verdade para o node — árvore, identidade de nó e `MutationObserver` |
+| `tests/test_render_vivo.py` | unidade, integração e aceitação do alvo "nenhuma reconstrução por leitura" |
+
+Pendência declarada: `app/static/js/screens/backend.js`,
+`app/static/js/screens/executivo.js`, `app/static/js/screens/plantao.js` e
+`app/static/js/screens/topologia.js` ainda redesenham quando o dado muda — as quatro
+estão fora dos presets padrão, e o teto de `innerHTML` de cada uma está travado no teste.
+
 ## Sync history
+- 2026-07-30 — Sprint 6: render sem rebuild por leitura, relógio compartilhado, pílula
+  "ao vivo", `prefers-reduced-motion`. 997 testes.
 - 2026-07-30 — Sprint 5 (#30) mergeada; **plano B1–B11 concluído**; pacote sincronizado com
   o estado real (este arquivo e o LEIA-ME estavam cinco sprints atrás).
 - 2026-07-30 — Sprints 1 a 4 (#25, #26, #27, #28, #29) mergeadas.

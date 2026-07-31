@@ -17,6 +17,21 @@ import { apiGet } from '../data.js';
 import { escapeHtml } from '../fmt.js';
 import { navigate } from '../main.js';
 import { setState } from '../store.js';
+import { assinar, TICK_MS } from '../kernel/relogio.js';
+import { redesenharSeMudou } from '../kernel/patch.js';
+
+/* Doc 13: nenhuma reconstrução de árvore por leitura.
+ *
+ * Esta tela ainda desenha por `innerHTML`, e a razão é de escopo, não de
+ * princípio: ela está fora de todo preset padrão (decisão do doc 14), então só
+ * aparece se o operador a acrescentar pelo Personalizar. Converter as suas
+ * listas para patch por linha é trabalho registrado no doc 13 §pendências.
+ *
+ * O que ela já não faz é redesenhar SEM MOTIVO: `casca` compara a assinatura do
+ * payload e só reescreve quando o dado mudou de fato. Numa tela de leitura,
+ * que muda por deploy e não por minuto, isso é o caso comum — e o rebuild
+ * deixa de acontecer a cada 30s por nada.
+ */
 
 let _disposed = false;
 
@@ -103,6 +118,14 @@ export function renderPlantao(container) {
 
   let pollTimer = null;
 
+  let assinatura = null;
+  function mudou(achados) {
+    const nova = JSON.stringify(achados);
+    if (nova === assinatura) return false;
+    assinatura = nova;
+    return true;
+  }
+
   async function carregar() {
     const { data, error } = await apiGet('plt_findings', '/api/findings?status=open');
     if (_disposed) return;
@@ -113,11 +136,16 @@ export function renderPlantao(container) {
     if (error) {
       fila.innerHTML = `<div class="empty">Não foi possível ler a fila de achados: ${escapeHtml(error)}</div>`;
       if (resumo) resumo.innerHTML = '';
+      assinatura = null;
       return;
     }
 
     const achados = ordenarFila(Array.isArray(data) ? data : []);
     const agora = Date.now();
+    // A fila so e redesenhada quando a fila mudou. `agora` fica de fora da
+    // assinatura de proposito: a idade do achado anda a cada segundo, e
+    // inclui-la faria toda leitura contar como mudanca.
+    if (!mudou(achados)) return;
 
     if (resumo) {
       const contagem = { critical: 0, high: 0, medium: 0, low: 0 };
@@ -153,10 +181,12 @@ export function renderPlantao(container) {
   }
 
   carregar();
-  pollTimer = setInterval(carregar, 30000);
+  // 30s = 6 ticks do relogio compartilhado (doc 13 §4).
+  pollTimer = assinar(carregar, 6 * TICK_MS);
 
   return () => {
     _disposed = true;
-    if (pollTimer) clearInterval(pollTimer);
+    if (typeof pollTimer === 'function') pollTimer();
+    pollTimer = null;
   };
 }

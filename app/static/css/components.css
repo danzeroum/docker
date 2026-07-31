@@ -834,3 +834,324 @@
 .cert-linha{font-size:.7rem;display:flex;align-items:baseline;gap:.4rem;flex-wrap:wrap}
 .cert-sem-fonte{color:var(--text-dim)}
 .cert-alerta{color:var(--warn);font-weight:600}
+
+/* ===========================================================================
+   Movimento (doc 13) — o que a interface faz enquanto o dado troca.
+   Nada aqui é decoração: cada regra existe porque, sem ela, uma mudança de
+   estado acontece sem que o olho consiga vê-la acontecer.
+
+   Tudo usa os tokens de themes.css. Nenhuma cor nova, nenhuma cor no JS.
+   =========================================================================== */
+
+:root{
+  /* Uma duração por intenção, não uma por lugar. O protótipo fixou três:
+     140ms para resposta ao ponteiro, 700ms para valor que anda,
+     900ms para o flash do valor que acabou de mudar. */
+  --t-hover:140ms;
+  --t-valor:700ms;
+  --t-flash:900ms;
+  --t-vivo:2200ms;
+}
+
+/* --- pílula "ao vivo" na régua ------------------------------------------- */
+/* Sem ela o olho não distingue "parado" de "atualizando", e a primeira leitura
+   de uma tela sem sinal de vida é sempre "travou". O pulso diz que o cockpit
+   está de pé; a varredura, que uma leitura acabou de chegar. */
+.rg-vivo{
+  display:inline-flex;align-items:center;gap:.4rem;flex-shrink:0;
+  padding-right:.5rem;margin-right:.1rem;border-right:1px solid var(--border)
+}
+.rg-vivo-ponto{position:relative;width:7px;height:7px;flex-shrink:0}
+.rg-vivo-ponto::after{
+  content:'';position:absolute;inset:0;border-radius:50%;background:var(--ok)
+}
+.rg-vivo-pulso{
+  position:absolute;inset:0;border-radius:50%;background:var(--ok);
+  animation:rg-pulso var(--t-vivo) var(--ease-quiet) infinite
+}
+.rg-vivo-rot{
+  font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;
+  font-weight:800;color:var(--ok);white-space:nowrap
+}
+.rg-vivo-trilho{
+  position:relative;width:52px;height:2px;border-radius:2px;
+  background:var(--border-strong);overflow:hidden;flex-shrink:0
+}
+.rg-vivo-varredura{
+  position:absolute;inset:0;border-radius:2px;
+  background:linear-gradient(90deg,transparent,var(--accent));
+  transform:translateX(-100%)
+}
+/* Duas classes alternadas: trocar o nome reinicia a animação sem forçar reflow.
+   Uma classe só exigiria ler `offsetWidth` a cada leitura — um reflow síncrono
+   por ciclo, no arquivo que existe para remover exatamente esse custo. */
+.rg-vivo-varredura.varre-a{animation:rg-varredura var(--t-vivo) linear}
+.rg-vivo-varredura.varre-b{animation:rg-varredura var(--t-vivo) linear}
+
+/* Pausado: cinza, sem pulso, sem varredura. "ao vivo" enquanto nada é lido é a
+   única coisa pior que não ter indicador nenhum. */
+.rg-vivo.rg-pausado .rg-vivo-ponto::after{background:var(--text-mute)}
+.rg-vivo.rg-pausado .rg-vivo-rot{color:var(--text-mute)}
+.rg-vivo.rg-pausado .rg-vivo-pulso,
+.rg-vivo.rg-pausado .rg-vivo-varredura{display:none}
+
+@keyframes rg-pulso{
+  0%{transform:scale(.7);opacity:.85}
+  70%{transform:scale(2.1);opacity:0}
+  100%{transform:scale(2.1);opacity:0}
+}
+@keyframes rg-varredura{
+  from{transform:translateX(-100%)}
+  to{transform:translateX(0)}
+}
+
+/* --- flash do valor que mudou -------------------------------------------- */
+/* Troca seca é troca que ninguém vê: o número já está diferente quando o olho
+   chega. 0,9s em fade é tempo de perceber sem virar pisca-pisca. */
+@keyframes val-flash{
+  from{background:var(--accent-2);color:var(--bg)}
+  to{background:transparent}
+}
+.flash-a,.flash-b{
+  border-radius:3px;animation:val-flash var(--t-flash) var(--ease-quiet)
+}
+
+/* --- superfícies clicáveis: hover e active ------------------------------- */
+/* Toda superfície que responde ao clique responde ANTES dele. A regressão que
+   isto conserta não era de CSS: com rebuild por leitura, o `:hover` morria no
+   meio do movimento porque o nó sob o ponteiro deixava de existir. */
+.mod-linha,.rg-chip,.list-item,.stack-header,.ig-row,.log-achado,
+.atn-card,.ig-finding,.project-card,.kpi,.pz-linha,.pz-preset,
+.filter-pill,.rail-item,.met-jan,.stg-btn,.logs-follow{
+  transition:background-color var(--t-hover) var(--ease-precise),
+             border-color var(--t-hover) var(--ease-precise),
+             color var(--t-hover) var(--ease-precise),
+             transform var(--t-hover) var(--ease-precise)
+}
+.mod-linha:hover,.log-achado:hover{background:var(--bg)}
+.rg-chip:hover{background:var(--surface-2);border-color:var(--text-mute)}
+.atn-card:hover,.ig-finding:hover,.project-card:hover{border-color:var(--accent)}
+.pz-preset:hover,.met-jan:hover{border-color:var(--text-mute);color:var(--text)}
+
+/* `:active` é o retorno tátil: sem ele, um clique numa lista que demora a
+   responder parece um clique perdido, e o operador clica de novo. */
+.mod-linha:active,.list-item:active,.log-achado:active,.ig-row:active,
+.stack-header:active,.rg-chip:active,.filter-pill:active,.pz-preset:active,
+.met-jan:active,.stg-btn:active,.logs-follow:active{
+  transform:translateY(1px)
+}
+.atn-card:active,.ig-finding:active,.project-card:active,.kpi:active{
+  transform:translateY(0)
+}
+
+/* --- barras que andam até o novo valor ----------------------------------- */
+/* O JS entrega só o número, por propriedade customizada. A transição mora aqui,
+   e é ela que transforma "12% depois 31%" em uma barra que cresce. */
+.mod-barra,.met-barra,.cap-barra{
+  flex-shrink:0;height:4px;border-radius:2px;
+  background:var(--bg-2);overflow:hidden
+}
+.mod-barra{width:46px}
+.met-barra{width:100%;margin-top:.25rem}
+.cap-barra{flex:1;height:7px;border-radius:3px}
+.mod-barra-fill,.met-barra-fill,.cap-barra-fill{
+  display:block;height:100%;border-radius:inherit;
+  width:var(--barra,0%);background:var(--accent);
+  transition:width var(--t-valor) var(--ease-quiet),
+             background-color .3s var(--ease-precise)
+}
+.mod-barra.mod-barra-alta .mod-barra-fill{background:var(--warn)}
+
+.spark-b{width:var(--larg,4%);height:var(--altura,2%);
+  transition:height var(--t-valor) var(--ease-quiet)}
+
+/* --- selo de severidade por classe (a paleta saiu do JS) ----------------- */
+.sev-critical{--sev:var(--bad)}
+.sev-high{--sev:var(--warn)}
+.sev-medium{--sev:var(--accent)}
+.sev-low{--sev:var(--text-mute)}
+.atn-card,.ig-finding{border-left:3px solid var(--sev,var(--border))}
+.atn-sev,.ig-finding-sev{background:var(--sev,var(--neutral));color:#fff}
+.filter-pill.sev-critical{border-color:var(--bad)}
+.filter-pill.sev-high{border-color:var(--warn)}
+.filter-pill.sev-medium{border-color:var(--accent)}
+.rail-badge.sev-critical{background:var(--bad)}
+.rail-badge.sev-high{background:var(--warn)}
+.rail-badge.sev-medium{background:var(--accent)}
+.rail-badge.sev-low{background:var(--text-mute)}
+
+.atn-filtros{display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap}
+.atn-acoes{margin-top:.5rem;display:flex;gap:.35rem}
+.ack-btn{
+  font-size:.7rem;padding:.2rem .5rem;border-radius:6px;border:1px solid var(--border);
+  background:var(--surface);color:var(--text-dim);cursor:pointer;font-family:inherit
+}
+.ack-btn:hover:not(:disabled){border-color:var(--text-mute);color:var(--text)}
+.atn-rel{margin-top:.3rem}
+.atn-link{font-size:.7rem;color:var(--accent);text-decoration:none}
+
+/* --- auditoria: tom da linha por classe, não por style inline ------------ */
+.aud-data{white-space:nowrap}
+.aud-data,.aud-mono{font-family:'JetBrains Mono',monospace;font-size:.72rem}
+.aud-ip{color:var(--text-dim)}
+.aud-negado{background:var(--bad-soft)}
+.aud-erro{background:var(--warn-soft)}
+
+/* --- ingress: células e cabeçalho --------------------------------------- */
+.ig-th{color:var(--text-mute);font-weight:600;font-size:.7rem;text-transform:uppercase}
+.ig-ok{color:var(--ok);font-weight:600}
+.ig-bad{color:var(--bad);font-weight:600}
+.ig-mute{color:var(--text-dim)}
+.ig-mono{font-family:'JetBrains Mono',monospace;font-size:.7rem}
+.ig-internos{color:var(--text-mute);font-size:.7rem}
+
+/* --- projetos ------------------------------------------------------------ */
+.project-svcs{margin-top:.75rem}
+.project-portas{font-family:'JetBrains Mono',monospace;font-size:.75rem}
+.project-path{font-size:.7rem;color:var(--text-mute);font-family:'JetBrains Mono',monospace}
+.project-estado{margin-left:auto}
+.project-estado.ok{background:var(--ok-soft);border-color:rgba(34,197,94,.3)}
+.project-estado.ok .dot{background:var(--ok)}
+.project-estado.warn{background:var(--warn-soft);border-color:rgba(245,158,11,.3)}
+.project-estado.warn .dot{background:var(--warn)}
+.project-estado.mute{background:var(--neutral-soft)}
+.project-estado.mute .dot{background:var(--neutral)}
+.project-estado.bad{background:var(--bad-soft);border-color:rgba(239,68,68,.3)}
+.project-estado.bad .dot{background:var(--bad)}
+
+/* --- métricas ------------------------------------------------------------ */
+.met-cel{display:flex;flex-direction:column;min-width:88px}
+.met-cel>span{font-size:.6rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-mute)}
+.met-cel>strong{font-family:'JetBrains Mono',monospace;font-size:1rem}
+
+/* --- capacidade: a tela que pintava com tokens inexistentes -------------- */
+/* `var(--tx2)`, `var(--bd0)` e `var(--sf)` vieram do protótipo e nunca
+   existiram no themes.css: metade das bordas e dos textos secundários caía no
+   valor inicial do navegador desde o porte. Aqui usam os tokens de verdade. */
+.cap-corpo{display:flex;flex-direction:column;gap:.7rem}
+.cap-janelas{display:grid;grid-template-columns:repeat(3,1fr);gap:.7rem}
+.cap-colunas{display:grid;grid-template-columns:1fr 372px;gap:.7rem;min-height:0}
+.cap-esquerda,.cap-direita{display:flex;flex-direction:column;gap:.7rem;min-height:0}
+.cap-direita{overflow-y:auto}
+.cap-caixa{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:10px;padding:.75rem .8rem;display:flex;flex-direction:column
+}
+.cap-rotulo{
+  font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--text-mute);font-weight:700;margin-bottom:.55rem
+}
+.cap-nota{
+  font-size:.65rem;color:var(--text-mute);line-height:1.45;
+  margin-top:.5rem;border-top:1px solid var(--border);padding-top:.45rem
+}
+.cap-nota:empty{display:none}
+.cap-erro{font-size:.72rem;color:var(--text-dim);line-height:1.5;padding:.4rem 0}
+.cap-vazio{font-size:.72rem;color:var(--text-dim);padding:.4rem 0}
+.cap-vazio.cap-ok{color:var(--ok)}
+.cap-rolagem{max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:.3rem}
+.cap-janela{
+  border:1px solid var(--border);border-radius:8px;padding:.7rem .75rem;
+  background:var(--bg-2)
+}
+.cap-janela-topo{display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem}
+.cap-janela-topo>span:last-child{
+  font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;
+  font-weight:700;color:var(--text-mute)
+}
+.cap-ponto{
+  width:8px;height:8px;border-radius:50%;flex-shrink:0;
+  background:var(--tom,var(--neutral))
+}
+.cap-item{display:flex;align-items:flex-start;gap:.5rem;padding:.15rem 0}
+.cap-item .cap-ponto{width:6px;height:6px;margin-top:.35rem}
+.cap-item-txt{font-size:.72rem;color:var(--text-dim);line-height:1.45}
+.cap-mem{display:flex;align-items:center;gap:.55rem}
+.cap-mem-nome{
+  width:112px;flex-shrink:0;font-size:.72rem;font-weight:500;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+.cap-mem-val{
+  width:88px;text-align:right;font-family:'JetBrains Mono',monospace;
+  font-size:.68rem;color:var(--text-mute)
+}
+.cap-postura{
+  display:flex;align-items:center;gap:.5rem;padding:.3rem 0;
+  border-bottom:1px solid var(--border)
+}
+.cap-postura-item{flex:1;min-width:0;font-size:.72rem}
+.cap-postura-val{font-size:.68rem;font-weight:500}
+.cap-linha{
+  display:flex;align-items:center;gap:.5rem;padding:.25rem 0;
+  border-bottom:1px solid var(--border)
+}
+.cap-tag{
+  width:62px;flex-shrink:0;font-size:.6rem;text-transform:uppercase;
+  letter-spacing:.06em;color:var(--text-mute)
+}
+.cap-nome{flex:1;min-width:0;font-size:.72rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cap-val{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text-mute)}
+.cap-score{
+  font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:600;
+  width:26px;flex-shrink:0
+}
+.cap-sev{font-size:.6rem;text-transform:uppercase;letter-spacing:.05em}
+.cap-secoes{border-top:1px solid var(--border);padding-top:.45rem;margin-bottom:.5rem}
+.cap-secao{display:flex;justify-content:space-between;font-size:.68rem;padding:.1rem 0}
+.cap-destaque{display:flex;align-items:baseline;gap:.4rem;margin-bottom:.5rem}
+.cap-destaque strong{font-family:'JetBrains Mono',monospace;font-size:1.35rem;font-weight:600}
+.cap-destaque span{font-size:.72rem;color:var(--text-dim)}
+.cap-grafico{flex:1;min-height:100px;display:flex;align-items:flex-end;gap:2px;margin:.7rem 0 .5rem}
+.cap-grafico.cap-com-proj{gap:3px}
+.cap-col{flex:1;height:130px;display:flex;align-items:flex-end;position:relative}
+.cap-col-fill{
+  width:100%;height:var(--altura,4px);min-height:2px;
+  border-radius:2px 2px 0 0;background:var(--accent);
+  transition:height var(--t-valor) var(--ease-quiet),
+             background-color .3s var(--ease-precise)
+}
+.cap-col.cap-proj .cap-col-fill{opacity:.5}
+.cap-ok{--tom:var(--ok);color:var(--ok)}
+.cap-warn{--tom:var(--warn);color:var(--warn)}
+.cap-bad{--tom:var(--bad);color:var(--bad)}
+.cap-accent{--tom:var(--accent);color:var(--accent)}
+.cap-mute{--tom:var(--neutral);color:var(--text-mute)}
+.cap-col-fill.cap-ok{background:var(--ok)}
+.cap-col-fill.cap-warn{background:var(--warn)}
+.cap-col-fill.cap-bad{background:var(--bad)}
+.cap-col-fill.cap-accent{background:var(--accent)}
+.cap-col-fill.cap-mute{background:var(--neutral)}
+.cap-barra-fill.cap-warn{background:var(--warn)}
+.cap-barra-fill.cap-bad{background:var(--bad)}
+.cap-barra-fill.cap-accent{background:var(--accent)}
+.cap-icone{width:14px;text-align:center;font-size:.8rem}
+
+/* --- drift --------------------------------------------------------------- */
+.drift-bloco+.drift-bloco{margin-top:.4rem}
+
+/* ===========================================================================
+   prefers-reduced-motion (doc 13 §6)
+   ===========================================================================
+   Movimento periférico é o gatilho documentado de enxaqueca vestibular, e um
+   cockpit é uma tela que fica aberta o dia inteiro. Quem pediu menos movimento
+   ao sistema operacional pediu de verdade.
+
+   Desligar animação NÃO pode desligar informação: o flash some, mas o valor
+   continua trocando; o pulso some, mas a pílula continua verde e dizendo "ao
+   vivo". Nenhum estado deste cockpit é comunicado SÓ por movimento — é o que
+   torna esta regra segura de aplicar sem exceção.
+   =========================================================================== */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{
+    animation-duration:.001ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.001ms !important;
+    scroll-behavior:auto !important;
+  }
+  .rg-vivo-pulso,.rg-vivo-varredura{display:none}
+  .flash-a,.flash-b{animation:none !important;background:transparent}
+  .mod-linha:active,.list-item:active,.log-achado:active,.ig-row:active,
+  .stack-header:active,.rg-chip:active,.filter-pill:active,.pz-preset:active,
+  .met-jan:active,.stg-btn:active,.logs-follow:active{transform:none}
+  .skeleton{animation:none;opacity:.5}
+}

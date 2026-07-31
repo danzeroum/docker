@@ -2,10 +2,24 @@
  *
  * Clicar numa stack abre o mini cockpit dela: mesmo registro de módulos, escopo
  * `{t:'stack', id}`. É de graça — não existe tela de stack, existe escopo.
+ *
+ * Lista chaveada pelo id da stack (doc 13): subir ou descer um container muda o
+ * contador `running/total` no nó que já existe, e nada mais é tocado.
  */
 
-import { escapeHtml } from '../fmt.js';
 import { chipDoSummary } from '../kernel/regua.js';
+import { atributo, classeUnica, deMolde, lista, mostrar, texto } from '../kernel/patch.js';
+
+const TONS = ['ok', 'warn', 'bad', 'exited'];
+
+const MOLDE_LINHA = '<button type="button" class="mod-linha" data-stack="">'
+  + '<span class="item-status"></span>'
+  + '<span class="mod-nome-cel"></span>'
+  + '<span class="mod-meta"></span>'
+  + '</button>';
+
+const CASCA = '<div class="mod-lista" data-lista></div>'
+  + '<div class="empty" data-vazio hidden>Nenhuma stack encontrada</div>';
 
 export default {
   id: 'stacks',
@@ -23,25 +37,36 @@ export default {
   })),
 
   render: (escopo, dados, corpo) => {
-    const stacks = ((dados && dados.overview) || {}).stacks || [];
-    if (!stacks.length) {
-      corpo.innerHTML = '<div class="empty">Nenhuma stack encontrada</div>';
-      return null;
-    }
-    const tom = { ok: 'ok', warn: 'warn', bad: 'bad' };
-    corpo.innerHTML = `<div class="mod-lista">${stacks.map((s) =>
-      `<button type="button" class="mod-linha" data-stack="${escapeHtml(s.id)}">
-        <span class="item-status ${tom[s.worst] || 'exited'}"></span>
-        <span class="mod-nome-cel">${escapeHtml(s.id)}</span>
-        <span class="mod-meta">${s.running}/${s.total}</span>
-      </button>`).join('')}</div>`;
+    let vivo = true;
+    corpo.innerHTML = CASCA;
+    const recipiente = corpo.querySelector('[data-lista]');
+    const vazio = corpo.querySelector('[data-vazio]');
 
-    const abrir = dados && dados.abrirStack;
-    if (typeof abrir === 'function') {
-      corpo.querySelectorAll('[data-stack]').forEach((b) => {
-        b.addEventListener('click', () => abrir(b.dataset.stack));
+    recipiente.addEventListener('click', (ev) => {
+      const linha = ev.target.closest ? ev.target.closest('[data-stack]') : null;
+      if (!linha) return;
+      const abrir = dados && dados.abrirStack;
+      if (typeof abrir === 'function') abrir(linha.dataset.stack);
+    });
+
+    function atualizar(novos) {
+      if (!vivo) return;
+      const stacks = ((novos && novos.overview) || {}).stacks || [];
+      mostrar(vazio, !stacks.length);
+      lista(recipiente, stacks, {
+        chave: (s) => s.id,
+        criar: () => deMolde(MOLDE_LINHA),
+        atualizar: (el, s) => {
+          atributo(el, 'data-stack', s.id);
+          classeUnica(el.querySelector('.item-status'), TONS,
+            TONS.includes(s.worst) ? s.worst : 'exited');
+          texto(el.querySelector('.mod-nome-cel'), s.id);
+          texto(el.querySelector('.mod-meta'), `${s.running}/${s.total}`, { flash: true });
+        },
       });
     }
-    return null;
+
+    atualizar(dados);
+    return { atualizar, dispose: () => { vivo = false; } };
   },
 };

@@ -8,6 +8,8 @@ import { initCommandPalette } from './commands.js';
 // a única lista de módulos do sistema está em `modulos/index.js`.
 import { iniciar as iniciarCockpit, _interno as cockpit } from './kernel/app.js';
 import { container as escopoContainer } from './kernel/escopo.js';
+import { assinar, TICK_MS } from './kernel/relogio.js';
+import { atributo, casca, classe, classeUnica, deMolde, lista, mostrar, texto } from './kernel/patch.js';
 
 // --- Theme ---
 function applyTheme(tema) {
@@ -60,17 +62,22 @@ function pollAll() {
     const badge = document.getElementById('findingsBadge');
     if (!badge) return;
     if (data && data.length) {
-      badge.textContent = data.length;
+      // textContent com flash em vez de reescrever o nó: o selo que muda de 3
+      // para 4 se anuncia, e o `:hover` do item de nav não é interrompido.
+      texto(badge, String(data.length), { flash: true });
       const sevOrder = { critical: 4, high: 3, medium: 2, low: 1 };
       const maxSev = data.reduce((a, f) => sevOrder[f.severity] > sevOrder[a] ? f.severity : a, 'low');
-      const sevColors = { critical: 'var(--bad)', high: 'var(--warn)', medium: 'var(--accent)', low: 'var(--text-mute)' };
-      badge.style.background = sevColors[maxSev] || 'var(--bad)';
-      badge.style.display = '';
+      // Cor por classe, não por `style.background`: a paleta fica em
+      // components.css com os tokens de themes.css, e o selo acompanha o tema.
+      classeUnica(badge, SEV_CLASSES, `sev-${maxSev}`);
+      mostrar(badge, true);
     } else {
-      badge.style.display = 'none';
+      mostrar(badge, false);
     }
   });
 }
+
+const SEV_CLASSES = ['sev-critical', 'sev-high', 'sev-medium', 'sev-low'];
 
 // --- SSE events (real-time from daemon) ---
 let eventSource = null;
@@ -107,21 +114,28 @@ function disconnectSSE() {
   if (eventSource) { eventSource.close(); eventSource = null; }
 }
 
-// --- Shared polling (30s reconciliation, paused when tab hidden) ---
+// --- Reconciliação de 30s no relógio compartilhado ---
 // pollTimer ja e declarado junto de pollAll(), acima. Redeclarar com `let` no
 // mesmo escopo de modulo e SyntaxError: o main.js inteiro deixa de carregar e
 // a interface fica no "carregando" para sempre, sem pintar nada.
+//
+// 30s deixou de ser um `setInterval` proprio e virou "6 ticks" do relogio do
+// kernel. A pausa com aba oculta tambem saiu daqui: e do relogio, e um so.
 function startPolling() {
   pollAll();
-  pollTimer = setInterval(pollAll, 30000);
+  pollTimer = assinar(pollAll, 6 * TICK_MS);
 }
 
 function stopPolling() {
-  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  if (typeof pollTimer === 'function') pollTimer();
+  pollTimer = null;
 }
 
+// O SSE continua com ciclo proprio: e conexao, nao leitura periodica — nao ha
+// periodo para declarar ao relogio, e derrubar/reabrir o stream custa mais que
+// mante-lo aberto.
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) { stopPolling(); disconnectSSE(); } else { startPolling(); connectSSE(); }
+  if (document.hidden) disconnectSSE(); else connectSSE();
 });
 
 
@@ -143,6 +157,82 @@ export function saudeDe(c) {
   return null;
 }
 
+/* Barra lateral: a lista mais repintada do cockpit (a cada 30s, e a cada evento
+ * do daemon). Era ela que perdia o scroll no meio de uma rolagem e engolia o
+ * clique quando o nó sumia debaixo do ponteiro.
+ *
+ * A chave é o `container_name`, não o `Id`: recriar um container muda o Id mas
+ * não a identidade que o operador vê. Trocar o nó porque o Docker gerou outro
+ * hash seria recriar por motivo nenhum — e a linha ainda é a mesma linha.
+ *
+ * O bloco de stack é um nó só (cabeçalho + grupo) porque a lista chaveada
+ * reconcilia FILHOS diretos: com header e grupo soltos como irmãos, remover uma
+ * stack exigiria casar dois nós por posição, que é como se perde a conta. */
+const MOLDE_BLOCO = '<div class="stack-bloco">'
+  + '<button type="button" class="stack-header" aria-expanded="true">'
+  + '<span class="stack-toggle">▼</span><span class="stack-name"></span>'
+  + '<span class="stack-count"></span></button>'
+  + '<div class="stack-group"></div></div>';
+
+const MOLDE_ITEM = '<button type="button" class="list-item">'
+  + '<div class="item-status"></div>'
+  + '<div class="item-info">'
+  + '<div class="item-name"><span data-rotulo></span><span class="item-health" hidden></span></div>'
+  + '<div class="item-image"></div>'
+  + '</div></button>';
+
+const ESTADOS_ITEM = ['running', 'exited', 'created', 'dead', 'paused', 'restarting', 'unhealthy', 'unknown'];
+const SAUDES_ITEM = ['unhealthy', 'starting'];
+
+const CASCA_LISTA = '<div data-blocos></div>'
+  + '<div class="empty" data-vazio hidden>Nenhum container encontrado</div>';
+
+function agruparPorStack(filtrados) {
+  const grupos = new Map();
+  for (const c of filtrados) {
+    const s = getStackName(c) || '__ungrouped__';
+    if (!grupos.has(s)) grupos.set(s, []);
+    grupos.get(s).push(c);
+  }
+  return [...grupos.entries()].sort(([a], [b]) => {
+    if (a === '__ungrouped__') return 1;
+    if (b === '__ungrouped__') return -1;
+    return a.localeCompare(b);
+  });
+}
+
+function pintarItem(el, c, selId) {
+  const id = c.Id;
+  const nome = ((c.Names && c.Names[0]) || '').replace(/^\//, '');
+  const saude = saudeDe(c);
+  const estado = saude === 'unhealthy' ? 'unhealthy' : (c.State || 'unknown');
+
+  atributo(el, 'data-id', id);
+  atributo(el, 'data-nome', nome);
+  classe(el, 'active', id === selId);
+  atributo(el, 'aria-current', id === selId ? 'true' : null);
+  classeUnica(el.querySelector('.item-status'), ESTADOS_ITEM, estado);
+
+  const rotulo = el.querySelector('[data-rotulo]');
+  texto(rotulo, nome);
+  atributo(el.querySelector('.item-name'), 'title', nome);
+
+  // Selo só aparece com healthcheck falhando ou em partida. Container sem
+  // healthcheck não ganha selo nenhum: não há saúde medida para afirmar.
+  const selo = el.querySelector('.item-health');
+  const mostraSelo = saude === 'unhealthy' || saude === 'starting';
+  mostrar(selo, mostraSelo);
+  if (mostraSelo) {
+    texto(selo, saude);
+    atributo(selo, 'title', `Healthcheck: ${saude}`);
+    classeUnica(selo, SAUDES_ITEM, saude);
+  }
+
+  const img = el.querySelector('.item-image');
+  texto(img, c.Image || '');
+  atributo(img, 'title', c.Image || '');
+}
+
 function renderContainerList() {
   const listEl = document.getElementById('containerList');
   if (!listEl) return;
@@ -158,73 +248,60 @@ function renderContainerList() {
     filtered = filtered.filter(c => ((c.Names && c.Names[0]) || '').toLowerCase().includes(t) || (c.Image || '').toLowerCase().includes(t));
   }
 
-  if (!filtered.length) {
-    listEl.innerHTML = '<div class="empty">Nenhum container encontrado</div>';
-    return;
-  }
-
-  const groups = {};
-  filtered.forEach(c => {
-    const s = getStackName(c) || '__ungrouped__';
-    if (!groups[s]) groups[s] = [];
-    groups[s].push(c);
-  });
-  const hasGroups = Object.keys(groups).length > 1 || !groups['__ungrouped__'];
-
-  let html = '';
-  Object.entries(groups).sort(([a], [b]) => {
-    if (a === '__ungrouped__') return 1;
-    if (b === '__ungrouped__') return -1;
-    return a.localeCompare(b);
-  }).forEach(([stack, ctrs]) => {
-    if (hasGroups && stack !== '__ungrouped__') {
-      const running = ctrs.filter(c => c.State === 'running').length;
-      html += `<button type="button" class="stack-header" data-stack="${escapeHtml(stack)}" aria-expanded="true">
-        <span class="stack-toggle">▼</span><span class="stack-name">${escapeHtml(stack)}</span>
-        <span class="stack-count">${running}/${ctrs.length}</span></button>`;
-    }
-    html += `<div class="stack-group" data-stack="${escapeHtml(stack)}">`;
-    ctrs.forEach(c => {
-      const id = c.Id;
-      const name = (c.Names && c.Names[0] || '').replace(/^\//, '');
-      const saude = saudeDe(c);
-      let statusCls = c.State || 'unknown';
-      if (saude === 'unhealthy') statusCls = 'unhealthy';
-      // Badge so aparece com healthcheck falhando ou em partida. Container sem
-      // healthcheck nao ganha selo nenhum: nao ha saude medida para afirmar.
-      const badge = (saude === 'unhealthy' || saude === 'starting')
-        ? `<span class="item-health ${saude}" title="Healthcheck: ${saude}">${saude === 'unhealthy' ? 'unhealthy' : 'starting'}</span>`
-        : '';
-      html += `<button type="button" class="list-item ${id === selId ? 'active' : ''}" data-id="${id}" data-nome="${escapeHtml(name)}"${id === selId ? ' aria-current="true"' : ''}>
-        <div class="item-status ${statusCls}"></div>
-        <div class="item-info">
-          <div class="item-name" title="${escapeHtml(name)}">${escapeHtml(name)}${badge}</div>
-          <div class="item-image" title="${escapeHtml(c.Image || '')}">${escapeHtml(c.Image || '')}</div>
-        </div>
-      </button>`;
-    });
-    html += '</div>';
-  });
-  listEl.innerHTML = html;
-
-  listEl.querySelectorAll('.stack-header').forEach(h => {
-    h.addEventListener('click', () => {
-      const g = h.nextElementSibling;
-      if (g && g.classList.contains('stack-group')) {
-        const hidden = g.style.display === 'none';
-        g.style.display = hidden ? '' : 'none';
-        h.querySelector('.stack-toggle').textContent = hidden ? '▼' : '▶';
+  // A casca (e a delegação de clique) nasce uma vez e sobrevive a tudo. É a
+  // primeira e última escrita de `innerHTML` desta lista: substitui o skeleton
+  // do index.html e nunca mais é reescrita.
+  casca(listEl, 'lista-v1', (el) => {
+    el.innerHTML = CASCA_LISTA;
+    el.addEventListener('click', (ev) => {
+      const cabeca = ev.target.closest ? ev.target.closest('.stack-header') : null;
+      if (cabeca) {
+        const grupo = cabeca.nextElementSibling;
+        if (!grupo) return;
+        const fechado = cabeca.getAttribute('aria-expanded') === 'false';
+        atributo(cabeca, 'aria-expanded', fechado ? 'true' : 'false');
+        mostrar(grupo, fechado);
+        texto(cabeca.querySelector('.stack-toggle'), fechado ? '▼' : '▶');
+        return;
       }
-    });
-  });
-  listEl.querySelectorAll('.list-item').forEach(el => {
-    el.addEventListener('click', () => {
-      const nome = el.dataset.nome || el.dataset.id;
-      setState({ selectedContainer: el.dataset.id });
+      const item = ev.target.closest ? ev.target.closest('.list-item') : null;
+      if (!item) return;
+      const nome = item.dataset.nome || item.dataset.id;
+      setState({ selectedContainer: item.dataset.id });
       // A barra lateral deixa de ser rota e passa a ser atalho de escopo: abre a
       // subtela do container. O kernel e a faixa crítica seguem visíveis.
       cockpit.irPara(escopoContainer(nome));
     });
+  });
+
+  const blocos = listEl.querySelector('[data-blocos]');
+  mostrar(listEl.querySelector('[data-vazio]'), !filtered.length);
+  if (!filtered.length) {
+    lista(blocos, [], { chave: () => '', criar: () => null });
+    return;
+  }
+
+  const grupos = agruparPorStack(filtered);
+  const comCabeca = grupos.length > 1 || grupos[0][0] !== '__ungrouped__';
+
+  lista(blocos, grupos, {
+    chave: ([stack]) => stack,
+    criar: () => deMolde(MOLDE_BLOCO),
+    atualizar: (bloco, [stack, ctrs]) => {
+      const cabeca = bloco.querySelector('.stack-header');
+      const mostraCabeca = comCabeca && stack !== '__ungrouped__';
+      mostrar(cabeca, mostraCabeca);
+      if (mostraCabeca) {
+        texto(cabeca.querySelector('.stack-name'), stack);
+        texto(cabeca.querySelector('.stack-count'),
+          `${ctrs.filter(c => c.State === 'running').length}/${ctrs.length}`);
+      }
+      lista(bloco.querySelector('.stack-group'), ctrs, {
+        chave: (c) => ((c.Names && c.Names[0]) || c.Id || '').replace(/^\//, ''),
+        criar: () => deMolde(MOLDE_ITEM),
+        atualizar: (el, c) => pintarItem(el, c, selId),
+      });
+    },
   });
 }
 

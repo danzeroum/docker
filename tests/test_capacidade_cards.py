@@ -34,7 +34,9 @@ def test_storage_mostra_o_total_recuperavel(pintado):
     assert html, "o cartao de storage nao pintou nada"
     assert "skeleton" not in html, "ficou no esqueleto de carregamento"
     assert "6.0 GB" in html, "o total recuperavel nao apareceu formatado"
-    assert "recuper&aacute;veis" in html
+    # O texto vai por `textContent` desde o doc 13, entao chega ja decodificado:
+    # o que se confere e a palavra que o operador le, nao a entidade HTML.
+    assert "recuperáveis" in html
 
 
 def test_storage_lista_os_tres_tipos_de_orfao(pintado):
@@ -112,7 +114,7 @@ def test_score_rotula_a_pior_severidade_de_cada_container(pintado):
 def test_score_resume_violacoes_por_severidade(pintado):
     html = pintado["cheio_security"]
     assert "1/3 conformes" in html
-    assert "cr&iacute;t" in html
+    assert "crít" in html
 
 
 def test_score_explica_a_ponderacao(pintado):

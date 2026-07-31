@@ -61,6 +61,11 @@ export default {
 
   render: (escopo, dados, corpo) => {
     let vivo = true;
+    // `carregou` guarda a diferença entre "ainda não sei" e "sei e vou reler".
+    // O skeleton pertence ao primeiro estado e só a ele: apagar um cartão já
+    // preenchido a cada leitura é o que fazia o cockpit parecer reiniciar
+    // sozinho (doc 13 §3).
+    let carregou = false;
     const cap = ((dados && dados.overview && dados.overview.summary) || {}).capabilities || {};
     const podeAgir = !!(cap.actions_enabled && temUnlock());
 
@@ -145,14 +150,28 @@ export default {
       const { data, error } = await apiGet('mod_storage', '/api/storage');
       if (!vivo) return;
       if (error || !data) {
-        // Degrada o cartão, não a tela; e diz o que houve, não zero.
-        corpo.innerHTML = `<div class="empty">${escapeHtml(error || 'Sem leitura de storage')}</div>`;
+        // Degrada o cartão, não a tela; e diz o que houve, não zero. Mas só na
+        // primeira: com um total já na tela, uma leitura que falhou não apaga
+        // o número que ainda é o melhor que se sabe.
+        if (!carregou) {
+          corpo.innerHTML = `<div class="empty">${escapeHtml(error || 'Sem leitura de storage')}</div>`;
+        }
         return;
       }
+      carregou = true;
       pintarLista(data);
     }
 
     carregar();
-    return () => { vivo = false; };
+    return {
+      /* Só relê quando o cartão está na lista. Durante o dry-run e a
+       * confirmação o corpo é OUTRA coisa — a lista do prune que o operador
+       * está lendo para decidir. Repintar por cima disso seria apagar a
+       * pergunta debaixo da resposta. */
+      atualizar: () => {
+        if (carregou && !corpo.querySelector('.stg-confirma')) carregar();
+      },
+      dispose: () => { vivo = false; },
+    };
   },
 };

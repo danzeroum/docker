@@ -1,5 +1,20 @@
 import { apiGet } from '../data.js';
 import { escapeHtml } from '../fmt.js';
+import { assinar, TICK_MS } from '../kernel/relogio.js';
+import { redesenharSeMudou } from '../kernel/patch.js';
+
+/* Doc 13: nenhuma reconstrução de árvore por leitura.
+ *
+ * Esta tela ainda desenha por `innerHTML`, e a razão é de escopo, não de
+ * princípio: ela está fora de todo preset padrão (decisão do doc 14), então só
+ * aparece se o operador a acrescentar pelo Personalizar. Converter as suas
+ * listas para patch por linha é trabalho registrado no doc 13 §pendências.
+ *
+ * O que ela já não faz é redesenhar SEM MOTIVO: `casca` compara a assinatura do
+ * payload e só reescreve quando o dado mudou de fato. Numa tela de leitura,
+ * que muda por deploy e não por minuto, isso é o caso comum — e o rebuild
+ * deixa de acontecer a cada 30s por nada.
+ */
 
 let _disposed = false;
 
@@ -25,7 +40,7 @@ export function renderBackend(container) {
       if (b) b.innerHTML = '<div class="empty">Erro ao carregar dados do backend</div>';
       return;
     }
-    renderBody(data);
+    redesenharSeMudou(el('beBody'), data, () => renderBody(data));
   }
 
   function renderBody(d) {
@@ -92,10 +107,12 @@ export function renderBackend(container) {
   }
 
   fetchData();
-  pollTimer = setInterval(fetchData, 30000);
+  // 30s = 6 ticks do relogio compartilhado (doc 13 §4).
+  pollTimer = assinar(fetchData, 6 * TICK_MS);
 
   return () => {
     _disposed = true;
-    if (pollTimer) clearInterval(pollTimer);
+    if (typeof pollTimer === 'function') pollTimer();
+    pollTimer = null;
   };
 }

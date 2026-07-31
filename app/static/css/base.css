@@ -1,5 +1,12 @@
 :root{}
 *{box-sizing:border-box}
+/* `hidden` é como o JS esconde e revela desde o doc 13 — sempre o mesmo nó,
+   nunca um nó recriado. A regra do navegador para `[hidden]` é `display:block`
+   com prioridade de folha do usuário, então QUALQUER classe que declare
+   `display:flex` a vence em silêncio: o nó fica marcado como escondido e
+   continua na tela. `!important` aqui é o que faz o atributo significar o que
+   diz, e é a única razão para ele existir neste arquivo. */
+[hidden]{display:none !important}
 html,body{
   margin:0;padding:0;background:var(--bg);color:var(--text);
   font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased;

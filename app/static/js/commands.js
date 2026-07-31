@@ -1,4 +1,5 @@
 import { getState, setState } from './store.js';
+import { assinar, TICK_MS } from './kernel/relogio.js';
 
 export function initCommandPalette(extraCommands = []) {
   const commands = [
@@ -33,7 +34,10 @@ export function initCommandPalette(extraCommands = []) {
   }
 
   fetchSearchData();
-  setInterval(fetchSearchData, 60000);
+  // 60s = 12 ticks. Era o sexto `setInterval` do cockpit, e o unico que nunca
+  // pausava com a aba oculta: a paleta recarregava tres fontes a cada minuto
+  // para uma aba que ninguem estava olhando.
+  assinar(fetchSearchData, 12 * TICK_MS);
 
   function containerName(c) {
     return (c.Names && c.Names[0] || c.name || '').replace(/^\//, '');
