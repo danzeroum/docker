@@ -3,8 +3,9 @@ import asyncio
 import html
 import mimetypes
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from datetime import datetime, timezone
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -254,6 +255,56 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 @app.get("/", include_in_schema=False)
 async def root():
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+
+
+@app.get("/robots.txt", include_in_schema=False)
+async def robots():
+    """`Disallow: /` — e nao um sitemap.
+
+    A regua lista sitemap OU robots como sinal de "encontrabilidade". Para este
+    alvo a resposta certa e o oposto de encontrabilidade: e um painel de operacao
+    atras de autenticacao, e cada URL indexada seria um mapa da infraestrutura de
+    alguem entregue a um buscador.
+
+    Sem robots.txt o crawler nao para de rastejar — ele so nao recebe instrucao,
+    e o comportamento fica por conta do fabricante. Declarar `Disallow` e a
+    escolha, e ela vale mesmo com a autenticacao na frente: um 401 tambem entra
+    em indice, com URL e titulo.
+    """
+    return PlainTextResponse("User-agent: *\nDisallow: /\n")
+
+
+# `Contact:` e o unico campo OBRIGATORIO do RFC 9116, e ele so vale se for
+# alcancavel. Por isso vem de ambiente e nao tem valor de fabrica: um contato
+# inventado transforma o arquivo no oposto do que ele promete — quem achar uma
+# falha escreve para um endereco que nao existe e conclui que avisou.
+#
+# Sem `SECURITY_CONTACT` a rota responde 404, que e a verdade (nao ha canal
+# declarado), em vez de publicar um endereco de mentira.
+SECURITY_CONTACT = os.getenv("SECURITY_CONTACT", "").strip()
+SECURITY_EXPIRES_DIAS = int(os.getenv("SECURITY_EXPIRES_DIAS", "365"))
+
+
+@app.get("/.well-known/security.txt", include_in_schema=False)
+async def security_txt():
+    """Canal publico de reporte de vulnerabilidade (RFC 9116).
+
+    Encurta o tempo entre alguem descobrir uma falha e alguem poder corrigi-la —
+    e apoia o dever de comunicar incidente (LGPD Art. 48), que so se cumpre se
+    houver por onde o aviso chegar.
+    """
+    if not SECURITY_CONTACT:
+        raise HTTPException(status_code=404)
+    from datetime import timedelta
+    # `Expires` e obrigatorio desde o RFC 9116 §2.5.5: um security.txt sem prazo
+    # envelhece em silencio, e um canal que nao existe mais e pior que nenhum.
+    expira = (datetime.now(timezone.utc) + timedelta(days=SECURITY_EXPIRES_DIAS))
+    corpo = (
+        f"Contact: {SECURITY_CONTACT}\n"
+        f"Expires: {expira.strftime('%Y-%m-%dT%H:%M:%SZ')}\n"
+        "Preferred-Languages: pt-BR, en\n"
+    )
+    return PlainTextResponse(corpo)
 
 
 @app.get("/sw.js", include_in_schema=False)
