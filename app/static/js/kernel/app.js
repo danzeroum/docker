@@ -20,6 +20,7 @@ import { deHash, mesmo, paraHash, rotulo, tipoDeCockpit, host, stack, container 
 import { carregar, reconciliar, alternarOculto } from './layout.js';
 import {
   montarRegua, pintarRegua, pintarFaixaCritica, marcarLeitura, pausarVivo,
+  informarIdadeDaAmostra,
 } from './regua.js';
 import { pintarCockpit, desmontar } from './cockpit.js';
 import { abrir as abrirPz, alternar as alternarPz, aberto as pzAberto, pintarPainel } from './personalizar.js';
@@ -164,6 +165,10 @@ async function buscar() {
   ]);
   if (!ov.error && ov.data) _dados.overview = ov.data;
   if (!fd.error && Array.isArray(fd.data)) _dados.findings = fd.data;
+  /* A idade da amostra vem no mesmo pacote e é entregue à régua aqui, junto do
+   * dado. Fora deste ponto ela seria um palpite: `stats_as_of` só vale contra o
+   * instante em que a resposta chegou. */
+  informarIdadeDaAmostra(_dados.overview);
   // A varredura da pílula reinicia AQUI, com o dado na mão: é o único instante
   // em que ela é verdade. Reiniciar no disparo do relógio anunciaria leitura
   // antes de haver leitura.

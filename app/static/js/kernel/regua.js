@@ -126,13 +126,76 @@ export function pausarVivo(pausado, motivo) {
   const semRede = pausado && motivo === 'rede';
   classe(pilula, 'rg-pausado', !!pausado);
   classe(pilula, 'rg-sem-rede', !!semRede);
-  texto(pilula.querySelector('[data-vivo-rot]'),
-    semRede ? 'sem rede' : (pausado ? 'pausado' : 'ao vivo'));
-  atributo(pilula, 'title', semRede
-    ? 'sem conexão com o servidor — o que está na tela é a última leitura, e pode estar velho'
-    : (pausado
-      ? 'leitura pausada — volta ao soltar, ou ao voltar para esta aba'
-      : 'lendo do daemon a cada ciclo'));
+  _pausado = !!pausado;
+  if (semRede) {
+    classe(pilula, 'rg-atrasado', false);
+    texto(pilula.querySelector('[data-vivo-rot]'), 'sem rede');
+    atributo(pilula, 'title',
+      'sem conexão com o servidor — o que está na tela é a última leitura, e pode estar velho');
+    return;
+  }
+  if (pausado) {
+    classe(pilula, 'rg-atrasado', false);
+    texto(pilula.querySelector('[data-vivo-rot]'), 'pausado');
+    atributo(pilula, 'title', 'leitura pausada — volta ao soltar, ou ao voltar para esta aba');
+    return;
+  }
+  _pintarIdade(pilula);
+}
+
+/* --- idade da amostra ------------------------------------------------------
+ *
+ * A pílula dizia "ao vivo" o tempo todo, e medido na bancada os números de
+ * CPU/memória tinham entre 10 e 37 segundos. O dado para desmentir isso já
+ * viajava em `/api/overview` (`stats_as_of`) e o front simplesmente não o lia.
+ *
+ * A causa não é lentidão de ninguém: `/stats?stream=false` custa ~2s por
+ * container porque o daemon amostra duas vezes para calcular delta de CPU, e o
+ * ciclo é `n_containers × 2s / concorrência`. Com 42 containers dá ~24s. Isso é
+ * o ritmo POSSÍVEL, e um painel honesto o mostra em vez de fingir tempo real.
+ *
+ * O limiar não é cravado aqui: o servidor manda `stats_ciclo_s` (o que a última
+ * coleta levou) junto de `stats_intervalo_alvo_s`. "Atrasado" é ficar acima do
+ * que o próprio servidor conseguiu, com uma folga de meio ciclo — sem isso a
+ * pílula piscaria "atrasado" a cada volta normal do laço.
+ */
+let _idade = null;
+let _pausado = false;
+
+export function informarIdadeDaAmostra(dados) {
+  const d = dados || {};
+  if (!d.stats_as_of) {
+    _idade = null;
+    return;
+  }
+  const t = Date.parse(d.stats_as_of);
+  if (Number.isNaN(t)) {
+    _idade = null;
+    return;
+  }
+  const ciclo = Number(d.stats_ciclo_s) || Number(d.stats_intervalo_alvo_s) || 10;
+  _idade = { segundos: Math.max(0, Math.round((Date.now() - t) / 1000)), ciclo };
+  const pilula = document.querySelector('[data-vivo]');
+  if (pilula && !_pausado) _pintarIdade(pilula);
+}
+
+function _pintarIdade(pilula) {
+  const rot = pilula.querySelector('[data-vivo-rot]');
+  if (!_idade) {
+    classe(pilula, 'rg-atrasado', false);
+    texto(rot, 'ao vivo');
+    atributo(pilula, 'title', 'lendo do daemon a cada ciclo');
+    return;
+  }
+  const { segundos, ciclo } = _idade;
+  const atrasado = segundos > ciclo * 1.5;
+  classe(pilula, 'rg-atrasado', atrasado);
+  texto(rot, atrasado ? `há ${segundos}s` : 'ao vivo');
+  atributo(pilula, 'title', atrasado
+    ? `os números têm ${segundos}s — a coleta completa leva ${Math.round(ciclo)}s neste host. `
+      + 'A API do daemon amostra duas vezes por container para calcular CPU; '
+      + 'SAMPLER_STATS_CONCURRENCY encurta o ciclo às custas de mais carga nele.'
+    : `lendo do daemon a cada ciclo (última amostra há ${segundos}s)`);
 }
 
 /* --- vitais e chips ------------------------------------------------------- */
