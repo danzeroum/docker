@@ -299,3 +299,79 @@ def test_caminho_ecoado_no_404_e_escapado():
     """O caminho vem do visitante e e impresso na pagina."""
     fonte = (RAIZ / "app" / "app.py").read_text()
     assert "html.escape(request.url.path)" in fonte
+
+
+# ---------------------------------------------------------------------------
+# fontes proprias e bundle de producao
+# ---------------------------------------------------------------------------
+
+FONTES = RAIZ / "app" / "static" / "assets" / "fonts"
+
+
+def test_nenhuma_referencia_a_cdn_de_fonte():
+    """Cada visitante entregava IP e User-Agent ao Google, sem escolha (LGPD Art. 5 I).
+
+    E o <link> do CDN e BLOQUEANTE: com o host inacessivel, medimos 13 s ate o
+    primeiro pixel. Auto-hospedar resolve privacidade, disponibilidade e velocidade.
+    """
+    for arquivo in [HTML] + list(CSS.glob("*.css")):
+        texto = arquivo.read_text()
+        assert "fonts.googleapis.com" not in texto, f"{arquivo.name} volta a chamar o CDN"
+        assert "fonts.gstatic.com" not in texto, f"{arquivo.name} volta a chamar o CDN"
+
+
+def test_fontes_estao_no_disco_com_licenca():
+    arquivos = sorted(p.name for p in FONTES.glob("*.woff2"))
+    assert arquivos, "as fontes auto-hospedadas sumiram"
+    assert (FONTES / "OFL.txt").exists(), "SIL OFL exige distribuir a licenca junto"
+
+
+def test_fontes_sao_variaveis_e_sem_duplicata():
+    """Um arquivo por familia/subconjunto cobre TODOS os pesos.
+
+    O CSS do Google devolvia 18 blocos para os pesos usados, apontando para 4
+    arquivos — os mesmos bytes repetidos. Baixar os 18 seriam 907 KB; sao 172.
+    """
+    import hashlib
+    hashes = {hashlib.sha256(p.read_bytes()).hexdigest() for p in FONTES.glob("*.woff2")}
+    assert len(hashes) == len(list(FONTES.glob("*.woff2"))), "ha arquivos de fonte duplicados"
+    css = (CSS / "fontes.css").read_text()
+    # `^@font-face` ancorado: a palavra tambem aparece no comentario do cabecalho.
+    blocos = re.findall(r"^@font-face\s*\{", css, re.M)
+    assert len(blocos) == 4, f"esperado 4 blocos (2 familias x 2 subconjuntos), achei {len(blocos)}"
+    assert "font-weight: 300 800" in css, "Inter deve declarar faixa de peso (fonte variavel)"
+
+
+def test_unicode_range_evita_baixar_o_que_nao_se_usa():
+    """Sem unicode-range o navegador baixaria latin-ext sempre, dobrando o peso."""
+    assert "unicode-range" in (CSS / "fontes.css").read_text()
+
+
+def test_imagem_empacota_o_js_e_o_repositorio_nao():
+    """49 modulos ES em cascata viram 1 requisicao; 384 KB viram 132 KB.
+
+    O REPOSITORIO segue sem build: index.html aponta para main.js e rodar do
+    codigo-fonte funciona. E a IMAGEM que recebe o bundle e o <script> reescrito.
+    """
+    dockerfile = (RAIZ / "app" / "Dockerfile").read_text()
+    assert "esbuild" in dockerfile and "--minify" in dockerfile
+    assert "main.bundle.js" in dockerfile
+    assert 'src="/static/js/main.js"' in HTML.read_text(), \
+        "o repositorio nao deve apontar para o bundle — quem reescreve e o build"
+
+
+def test_build_falha_alto_se_o_bundle_nao_sair():
+    """App servindo <script> para arquivo inexistente sobe EM BRANCO, sem erro no
+    servidor. A trava tem de estar no build, nao na primeira visita."""
+    dockerfile = (RAIZ / "app" / "Dockerfile").read_text()
+    assert "test -s static/js/main.bundle.js" in dockerfile
+    assert "grep -q 'main\\.bundle\\.js' static/index.html" in dockerfile
+
+
+def test_service_worker_conhece_bundle_e_fontes():
+    """Sem estar no cache, offline a interface fica em branco — divida ja paga uma vez."""
+    sw = (RAIZ / "app" / "static" / "js").parent.joinpath("sw.js").read_text()
+    assert "/static/js/main.bundle.js" in sw
+    assert "/static/css/fontes.css" in sw
+    assert "inter-latin.woff2" in sw
+    assert "cockpit-v4" in sw, "trocar assets sem virar a versao do cache serve o antigo"

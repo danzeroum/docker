@@ -4,3 +4,7 @@ nginx/.htpasswd
 __pycache__/
 *.pyc
 app/config/servicos.json
+
+# Bundle gerado no build da imagem (app/Dockerfile), nunca versionado:
+# o repositorio serve os modulos, a imagem serve o bundle.
+app/static/js/main.bundle.js
