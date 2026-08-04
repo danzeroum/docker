@@ -1,0 +1,68 @@
+/* Fontes auto-hospedadas.
+ *
+ * Antes, o painel carregava Inter e JetBrains Mono do CDN do Google. Isso custava três
+ * coisas ao mesmo tempo, e por isso foram trazidas para cá:
+ *
+ *   PRIVACIDADE — cada visitante entregava IP e User-Agent ao Google, sem escolha
+ *   (LGPD Art. 5º I; houve condenação nesse cenário no LG München, 2022). O tratamento
+ *   some quando o arquivo é servido do próprio domínio.
+ *
+ *   DISPONIBILIDADE — o <link> do CDN é BLOQUEANTE de renderização. Se o Google estiver
+ *   lento, bloqueado por firewall corporativo ou inacessível na rede do visitante, o
+ *   painel fica em branco até o timeout. Medido num ambiente sem acesso ao CDN: 13
+ *   segundos até o primeiro pixel.
+ *
+ *   VELOCIDADE — some o preconnect, some a resolução de DNS de dois domínios externos,
+ *   e a fonte passa a vir da mesma conexão HTTP/2 que já está aberta.
+ *
+ * SÃO FONTES VARIÁVEIS: um arquivo por família e subconjunto cobre TODOS os pesos.
+ * O CSS do Google devolvia 18 blocos @font-face para os pesos que usamos, e os 18
+ * apontavam para 4 arquivos — os mesmos bytes repetidos. Aqui são 4 blocos e 4
+ * arquivos (172 KB no total, contra os 907 KB que a leitura ingênua baixaria).
+ *
+ * Os subconjuntos são latin e latin-ext. Cirílico, grego e vietnamita ficaram de fora:
+ * a interface é em português, e `unicode-range` faz o navegador só baixar o arquivo se
+ * a página realmente usar aqueles caracteres — declarar o que não se usa é peso morto.
+ *
+ * font-display: swap — o texto aparece na fonte do sistema e troca quando a Web Font
+ * chega. Sem isso, texto invisível durante o carregamento.
+ *
+ * Licença: SIL Open Font License 1.1 para as duas famílias. Ver assets/fonts/OFL.txt.
+ */
+
+/* latin-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 300 800;
+  font-display: swap;
+  src: url(/static/assets/fonts/inter-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 300 800;
+  font-display: swap;
+  src: url(/static/assets/fonts/inter-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url(/static/assets/fonts/jetbrains-mono-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url(/static/assets/fonts/jetbrains-mono-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}

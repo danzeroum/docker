@@ -1,9 +1,14 @@
-const CACHE_NAME = 'cockpit-v3';
+const CACHE_NAME = 'cockpit-v4';
 const STATIC_ASSETS = [
   '/static/index.html',
   '/static/css/base.css',
   '/static/css/themes.css',
   '/static/css/components.css',
+  '/static/css/fontes.css',
+  // A IMAGEM serve o bundle (ver app/Dockerfile); o repositório serve os módulos.
+  // Os dois entram na lista: `cache.add` tem catch por URL, então o que não existir
+  // naquele ambiente falha sozinho, sem derrubar a instalação do service worker.
+  '/static/js/main.bundle.js',
   '/static/js/fmt.js',
   '/static/js/store.js',
   '/static/js/data.js',
@@ -53,6 +58,11 @@ const STATIC_ASSETS = [
   '/static/js/screens/topologia.js',
   '/static/manifest.json',
   '/static/assets/icon.svg',
+  // Fontes auto-hospedadas: sem elas no cache, offline cai para a fonte do sistema.
+  '/static/assets/fonts/inter-latin.woff2',
+  '/static/assets/fonts/inter-latin-ext.woff2',
+  '/static/assets/fonts/jetbrains-mono-latin.woff2',
+  '/static/assets/fonts/jetbrains-mono-latin-ext.woff2',
 ];
 
 self.addEventListener('install', (event) => {
