@@ -258,3 +258,44 @@ def test_caminho_de_mudanca_marca_sincrono():
     fonte = (JS / "kernel" / "cockpit.js").read_text()
     assert "marcarRolaveis()" in fonte, "a repintura da grade nao marca de imediato"
     assert "agendarMarcacao()" in fonte, "o caminho da leitura nao marca"
+
+
+# ---------------------------------------------------------------------------
+# icone da aba e pagina 404 com saida
+# ---------------------------------------------------------------------------
+
+def test_html_declara_o_icone_da_aba():
+    """O icone ja existia, declarado so no manifest — que serve para INSTALAR a app,
+    nao para pintar a aba. Sem o <link>, o navegador pedia /favicon.ico e levava 404."""
+    html_txt = HTML.read_text()
+    assert re.search(r'<link rel="icon"[^>]*href="[^"]+"', html_txt), "sem <link rel=icon>"
+    icone = RAIZ / "app" / "static" / "assets" / "icon.svg"
+    assert icone.exists(), "o icone declarado nao existe no disco"
+
+
+def test_favicon_ico_e_servido():
+    """O navegador pede /favicon.ico por conta propria, independente do <link>."""
+    fonte = (RAIZ / "app" / "app.py").read_text()
+    assert '@app.get("/favicon.ico"' in fonte
+    assert 'media_type="image/svg+xml"' in fonte, "sem content-type, o navegador ignora"
+
+
+def test_pagina_404_tem_rota_de_volta():
+    """404 sem link de saida e beco: quem digitou errado fica sem caminho."""
+    fonte = (RAIZ / "app" / "app.py").read_text()
+    assert 'href="/"' in fonte, "a pagina de erro nao oferece volta ao cockpit"
+    assert "@app.exception_handler(404)" in fonte
+
+
+def test_404_de_api_continua_json():
+    """HTML so serve para quem NAVEGA. O front le `detail` para mostrar o erro na
+    tela — trocar por HTML aqui quebraria o proprio cockpit."""
+    fonte = (RAIZ / "app" / "app.py").read_text()
+    assert 'startswith("/api/")' in fonte, "o tratador nao ramifica por caminho"
+    assert "JSONResponse" in fonte
+
+
+def test_caminho_ecoado_no_404_e_escapado():
+    """O caminho vem do visitante e e impresso na pagina."""
+    fonte = (RAIZ / "app" / "app.py").read_text()
+    assert "html.escape(request.url.path)" in fonte
