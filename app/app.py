@@ -1,8 +1,9 @@
 import os
 import asyncio
+import html
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -189,6 +190,67 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 @app.get("/", include_in_schema=False)
 async def root():
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    """O navegador pede /favicon.ico por conta propria, independente do <link>.
+
+    Servimos o mesmo SVG que o manifest ja declarava, com o content-type certo: o
+    navegador segue o tipo declarado, nao a extensao da URL. Melhor um icone servido
+    num caminho de nome historico do que um 404 em toda carga de pagina.
+    """
+    return FileResponse(
+        os.path.join(STATIC_DIR, "assets", "icon.svg"),
+        media_type="image/svg+xml",
+    )
+
+
+# ---------- erro 404 ----------
+# Um 404 sem saida e um beco: quem digitou errado, ou seguiu link velho, fica sem
+# rota de volta. Mas HTML so serve para quem NAVEGA — cliente de API que pede
+# /api/containers/inexistente precisa do JSON de sempre, com o detalhe que a rota
+# levantou. Por isso o tratador ramifica pelo caminho em vez de devolver o mesmo
+# corpo para os dois; trocar o JSON por HTML aqui quebraria o front do proprio
+# cockpit, que le `detail` para mostrar o erro na tela.
+_PAGINA_404 = """<!DOCTYPE html>
+<html lang="pt-BR" data-tema="cockpit">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Página não encontrada — Cockpit Docker</title>
+<link rel="icon" type="image/svg+xml" href="/static/assets/icon.svg">
+<link rel="stylesheet" href="/static/css/base.css">
+<link rel="stylesheet" href="/static/css/themes.css">
+<style>
+  .erro-404{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:1rem;padding:2rem;text-align:center;
+    background:var(--bg);color:var(--text)}
+  .erro-404 h1{font-size:1.4rem;margin:0}
+  .erro-404 p{color:var(--text-mute);margin:0;max-width:38rem;line-height:1.6}
+  .erro-404 a{color:var(--accent);font-weight:600}
+</style>
+</head>
+<body>
+<main class="erro-404">
+  <h1>Esta página não existe</h1>
+  <p>O endereço <code>__CAMINHO__</code> não corresponde a nenhuma tela do cockpit.
+     Pode ter sido digitado errado, ou ser um link antigo.</p>
+  <p><a href="/">Voltar para o cockpit</a></p>
+</main>
+</body>
+</html>
+"""
+
+
+@app.exception_handler(404)
+async def nao_encontrado(request: Request, exc):
+    if request.url.path.startswith("/api/"):
+        detalhe = getattr(exc, "detail", None) or "Not Found"
+        return JSONResponse({"detail": detalhe}, status_code=404)
+    # escape: o caminho vem do visitante e e ecoado na pagina.
+    caminho = html.escape(request.url.path)[:200]
+    return HTMLResponse(_PAGINA_404.replace("__CAMINHO__", caminho), status_code=404)
 
 
 # ---------- routers ----------
