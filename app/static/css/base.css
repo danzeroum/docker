@@ -19,6 +19,30 @@ html,body{
 .content{flex:1;overflow-y:auto;padding:1.5rem}
 .content::-webkit-scrollbar{width:8px}
 .content::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:4px}
+
+/* A área rolável da grade de módulos.
+ *
+ * `.main` é `height:100vh; overflow:hidden` — o painel é uma tela cheia, sem
+ * rolagem de documento, e cada faixa rola por dentro de si. Quando o kernel
+ * assumiu a área de tela, `#screenContainer` entrou como filho direto de
+ * `.main` e nunca recebeu porta de rolagem própria: a `.content` acima, que
+ * existia para isso, ficou sem quem a usasse.
+ *
+ * O efeito medido, com 28 containers e o preset padrão: 3796px de grade dentro
+ * de uma caixa de 1000px que não rola. 2796px — quase três telas de módulos —
+ * inalcançáveis por roda do mouse, por `End`, por `PageDown` e por barra de
+ * rolagem, porque `overflow:hidden` não oferece nenhum dos quatro. Sem erro
+ * nenhum: os módulos estavam montados, com dado, do lado de fora da janela.
+ *
+ * `min-height:0` não é decoração: sem ele um filho flex se recusa a encolher
+ * abaixo do próprio conteúdo, `flex:1` não limita nada e a caixa volta a
+ * transbordar — a rolagem some de novo, e de um jeito difícil de enxergar.
+ *
+ * O padding fica na `.grade` (components.css), que já o tem; repeti-lo aqui
+ * empurraria a barra de rolagem para dentro da moldura. */
+#screenContainer{flex:1;min-height:0;overflow-y:auto}
+#screenContainer::-webkit-scrollbar{width:8px}
+#screenContainer::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:4px}
 .container-list{flex:1;overflow-y:auto;padding:.5rem}
 .container-list::-webkit-scrollbar{width:6px}
 .container-list::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:3px}

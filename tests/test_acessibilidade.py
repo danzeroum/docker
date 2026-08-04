@@ -172,9 +172,15 @@ def test_modal_fecha_com_escape():
 
 def test_rail_navegavel_por_teclado():
     html = HTML.read_text()
-    assert 'aria-current="page"' in html
-    itens = re.findall(r'<a href="#/[^"]*" class="rail-item"', html)
+    itens = re.findall(r'<a href="#[^"]*" class="rail-item"', html)
     assert itens, "rail deixou de usar <a href> para navegacao"
+    # A marca de pagina atual saiu do HTML: era um `aria-current="page"` fixo no
+    # primeiro item, que ninguem movia. Fixa, ela nunca acompanhava a rota —
+    # anunciava "Visao Geral, pagina atual" dentro de qualquer outro modulo, o
+    # que e pior que a ausencia do atributo, porque afirma o errado. Quem a move
+    # agora e `marcarRail()`; o comportamento e cobrado em test_rotas_rail.py.
+    assert "function marcarRail" in (JS / "main.js").read_text(), (
+        "sem marcarRail o rail volta a nao dizer onde o visitante esta")
 
 
 # ---------------------------------------------------------------------------
@@ -185,6 +191,32 @@ def test_rail_navegavel_por_teclado():
 # navega por teclado. axe apontou 3 regioes assim (#mod-ingress, .ingress-layout,
 # [data-stg-lista]). Como diz o cabecalho deste arquivo, ordem de foco real exige
 # navegador — o que se trava aqui e a ESTRUTURA da solucao.
+
+def test_grade_de_modulos_tem_area_rolavel():
+    """A grade precisa de porta de rolagem PROPRIA, e nao ganhou uma quando o
+    kernel assumiu a area de tela.
+
+    `.main` e `height:100vh; overflow:hidden` — o painel e tela cheia, sem
+    rolagem de documento. `#screenContainer` entrou como filho direto dela e
+    ficou sem `overflow-y`. Medido com 28 containers no preset padrao: 3796px de
+    grade dentro de 1000px que nao rolavam. 2796px de modulos — quase tres telas,
+    montados e com dado — inalcancaveis por roda do mouse, `End`, `PageDown` e
+    barra de rolagem, porque `overflow:hidden` nao oferece nenhum dos quatro.
+    Pior no escopo de container: a subtela caia em `top: 3934` com ALTURA ZERO.
+
+    Isto e WCAG 2.1.1 pela raiz — conteudo que nem por teclado nem por ponteiro
+    se alcanca — e por isso mora nesta secao.
+    """
+    css = (CSS / "base.css").read_text().replace(" ", "")
+    regra = re.search(r"#screenContainer\{([^}]*)\}", css)
+    assert regra, "#screenContainer perdeu a regra de area rolavel"
+    corpo = regra.group(1)
+    assert "overflow-y:auto" in corpo, "a grade voltou a nao rolar"
+    assert "flex:1" in corpo, "sem flex:1 a grade nao ocupa a altura da area util"
+    # Sem `min-height:0` um filho flex se recusa a encolher abaixo do conteudo:
+    # `flex:1` deixa de limitar, a caixa transborda e a rolagem some de novo.
+    assert "min-height:0" in corpo, "sem min-height:0 o flex volta a transbordar"
+
 
 def test_utilitario_de_rolagem_existe():
     fonte = (JS / "kernel" / "rolagem.js").read_text()

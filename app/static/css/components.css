@@ -386,7 +386,6 @@
 .atn-reco{font-size:.72rem;color:var(--accent);font-style:italic}
 
 /* Rail badge */
-.rail-badge{font-size:.6rem;font-weight:700;padding:.1rem .35rem;border-radius:4px;background:var(--bad);color:#fff;margin-left:auto;min-width:18px;text-align:center}
 
 /* Ingress & TLS screen */
 .ingress-layout{display:flex;flex-direction:column;height:100%;gap:1rem;padding:1rem}
@@ -987,10 +986,6 @@
 .filter-pill.sev-critical{border-color:var(--bad)}
 .filter-pill.sev-high{border-color:var(--warn)}
 .filter-pill.sev-medium{border-color:var(--accent)}
-.rail-badge.sev-critical{background:var(--bad)}
-.rail-badge.sev-high{background:var(--warn)}
-.rail-badge.sev-medium{background:var(--accent)}
-.rail-badge.sev-low{background:var(--text-mute)}
 
 .atn-filtros{display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap}
 .atn-acoes{margin-top:.5rem;display:flex;gap:.35rem}

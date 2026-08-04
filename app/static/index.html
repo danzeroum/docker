@@ -32,56 +32,64 @@
     </div>
 
     <nav class="rail" aria-label="Navegação principal">
-      <a href="#/overview" class="rail-item" aria-current="page" data-screen="overview">
+      <!-- `#/` e não `#/overview`: `#/` É a hash canônica do cockpit do host
+           (`escopo.js::paraHash`), a mesma que o kernel escreve ao voltar da
+           subtela. Com um apelido aqui, o item nunca casava com a hash que o
+           próprio painel produz, e a marca de "você está aqui" mentia. O
+           `aria-current` inicial saiu junto: quem o move agora é `marcarRail()`,
+           e um atributo fixo no HTML só teria a chance de estar errado. -->
+      <a href="#/" class="rail-item">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
         <span>Visão Geral</span>
       </a>
-      <a href="#/plantao" class="rail-item" data-screen="plantao">
+      <a href="#/plantao" class="rail-item">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         <span>Plantão</span>
       </a>
-      <a href="#/incidente" class="rail-item" data-screen="incidente">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        <span>Incidente</span>
-        <span class="rail-badge" id="findingsBadge" hidden>0</span>
-      </a>
-      <a href="#/auditoria" class="rail-item" data-screen="auditoria">
+      <!-- "Incidente" e "Dossiê" saíram daqui: eram os dois únicos itens do rail
+           sem módulo correspondente no registro (`static/js/modulos/`). Vinham da
+           arquitetura de telas anterior e nunca ganharam contrapartida — com o
+           roteador ligado, continuariam sendo os dois cliques que não levam a
+           lugar nenhum. Link para o que não existe não é navegação, é armadilha.
+
+           O selo de achados abertos morava dentro de "Incidente". A contagem não
+           se perdeu: o chip `Atenção` da régua traz "N crít +M" com o total no
+           title, e a faixa crítica anuncia o achado mais grave em banner — as
+           duas mais informativas que o número solto que havia aqui. -->
+      <a href="#/auditoria" class="rail-item">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
         <span>Auditoria</span>
       </a>
-      <a href="#/dossie" class="rail-item" data-screen="dossie">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-        <span>Dossiê</span>
-      </a>
-      <a href="#/logs" class="rail-item" data-screen="logs">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-        <span>Logs</span>
-      </a>
-      <a href="#/ingress" class="rail-item" data-screen="ingress">
+      <!-- "Logs" saiu pelo mesmo motivo, descoberto ao MEDIR o rail já consertado:
+           o módulo existe, mas declara `escopos: ['stack','container']` — não há
+           caixa de logs no cockpit do host, e o item era um terceiro clique sem
+           destino. Log se lê dentro de um container ou de uma stack; o caminho é
+           a lista lateral, ou a busca do índice dentro daquele cockpit. -->
+      <a href="#/ingress" class="rail-item">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
         <span>Ingress &amp; TLS</span>
       </a>
-      <a href="#/topologia" class="rail-item" data-screen="topologia">
+      <a href="#/topologia" class="rail-item">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="5" r="2"/><circle cx="19" cy="19" r="2"/><circle cx="5" cy="19" r="2"/><line x1="12" y1="9" x2="17" y2="7"/><line x1="12" y1="15" x2="17" y2="17"/><line x1="7" y1="7" x2="5" y2="5"/><line x1="7" y1="17" x2="5" y2="19"/></svg>
         <span>Topologia</span>
       </a>
-      <a href="#/backend" class="rail-item" data-screen="backend">
+      <a href="#/backend" class="rail-item">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
         <span>Backend</span>
       </a>
-      <a href="#/projetos" class="rail-item" data-screen="projetos">
+      <a href="#/projetos" class="rail-item">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
         <span>Projetos</span>
       </a>
-      <a href="#/capacidade" class="rail-item" data-screen="capacidade">
+      <a href="#/capacidade" class="rail-item">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
         <span>Capacidade</span>
       </a>
-      <a href="#/tarefas" class="rail-item" data-screen="tarefas">
+      <a href="#/tarefas" class="rail-item">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         <span>Tarefas</span>
       </a>
-      <a href="#/executivo" class="rail-item" data-screen="executivo">
+      <a href="#/executivo" class="rail-item">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
         <span>Executivo</span>
       </a>
