@@ -175,3 +175,86 @@ def test_rail_navegavel_por_teclado():
     assert 'aria-current="page"' in html
     itens = re.findall(r'<a href="#/[^"]*" class="rail-item"', html)
     assert itens, "rail deixou de usar <a href> para navegacao"
+
+
+# ---------------------------------------------------------------------------
+# regioes rolaveis alcancaveis por teclado (WCAG 2.1.1)
+# ---------------------------------------------------------------------------
+# Roda de mouse e barra de rolagem sao gestos de PONTEIRO: uma caixa com
+# overflow:auto fora da ordem de tabulacao esconde tudo abaixo da dobra de quem
+# navega por teclado. axe apontou 3 regioes assim (#mod-ingress, .ingress-layout,
+# [data-stg-lista]). Como diz o cabecalho deste arquivo, ordem de foco real exige
+# navegador — o que se trava aqui e a ESTRUTURA da solucao.
+
+def test_utilitario_de_rolagem_existe():
+    fonte = (JS / "kernel" / "rolagem.js").read_text()
+    assert "export function marcarRolaveis" in fonte
+    assert "export function agendarMarcacao" in fonte
+
+
+def test_marcacao_e_condicional_ao_transbordo():
+    """tabindex em caixa que NAO rola e ruido: o teclado para onde nao ha o que fazer."""
+    fonte = (JS / "kernel" / "rolagem.js").read_text()
+    assert "scrollHeight" in fonte and "clientHeight" in fonte
+    assert re.search(r"auto\|scroll", fonte), "nao confere o overflow computado"
+
+
+def test_marcacao_e_reversivel():
+    """Transbordar e estado, nao natureza: a caixa que parou de rolar perde o tabindex."""
+    fonte = (JS / "kernel" / "rolagem.js").read_text()
+    assert "removeAttribute('tabindex')" in fonte
+
+
+def test_nao_sobrescreve_tabindex_alheio():
+    """tabindex escrito a mao e decisao de quem conhece o componente."""
+    fonte = (JS / "kernel" / "rolagem.js").read_text()
+    assert "hasAttribute('tabindex')" in fonte
+
+
+def test_nao_marca_regiao_que_ja_tem_foco_dentro():
+    """Lista de botoes ja e alcancavel: o Tab entra nos botoes e a caixa rola atras.
+
+    Marcar essa caixa acrescentaria uma parada ANTES da lista — exatamente o ruido
+    que a marcacao condicional existe para evitar. E o que a regra do axe considera.
+    """
+    fonte = (JS / "kernel" / "rolagem.js").read_text()
+    assert "FOCALIZAVEL" in fonte
+    assert "querySelector(FOCALIZAVEL) === null" in fonte
+
+
+def test_observa_o_dom_e_nao_so_o_render():
+    """Gancho de render nao basta — descobrir isso custou duas tentativas.
+
+    Cada modulo busca o proprio dado e se preenche por callback proprio, FORA do laco
+    que pinta a grade: a caixa passa a transbordar sem que render nenhum seja chamado.
+    A grade monta com skeleton (nada transborda), o dado chega, a caixa cresce. Quem
+    ve isso e o MutationObserver.
+    """
+    fonte = (JS / "kernel" / "rolagem.js").read_text()
+    assert "MutationObserver" in fonte, "preenchimento assincrono escapa sem observar o DOM"
+    assert "childList: true" in fonte and "subtree: true" in fonte
+
+
+def test_observador_nao_reentra():
+    """Observar atributo faria o nosso setAttribute('tabindex') reentrar — laco infinito."""
+    fonte = (JS / "kernel" / "rolagem.js").read_text()
+    assert "attributes" not in fonte, "observar atributos reentra na propria marcacao"
+
+
+def test_marcacao_cobre_a_janela_de_carregamento():
+    """Rail e lista lateral rolam com skeleton, e skeleton nao e focalizavel.
+
+    Amarrar a instalacao ao primeiro render deixaria todo o carregamento sem acesso
+    por teclado — o estado que uma auditoria medindo logo apos `load` enxerga, e que
+    o usuario de teclado encontra ao chegar antes dos dados.
+    """
+    assert "instalarRolagem()" in (JS / "main.js").read_text(), \
+        "a marcacao so comecaria depois do primeiro render"
+    assert "DOMContentLoaded" in (JS / "kernel" / "rolagem.js").read_text()
+
+
+def test_caminho_de_mudanca_marca_sincrono():
+    """Onde nasce DOM, adiar deixa a caixa na tela e fora do teclado por um quadro."""
+    fonte = (JS / "kernel" / "cockpit.js").read_text()
+    assert "marcarRolaveis()" in fonte, "a repintura da grade nao marca de imediato"
+    assert "agendarMarcacao()" in fonte, "o caminho da leitura nao marca"

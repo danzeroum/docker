@@ -9,6 +9,7 @@ import { initCommandPalette } from './commands.js';
 import { iniciar as iniciarCockpit, _interno as cockpit } from './kernel/app.js';
 import { container as escopoContainer } from './kernel/escopo.js';
 import { assinar, TICK_MS } from './kernel/relogio.js';
+import { instalar as instalarRolagem } from './kernel/rolagem.js';
 import { atributo, casca, classe, classeUnica, deMolde, lista, mostrar, texto } from './kernel/patch.js';
 
 // --- Theme ---
@@ -398,6 +399,13 @@ subscribe((s) => {
 
 // --- Boot ---
 function boot() {
+  /* Antes de qualquer dado: o rail e a lista lateral já rolam com o skeleton, e
+   * skeleton não é focalizável. Amarrar isto ao primeiro render deixaria a janela
+   * inteira de carregamento sem acesso por teclado — é o que uma auditoria que mede
+   * logo após `load` enxerga, e o que o usuário de teclado encontra ao chegar antes
+   * dos dados. */
+  instalarRolagem();
+
   // O kernel assume a área de tela: régua (chrome, não ocultável), faixa
   // crítica (global em qualquer escopo), grade de módulos, painel Personalizar
   // e a subtela central.
