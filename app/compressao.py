@@ -1,4 +1,4 @@
-"""Gzip nas respostas JSON — e só nelas (B11).
+"""Gzip por content-type — nunca em stream, nunca no que já vem comprimido (B11).
 
 O `GZipMiddleware` do Starlette comprime tudo o que passa, e é por isso que ele
 não serve aqui: o cockpit tem duas rotas que **transmitem** — o SSE de
@@ -7,10 +7,24 @@ entre o evento acontecer e o navegador vê-lo, e a timeline ao vivo é justament
 o que não pode chegar atrasada. Um `docker stop` que aparece 40 s depois na tela
 não é um cockpit vivo.
 
-Por isso a decisão é pelo **content-type**: `application/json` entra no buffer e
-sai comprimido; qualquer outra coisa passa direto, byte a byte, sem este
-middleware tocar em nada. Filtrar por caminho resolveria as duas rotas de hoje e
+Por isso a decisão é pelo **content-type**, e por uma LISTA, nunca por prefixo:
+`text/` pegaria `text/event-stream` junto e quebraria exatamente as duas rotas
+que motivaram este arquivo. Filtrar por caminho resolveria as rotas de hoje e
 quebraria na terceira.
+
+A lista começou só com JSON e text/plain — a API vinha comprimida e o HTML, o CSS
+e o JS não, que é a metade do tráfego de uma carga fria. Media-se 384 KB de
+estáticos sem compressão nenhuma enquanto `/api/overview` chegava gzipado.
+
+O QUE NÃO ENTRA, e é decisão e não esquecimento:
+
+  `font/woff2`  — WOFF2 já é Brotli por dentro da própria especificação. Medido
+                  neste projeto: gzip sobre a fonte economizou 7 bytes em 48 256
+                  (0,01%) e cobrou CPU dos dois lados. Só entrava na lista porque
+                  o `mimetypes` do Python não conhece a extensão e a servia como
+                  `text/plain` — corrigido em `app.py`, onde o tipo é registrado.
+  `image/png`, `image/jpeg`, `image/webp` — mesmo motivo: já comprimidos.
+  `text/event-stream` — ver acima; é o motivo de este arquivo existir.
 """
 
 import gzip
@@ -20,7 +34,16 @@ import io
 # CPU nos dois lados.
 MINIMO_BYTES = 1024
 
-_COMPRESSIVEL = ("application/json", "text/plain")
+_COMPRESSIVEL = (
+    "application/json",           # a API, e o manifest não casa com isto — vem abaixo
+    "application/manifest+json",
+    "text/plain",
+    "text/html",                  # a casca e a página de erro
+    "text/css",
+    "text/javascript",            # é o que o mimetypes do Python devolve para .js
+    "application/javascript",     # e é o que outros servidores devolvem
+    "image/svg+xml",              # o ícone: é XML, comprime como texto
+)
 
 
 class GzipJsonMiddleware:
