@@ -1,5 +1,31 @@
-const CACHE_NAME = 'cockpit-v4';
+/* Service worker do cockpit.
+ *
+ * ELE NUNCA RODOU. O arquivo existia, era servido com 200, listava 50+ ativos e
+ * tinha teste conferindo a lista — mas `navigator.serviceWorker.register` não
+ * existia em lugar nenhum do código. Código morto com teste passando: o teste
+ * lia o FONTE e provava que a lista estava certa, nunca que o navegador a usava.
+ * Mesmo padrão do rail que não navegava e do selo de contraste que ninguém
+ * renderizava — verificação sem validação.
+ *
+ * O registro entrou em `main.js`. Duas correções vieram junto, e as duas só
+ * apareceram ao carregar de verdade sem rede:
+ *
+ *   1. `/` não estava na lista. A app é servida em `/`, não em
+ *      `/static/index.html` — offline, a requisição de NAVEGAÇÃO não casava com
+ *      nada no cache e o navegador mostrava a própria tela de erro. Cachear o
+ *      documento errado é o mesmo que não cachear.
+ *   2. O `fetch` não tinha reserva para navegação: caminho fora da lista caía no
+ *      vazio em vez de abrir a casca.
+ *
+ * O QUE ELE DELIBERADAMENTE NÃO FAZ: cachear `/api/`. Painel de monitoração
+ * servindo dado velho é PIOR que painel que não abre — o operador olha uma tela
+ * de quarenta minutos atrás e conclui que está tudo bem. A casca abre offline; o
+ * dado continua vindo só da rede, e falha à vista.
+ */
+const CACHE_NAME = 'cockpit-v5';
 const STATIC_ASSETS = [
+  // O documento que o visitante realmente pede. Sem ele, offline não há casca.
+  '/',
   '/static/index.html',
   '/static/css/base.css',
   '/static/css/themes.css',
@@ -88,9 +114,19 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // `/api/` fica FORA do service worker: dado ao vivo servido do cache é o modo
+  // de errar mais perigoso deste produto (ver o cabeçalho do arquivo).
   if (url.pathname.startsWith('/api/')) return;
 
   event.respondWith(
-    fetch(request).catch(() => caches.match(request))
+    fetch(request).catch(async () => {
+      const guardado = await caches.match(request);
+      if (guardado) return guardado;
+      // Reserva de NAVEGAÇÃO: qualquer endereço que o visitante digite ou tenha
+      // nos favoritos abre a casca, e o roteador resolve a hash do lado de cá.
+      // Sem isto, offline, só a URL exata que estava no cache abriria.
+      if (request.mode === 'navigate') return caches.match('/');
+      return Response.error();
+    })
   );
 });

@@ -51,7 +51,13 @@ preenche ausência, não sobrescreve decisão.
 CAMINHO_FONTES = "/static/assets/fonts/"
 CAMINHO_ESTATICO = "/static/"
 # Conteúdo fixo servido por rota, e não pelo mount de estáticos.
-CAMINHOS_CASCA = ("/", "/favicon.ico")
+#
+# `/sw.js` entra aqui e não em `no-store` por uma razão de operação: o navegador
+# compara o script do service worker byte a byte para decidir se há versão nova.
+# `no-cache` (guarde, mas pergunte antes) deixa a revalidação barata e mantém o
+# ciclo de atualização funcionando; `no-store` obrigaria o download inteiro a
+# cada verificação, sem nada em troca.
+CAMINHOS_CASCA = ("/", "/favicon.ico", "/sw.js")
 
 TRINTA_DIAS = 30 * 24 * 60 * 60
 

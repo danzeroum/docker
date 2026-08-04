@@ -908,6 +908,13 @@
 .rg-vivo.rg-pausado .rg-vivo-pulso,
 .rg-vivo.rg-pausado .rg-vivo-varredura{display:none}
 
+/* Sem rede não é pausa: pausa volta sozinha ao clicar na aba, falta de rede não.
+   Cinza convidaria a esperar, então o estado usa a cor de aviso — a mesma que o
+   resto do painel já usa para "olhe para isto". Herda do `.rg-pausado` tudo o
+   mais (sem pulso, sem varredura), porque de fato nada está sendo lido. */
+.rg-vivo.rg-sem-rede .rg-vivo-ponto::after{background:var(--warn)}
+.rg-vivo.rg-sem-rede .rg-vivo-rot{color:var(--warn);font-weight:600}
+
 @keyframes rg-pulso{
   0%{transform:scale(.7);opacity:.85}
   70%{transform:scale(2.1);opacity:0}

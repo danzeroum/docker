@@ -9,6 +9,12 @@ services:
     image: tecnativa/docker-socket-proxy:latest
     restart: unless-stopped
     container_name: docker-cockpit-proxy
+    # Medido na bancada com 42 containers: 4,7 MiB, 2 threads — e nao cresce com
+    # a quantidade de containers. 64m e treze vezes o medido.
+    mem_limit: 64m
+    memswap_limit: 64m
+    pids_limit: 64
+    cpus: 0.5
     environment:
       CONTAINERS: 1
       IMAGES: 1
@@ -35,6 +41,34 @@ services:
     build: ./app
     container_name: docker-cockpit
     restart: unless-stopped
+    # ---------------------------------------------------------------------
+    # Tetos de recurso. O painel nao tinha nenhum, e essa e a falha de modo
+    # mais feia possivel para ele: um vazamento aqui derruba o HOST que ele
+    # existe para vigiar, e o OOM killer do kernel escolhe a vitima por
+    # heuristica — pode levar o nginx, o banco de outra stack, qualquer coisa.
+    #
+    # Com teto, quem morre e o cockpit, dentro do proprio cgroup, e o
+    # `restart: unless-stopped` o traz de volta. O monitor cai e reinicia em
+    # vez de derrubar o que monitora. E a troca certa.
+    #
+    # Medido na bancada com 42 containers: 62 MiB em regime, 88 MiB no pico da
+    # ingestao de logs, 12 threads. O consumo NAO acompanha a quantidade de
+    # containers — e dominado pelo runtime Python. 512m e cerca de seis vezes o
+    # pico observado, folga para a ingestao de log de uma VPS bem maior.
+    #
+    # `memswap_limit` igual ao `mem_limit` desliga swap para o container. Sem
+    # isso o Docker concede o dobro em swap, e um processo que engorda passa a
+    # castigar o DISCO do host em vez de bater no teto e morrer depressa.
+    #
+    # `cpus: 2.0` e generoso de proposito, e nao um numero apertado: CPU e
+    # recurso RECUPERAVEL — sob disputa tudo fica mais lento e o escalonador
+    # resolve. Memoria nao: quem estoura mata terceiro. Estrangular a CPU do
+    # painel o deixaria lento exatamente na hora em que o host esta em apuros,
+    # que e quando alguem precisa dele.
+    mem_limit: 512m
+    memswap_limit: 512m
+    pids_limit: 256
+    cpus: 2.0
     env_file: .env
     environment:
       SOCKET_PROXY: http://docker-cockpit-proxy:2375

@@ -45,6 +45,16 @@ function estadoDoEscopo(escopo) {
   return reconciliar(carregar(tipo), idsDoEscopo);
 }
 
+/* Estado de leitura da régua. Sem rede vence aba oculta na hora de rotular: é a
+ * parada que o operador precisa notar, porque não volta sozinha. `navigator.onLine`
+ * pode não existir em ambiente de teste sem navegador — ausente conta como online,
+ * que é o comportamento de antes deste bloco. */
+function dizerSeEstaLendo() {
+  const semRede = typeof navigator === 'object' && navigator && navigator.onLine === false;
+  const oculto = typeof document === 'object' && document && document.hidden;
+  pausarVivo(semRede || !!oculto, semRede ? 'rede' : 'oculto');
+}
+
 /* --- navegação ----------------------------------------------------------- */
 
 function irPara(novo, { semHash } = {}) {
@@ -187,11 +197,15 @@ export function iniciar(els) {
   });
   /* A busca de retorno é do relógio, não daqui: ele dispara UMA atualização por
    * assinante ao voltar. O que sobra para o kernel é dizer a verdade na régua —
-   * com a aba oculta nada é lido, e a pílula não pode continuar dizendo "ao
-   * vivo" enquanto isso. */
-  document.addEventListener('visibilitychange', () => {
-    pausarVivo(document.hidden);
-  });
+   * nada sendo lido, a pílula não pode continuar dizendo "ao vivo".
+   *
+   * São DUAS razões para a leitura parar, e a pílula precisa das duas num lugar
+   * só: se cada evento chamasse `pausarVivo` sozinho, voltar para a aba enquanto
+   * ainda sem rede apagaria o aviso de rede e a pílula voltaria a mentir. */
+  document.addEventListener('visibilitychange', dizerSeEstaLendo);
+  window.addEventListener('offline', dizerSeEstaLendo);
+  window.addEventListener('online', dizerSeEstaLendo);
+  dizerSeEstaLendo();
 
   const btn = document.getElementById('personalizarBtn');
   if (btn) {
