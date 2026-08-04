@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter
 from routers._proxy import proxy_get
 from cache import cached_or_fetch
-from sampler import get_last_sample, get_container_stats
+from sampler import get_last_sample, get_container_stats, get_ciclo_de_stats
 from summary import montar as montar_summary
 
 router = APIRouter(prefix="/api", tags=["overview"])
@@ -81,6 +81,7 @@ async def get_overview():
     async def factory():
         containers_raw, _ = await cached_or_fetch("containers_list", ttl=2.0, factory=lambda: proxy_get("/containers/json?all=1"))
         all_stats, stats_as_of = get_container_stats()
+        ciclo_s, intervalo_alvo_s = get_ciclo_de_stats()
         tasks = [asyncio.create_task(_fetch_container_data(c["Id"], c, all_stats)) for c in containers_raw]
         containers = await asyncio.gather(*tasks)
 
@@ -158,6 +159,12 @@ async def get_overview():
             "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "cache_ttl_s": 5,
             "stats_as_of": stats_as_of,
+            # Quanto a ultima coleta REALMENTE levou, e o intervalo pedido. Sem
+            # os dois, a interface so pode dizer "ao vivo" e torcer: a idade de
+            # `stats_as_of` sozinha nao diz se e atraso ou se e o ritmo possivel.
+            # Medido: com 42 containers o ciclo e ~24s contra 10s configurados.
+            "stats_ciclo_s": ciclo_s,
+            "stats_intervalo_alvo_s": intervalo_alvo_s,
         }
 
     data, _ = await cached_or_fetch("overview", ttl=5.0, factory=factory, timeout=30.0)
