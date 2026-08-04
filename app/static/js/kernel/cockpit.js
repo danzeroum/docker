@@ -30,6 +30,7 @@
 
 import { escapeHtml } from '../fmt.js';
 import { porId } from './registry.js';
+import { agendarMarcacao, marcarRolaveis, instalar as instalarRolagem } from './rolagem.js';
 
 /* Um registro por ALVO: dois cockpits podem estar na tela ao mesmo tempo (a
  * grade de fundo e a subtela do container), e o desmonte de um não pode levar
@@ -128,6 +129,10 @@ export function pintarCockpit(alvo, escopo, estado, dados) {
         console.error(`módulo ${id} ao atualizar:`, e);
       }
     }
+    /* Atualizar dado muda o que transborda sem criar nó nenhum: a lista que cabia
+     * na caixa deixa de caber. Se só o caminho da MUDANÇA marcasse, a caixa que
+     * passou a rolar durante o ciclo ficaria fora do teclado até o próximo repaint. */
+    agendarMarcacao();
     return;
   }
 
@@ -160,6 +165,12 @@ export function pintarCockpit(alvo, escopo, estado, dados) {
   }
   _montagens.set(alvo, { assinatura, mods });
   _alvos.add(new WeakRef(alvo));
+  instalarRolagem();
+  /* SÍNCRONO aqui, e adiado no caminho da leitura. A diferença é que aqui nasceu DOM:
+   * a caixa rolável existe a partir deste quadro, e adiar deixaria uma janela — curta,
+   * mas real — em que ela está na tela e fora do teclado. Custa um reflow forçado por
+   * repintura da grade, que só acontece por ação do operador ou troca de escopo. */
+  marcarRolaveis();
 }
 
 /** Subtítulo de um módulo (ex.: "raw 24h · agregado 30d" nas Métricas). */
