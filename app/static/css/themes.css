@@ -20,6 +20,12 @@ html[data-tema="cockpit"]{
   --ok:#22c55e; --ok-soft:rgba(34,197,94,.14);
   --warn:#f59e0b; --warn-soft:rgba(245,158,11,.14);
   --bad:#ef4444; --bad-soft:rgba(239,68,68,.14);
+  /* bad-strong: --bad como FUNDO de selo com texto branco dava 3.76:1. Este é o
+     único dos três temas que reprovava — o vermelho claro que funciona sobre o
+     fundo escuro é o mesmo que não sustenta branco por cima. Agora 5.74:1.
+     bad-text: aqui --bad segue certo (4.66:1 sobre a faixa crítica). O token
+     existe para o valor ser declarado, não herdado por coincidência. */
+  --bad-strong:#c81e1e; --bad-text:#ef4444;
   --neutral:#64748b; --neutral-soft:rgba(100,116,139,.16);
   --ease-quiet:cubic-bezier(.22,1,.36,1); --ease-precise:cubic-bezier(.4,0,.2,1);
 }
@@ -34,6 +40,11 @@ html[data-tema="claro"]{
   --ok:#166534; --ok-soft:rgba(22,163,74,.12);
   --warn:#d97706; --warn-soft:rgba(217,119,6,.12);
   --bad:#dc2626; --bad-soft:rgba(220,38,38,.12);
+  /* bad-text: era --bad (#dc2626), 3.88:1 como TEXTO sobre a faixa crítica —
+     fundo claro exige vermelho escuro. Agora 5.20:1. Como fundo de selo com
+     branco por cima, --bad já dava 4.83:1; bad-strong desce um degrau para
+     manter margem sem mudar a família da cor. */
+  --bad-strong:#c81e1e; --bad-text:#b91c1c;
   --neutral:#64748b; --neutral-soft:rgba(100,116,139,.12);
   --ease-quiet:cubic-bezier(.22,1,.36,1); --ease-precise:cubic-bezier(.4,0,.2,1);
 }
@@ -49,6 +60,10 @@ html[data-tema="escritorio"]{
   --ok:#237032; --ok-soft:rgba(43,138,62,.12);
   --warn:#e67700; --warn-soft:rgba(230,119,0,.12);
   --bad:#c92a2a; --bad-soft:rgba(201,42,42,.12);
+  /* Este tema já passava nos dois papéis (5.46:1 como fundo de selo, 4.56:1 como
+     texto na faixa). Os tokens são declarados assim mesmo: sem eles, o dia em que
+     alguém clarear --bad aqui derruba os dois usos de uma vez, em silêncio. */
+  --bad-strong:#c92a2a; --bad-text:#c92a2a;
   /* neutral: era #868e96 — como FUNDO de chip com texto branco dava 3.32:1. */
   --neutral:#6b747d; --neutral-soft:rgba(107,116,125,.12);
   --ease-quiet:cubic-bezier(.22,1,.36,1); --ease-precise:cubic-bezier(.4,0,.2,1);
