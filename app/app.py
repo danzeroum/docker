@@ -256,6 +256,29 @@ async def root():
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
 
+@app.get("/sw.js", include_in_schema=False)
+async def service_worker():
+    """O service worker precisa ser servido da RAIZ, e por isso tem rota propria.
+
+    O escopo de um service worker e o diretorio de onde ele foi baixado: servido
+    de `/static/sw.js`, ele controlaria `/static/` e NAO a app, que mora em `/`.
+    O sintoma seria um SW registrado, ativo e sem efeito nenhum — mais uma peca
+    que parece funcionar e nao faz nada, que e justamente o defeito que registrar
+    o SW veio corrigir.
+
+    A alternativa seria o cabecalho `Service-Worker-Allowed: /` no arquivo dentro
+    de /static/. Uma rota e mais explicita: quem le as rotas ve que o SW e
+    servico da raiz, em vez de precisar saber de um cabecalho.
+
+    O ARQUIVO continua em static/ — ele referencia `/static/...` nas proprias
+    URLs, e move-lo separaria o codigo dos ativos que ele cacheia.
+    """
+    return FileResponse(
+        os.path.join(STATIC_DIR, "sw.js"),
+        media_type="text/javascript",
+    )
+
+
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
     """O navegador pede /favicon.ico por conta propria, independente do <link>.

@@ -377,12 +377,35 @@ document.getElementById('themeToggle')?.addEventListener('click', () => {
 
 // --- Global summary ---
 subscribe((s) => {
+  if (navigator.onLine === false) return;   // sem rede, quem manda no texto é `dizerConexao`
   const total = s.containers.length;
   const running = s.containers.filter(c => c.State === 'running').length;
   const unhealthy = s.containers.filter(c => saudeDe(c) === 'unhealthy').length;
   const el = document.getElementById('globalSummary');
   if (el) el.textContent = unhealthy > 0 ? `${running}/${total} UP · ${unhealthy} unhealthy` : `${running}/${total} UP`;
 });
+
+/* Sem rede, o resumo tem de dizer isso — e é o primeiro texto que o operador lê.
+ *
+ * Medido antes de existir: com o service worker registrado, a casca abre offline
+ * e o resumo fica em "carregando..." PARA SEMPRE, porque a busca nunca volta.
+ * Um painel que parece estar carregando convida a esperar; um que diz estar sem
+ * conexão manda ir olhar a rede. A diferença é o operador perder minutos ou não.
+ *
+ * A pílula da régua diz o mesmo, e as duas juntas são de propósito: quem olha a
+ * barra lateral e quem olha a régua têm de chegar à mesma conclusão. */
+function dizerConexao() {
+  const el = document.getElementById('globalSummary');
+  if (!el) return;
+  if (navigator.onLine === false) {
+    texto(el, 'sem conexão — última leitura');
+    return;
+  }
+  texto(el, 'reconectando...');   // o próximo ciclo do polling sobrescreve
+}
+
+window.addEventListener('offline', dizerConexao);
+window.addEventListener('online', dizerConexao);
 
 /* --- marca de "você está aqui" no rail -------------------------------------
  *
@@ -462,6 +485,39 @@ function boot() {
   ]);
 
   window.addEventListener('beforeunload', () => { stopPolling(); cancelAll(); });
+
+  /* `offline`/`online` marcam a TRANSIÇÃO, e numa carga que já começa sem rede
+   * nenhum dos dois dispara. Sem esta consulta no boot, o operador que abre o
+   * painel desconectado lê "carregando..." para sempre — que é exatamente o
+   * estado enganoso que o service worker acabou de tornar possível. Medido. */
+  if (navigator.onLine === false) dizerConexao();
+
+  registrarServiceWorker();
+}
+
+/* O registro que faltava.
+ *
+ * `sw.js` existia, era servido com 200, listava 50+ ativos e tinha teste
+ * conferindo a lista — e NINGUÉM o registrava. Código morto com teste passando:
+ * o teste lia o fonte e provava que a lista estava certa, nunca que o navegador
+ * a usava. Sem isto, o painel não abria sem rede, apesar de todo o aparato.
+ *
+ * `/sw.js` e não `/static/sw.js`: o escopo de um service worker é o diretório de
+ * onde ele veio, e um SW de `/static/` não controlaria a app, que mora em `/`.
+ * A rota está em app.py.
+ *
+ * Depois do `load` de propósito: registrar durante o boot compete por rede com o
+ * bundle e as fontes, e o ganho do SW é da PRÓXIMA visita, nunca desta.
+ *
+ * `.catch()` silencioso: navegador sem suporte, aba anônima ou origem sem TLS
+ * recusam o registro. Nenhum desses é erro do operador, e nenhum impede o painel
+ * de funcionar — só não haverá casca offline.
+ */
+function registrarServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
 }
 
 document.addEventListener('DOMContentLoaded', boot);

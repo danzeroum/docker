@@ -401,9 +401,17 @@ def test_build_falha_alto_se_o_bundle_nao_sair():
 
 
 def test_service_worker_conhece_bundle_e_fontes():
-    """Sem estar no cache, offline a interface fica em branco — divida ja paga uma vez."""
+    """Sem estar no cache, offline a interface fica em branco — divida ja paga uma vez.
+
+    A versao do cache era cobrada por LITERAL (`cockpit-v4`). Isso nao guardava a
+    invariante: virava um quebra-molas a cada bump legitimo, e um `sed` no numero
+    fazia o teste passar sem que ninguem tivesse pensado no assunto. O que
+    importa e que o nome exista e siga o padrao — o comportamento (registrar,
+    encher o cache, servir offline) e cobrado em test_offline.py.
+    """
     sw = (RAIZ / "app" / "static" / "js").parent.joinpath("sw.js").read_text()
     assert "/static/js/main.bundle.js" in sw
     assert "/static/css/fontes.css" in sw
     assert "inter-latin.woff2" in sw
-    assert "cockpit-v4" in sw, "trocar assets sem virar a versao do cache serve o antigo"
+    versao = re.search(r"CACHE_NAME\s*=\s*'(cockpit-v\d+)'", sw)
+    assert versao, "sem CACHE_NAME versionado, trocar assets serve o antigo para sempre"

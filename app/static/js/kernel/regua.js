@@ -111,18 +111,28 @@ export function marcarLeitura() {
 }
 
 /**
- * Pausa o indicador — durante o drag do Personalizar e enquanto o relógio está
- * parado (aba oculta). "ao vivo" enquanto nada é buscado seria mentira, e é
- * justamente essa mentira que faz o operador confiar no indicador errado.
+ * Pausa o indicador — durante o drag do Personalizar, com a aba oculta, e sem
+ * rede. "ao vivo" enquanto nada é buscado seria mentira, e é justamente essa
+ * mentira que faz o operador confiar no indicador errado.
+ *
+ * `motivo` separa duas paradas que NÃO são a mesma coisa para quem opera. Aba
+ * oculta é escolha do usuário e volta sozinha ao clicar na aba. Sem rede é falha,
+ * e o dado na tela é o último que chegou — pode ter minutos. Dizer "pausado" nos
+ * dois casos convidaria o operador a esperar por algo que não vem.
  */
-export function pausarVivo(pausado) {
+export function pausarVivo(pausado, motivo) {
   const pilula = document.querySelector('[data-vivo]');
   if (!pilula) return;
+  const semRede = pausado && motivo === 'rede';
   classe(pilula, 'rg-pausado', !!pausado);
-  texto(pilula.querySelector('[data-vivo-rot]'), pausado ? 'pausado' : 'ao vivo');
-  atributo(pilula, 'title', pausado
-    ? 'leitura pausada — volta ao soltar, ou ao voltar para esta aba'
-    : 'lendo do daemon a cada ciclo');
+  classe(pilula, 'rg-sem-rede', !!semRede);
+  texto(pilula.querySelector('[data-vivo-rot]'),
+    semRede ? 'sem rede' : (pausado ? 'pausado' : 'ao vivo'));
+  atributo(pilula, 'title', semRede
+    ? 'sem conexão com o servidor — o que está na tela é a última leitura, e pode estar velho'
+    : (pausado
+      ? 'leitura pausada — volta ao soltar, ou ao voltar para esta aba'
+      : 'lendo do daemon a cada ciclo'));
 }
 
 /* --- vitais e chips ------------------------------------------------------- */
