@@ -1,6 +1,7 @@
 import os
 import asyncio
 import html
+import mimetypes
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
@@ -40,9 +41,18 @@ from updates import updates_loop
 from notify import despachante_loop, notify_loop
 from backup import backup_loop
 from compressao import GzipJsonMiddleware
+from cache_http import CacheControlMiddleware
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(APP_DIR, "static")
+
+# O `mimetypes` do Python nao conhece .woff2, e o `StaticFiles` cai no default:
+# as fontes saiam como `text/plain`. Duas consequencias, as duas medidas aqui:
+# o tipo declarado estava errado, e — por casar com `text/plain` — elas entravam
+# no gzip, que economizou 7 bytes em 48 256 (WOFF2 ja e Brotli por dentro) e
+# cobrou CPU dos dois lados. Registrar o tipo certo resolve as duas de uma vez.
+mimetypes.add_type("font/woff2", ".woff2")
+mimetypes.add_type("font/woff", ".woff")
 
 SOCKET_PROXY = os.getenv("SOCKET_PROXY", "http://docker-socket-proxy:2375")
 ENABLE_TERMINAL = os.getenv("ENABLE_TERMINAL", "").lower() in ("1", "true", "yes")
@@ -170,10 +180,16 @@ app.add_middleware(
 
 app.add_middleware(TelemetryMiddleware)
 
+# Declara a politica de cache do que sai. Sem ela, cada navegador e cada proxy
+# inventa a propria heuristica a partir do Last-Modified, e "no meu nao
+# atualizou" vira comportamento legitimo. As tres faixas e o porque de cada uma
+# estao em cache_http.py.
+app.add_middleware(CacheControlMiddleware)
+
 # Por ULTIMO, e portanto o mais externo: comprime a resposta final, depois de
-# todo mundo ter escrito nela. Compacta so JSON e text/plain — as duas rotas que
-# transmitem sao text/event-stream, e gzip num stream poe buffer entre o evento
-# acontecer e a tela mostra-lo.
+# todo mundo ter escrito nela. Compacta por LISTA de content-type — as duas
+# rotas que transmitem sao text/event-stream, e gzip num stream poe buffer entre
+# o evento acontecer e a tela mostra-lo.
 app.add_middleware(GzipJsonMiddleware)
 
 
