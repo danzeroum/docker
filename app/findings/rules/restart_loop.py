@@ -30,7 +30,14 @@ def evaluate(ctx):
             continue
         _prev_restart[name] = restart_count
         image = c.get("Config", {}).get("Image", "")
-        health = state.get("Health", {}).get("Status", "none")
+        # `state.get("Health", {})` NAO protege aqui: o default so vale com a chave
+        # ausente, e o daemon devolve `Health` presente valendo null em container sem
+        # healthcheck — o `.get("Status")` seguinte levantaria AttributeError e derrubaria
+        # o ciclo de avaliacao inteiro. A versao canonica desta leitura e
+        # stats_util.health_status, nao importada aqui de proposito: as regras sao
+        # stdlib-only, para poderem ser lidas e testadas sem subir a aplicacao.
+        bloco_saude = state.get("Health")
+        health = (bloco_saude.get("Status") if isinstance(bloco_saude, dict) else None) or "none"
         findings.append({
             "target": name,
             "title": f"{name} em ciclo de rein\u00edcio ({restart_count}x)",

@@ -215,3 +215,45 @@ def test_days_to_ja_passou():
     """Threshold ja atingido → None."""
     d = _days_to(50, 1.2, 60)
     assert d is None
+
+
+# -------------------------------------------------------------------
+# Regressao: State.Health presente valendo null
+# -------------------------------------------------------------------
+# O mock padrao devolve `({}, None)` — nenhum container chega a /api/capacity, e por
+# isso a leitura de saude nunca era exercitada. Em producao, container sem healthcheck
+# traz `State.Health` PRESENTE valendo null; `.get("Health", {})` devolve None e o
+# `.get("Status")` seguinte levanta AttributeError. A tela Capacidade respondia 500.
+
+
+def _inspect(health):
+    return {"State": {"Status": "exited", "Running": False, "Health": health},
+            "Config": {"Image": "nginx:1.27-alpine"}}
+
+
+@pytest.mark.parametrize("health", [None, {}, "unhealthy", []],
+                         ids=["null", "vazio", "string", "lista"])
+def test_capacity_sobrevive_a_health_torto(client, mock_db, health):
+    """Qualquer forma inesperada de State.Health e ausencia de dado, nao erro 500."""
+    mock_db["get_first_sample_time"].return_value = "2026-06-01T12:00:00Z"
+    mock_db["get_findings"].return_value = []
+    containers = {"abc123": {"inspect": _inspect(health), "stats": {}}}
+    with patch("routers.metrics.get_container_stats", return_value=(containers, None)):
+        resp = client.get("/api/capacity")
+    assert resp.status_code == 200, resp.text
+    assert "postura" in resp.json()
+
+
+def test_capacity_ainda_conta_unhealthy_de_verdade(client, mock_db):
+    """A protecao acima nao pode cegar a contagem: healthcheck real reprovado conta."""
+    mock_db["get_first_sample_time"].return_value = "2026-06-01T12:00:00Z"
+    mock_db["get_findings"].return_value = []
+    containers = {
+        "a": {"inspect": _inspect({"Status": "unhealthy"}), "stats": {}},
+        "b": {"inspect": _inspect(None), "stats": {}},
+    }
+    with patch("routers.metrics.get_container_stats", return_value=(containers, None)):
+        resp = client.get("/api/capacity")
+    assert resp.status_code == 200
+    saude = [p for p in resp.json()["postura"] if p["item"] == "Containers com saude"]
+    assert saude and saude[0]["status"] == "warn", "o unhealthy real deixou de ser contado"

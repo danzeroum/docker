@@ -587,3 +587,48 @@ def test_extract_container_from_upstream():
     assert f("http://ghost:9000") == "ghost"
     assert f(None) is None
     assert f("") is None
+
+
+# -------------------------------------------------------------------
+# Regressao: State.Health presente valendo null
+# -------------------------------------------------------------------
+# _make_container nao declara `Health`, entao `.get("Health", {})` sempre devolvia o
+# default e a fragilidade nunca aparecia. O daemon devolve a chave PRESENTE valendo
+# null em container sem healthcheck — e uma excecao aqui derruba o ciclo de avaliacao
+# inteiro, nao so esta regra: todos os achados do ciclo somem em silencio.
+
+@pytest.mark.parametrize("health", [None, "unhealthy", [], 0],
+                         ids=["null", "string", "lista", "zero"])
+def test_restart_loop_sobrevive_a_health_torto(health):
+    from findings.rules import restart_loop as rl_mod
+    importlib.reload(rl_mod)
+    rl_mod._prev_restart = {}
+
+    container = _make_container(oom_killed=False, exit_code=0, restart_count=5, running=True)
+    container["State"]["Health"] = health
+
+    ctx = FakeCtx()
+    ctx.containers = [container]
+
+    result = rl_mod.evaluate(ctx)
+    assert result is not None and len(result) == 1
+    fatos = {f["key"]: f["value"] for f in result[0]["facts"]}
+    assert fatos["Health"] == "none", "forma inesperada deve virar 'none', nunca excecao"
+
+
+def test_restart_loop_preserva_health_real():
+    """A protecao nao pode apagar o dado quando ele existe de verdade."""
+    from findings.rules import restart_loop as rl_mod
+    importlib.reload(rl_mod)
+    rl_mod._prev_restart = {}
+
+    container = _make_container(oom_killed=False, exit_code=0, restart_count=5, running=True)
+    container["State"]["Health"] = {"Status": "unhealthy", "FailingStreak": 3}
+
+    ctx = FakeCtx()
+    ctx.containers = [container]
+
+    result = rl_mod.evaluate(ctx)
+    assert result is not None
+    fatos = {f["key"]: (f["value"], f["tone"]) for f in result[0]["facts"]}
+    assert fatos["Health"] == ("unhealthy", "bad")
