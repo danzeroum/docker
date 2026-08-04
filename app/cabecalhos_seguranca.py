@@ -58,6 +58,27 @@ import base64
 import hashlib
 import re
 
+# `no-referrer`, e nao o `strict-origin-when-cross-origin` de praxe: este painel
+# nao carrega NADA de terceiro (as fontes foram auto-hospedadas justamente para
+# isso), entao nao ha destino legitimo para um referrer. E a URL que vazaria e
+# especialmente indiscreta — `#/container/<id>` nao sai do navegador, mas o
+# caminho e o host dizem qual infraestrutura a pessoa administra.
+REFERRER_POLICY = "no-referrer"
+
+# Privilegio minimo por default: negar sensores em vez de esperar o navegador
+# perguntar. Um painel de operacao nao tem uso para camera, microfone nem
+# localizacao, e uma lista vazia `()` nega para a propria origem tambem — nao so
+# para iframes de terceiro.
+#
+# As tres primeiras sao as que a regua cobra; as demais entram porque a mesma
+# linha custa o mesmo e a superficie so cresce com o tempo.
+PERMISSIONS_POLICY = (
+    "geolocation=(), camera=(), microphone=(), "
+    "payment=(), usb=(), serial=(), midi=(), "
+    "accelerometer=(), gyroscope=(), magnetometer=(), "
+    "display-capture=(), interest-cohort=()"
+)
+
 CSP_BASE = (
     "default-src 'self'; "
     "base-uri 'self'; "
@@ -117,6 +138,8 @@ class SegurancaHeadersMiddleware:
             (b"x-content-type-options", b"nosniff"),
             (b"x-frame-options", b"DENY"),
             (b"content-security-policy", (csp or montar_csp()).encode("latin-1")),
+            (b"referrer-policy", REFERRER_POLICY.encode("latin-1")),
+            (b"permissions-policy", PERMISSIONS_POLICY.encode("latin-1")),
         )
 
     async def __call__(self, scope, receive, send):
