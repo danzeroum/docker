@@ -42,6 +42,7 @@ from notify import despachante_loop, notify_loop
 from backup import backup_loop
 from compressao import GzipJsonMiddleware
 from cache_http import CacheControlMiddleware
+from cabecalhos_seguranca import SegurancaHeadersMiddleware, hash_de_estilo, montar_csp
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(APP_DIR, "static")
@@ -170,6 +171,43 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Docker Cockpit", docs_url=None, redoc_url=None, lifespan=lifespan)
 
+# ---------- erro 404 ----------
+# Um 404 sem saida e um beco: quem digitou errado, ou seguiu link velho, fica sem
+# rota de volta. Mas HTML so serve para quem NAVEGA — cliente de API que pede
+# /api/containers/inexistente precisa do JSON de sempre, com o detalhe que a rota
+# levantou. Por isso o tratador ramifica pelo caminho em vez de devolver o mesmo
+# corpo para os dois; trocar o JSON por HTML aqui quebraria o front do proprio
+# cockpit, que le `detail` para mostrar o erro na tela.
+_PAGINA_404 = """<!DOCTYPE html>
+<html lang="pt-BR" data-tema="cockpit">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Página não encontrada — Cockpit Docker</title>
+<link rel="icon" type="image/svg+xml" href="/static/assets/icon.svg">
+<link rel="stylesheet" href="/static/css/base.css">
+<link rel="stylesheet" href="/static/css/themes.css">
+<style>
+  .erro-404{min-height:100vh;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:1rem;padding:2rem;text-align:center;
+    background:var(--bg);color:var(--text)}
+  .erro-404 h1{font-size:1.4rem;margin:0}
+  .erro-404 p{color:var(--text-mute);margin:0;max-width:38rem;line-height:1.6}
+  .erro-404 a{color:var(--accent);font-weight:600}
+</style>
+</head>
+<body>
+<main class="erro-404">
+  <h1>Esta página não existe</h1>
+  <p>O endereço <code>__CAMINHO__</code> não corresponde a nenhuma tela do cockpit.
+     Pode ter sido digitado errado, ou ser um link antigo.</p>
+  <p><a href="/">Voltar para o cockpit</a></p>
+</main>
+</body>
+</html>
+"""
+
+
 cors_origins = ALLOWED_ORIGINS if ALLOWED_ORIGINS else []
 app.add_middleware(
     CORSMiddleware,
@@ -185,6 +223,16 @@ app.add_middleware(TelemetryMiddleware)
 # atualizou" vira comportamento legitimo. As tres faixas e o porque de cada uma
 # estao em cache_http.py.
 app.add_middleware(CacheControlMiddleware)
+
+# Cabecalhos de seguranca. O CSP e montado com o hash do <style> da pagina 404,
+# calculado da MESMA string que e servida — hash escrito a mao viraria mentira no
+# dia em que alguem editasse aquele CSS, e o sintoma seria uma 404 sem estilo que
+# ninguem ligaria ao CSP. Ver cabecalhos_seguranca.py para o porque de cada
+# diretiva, e para o porque de isto morar na app e nao no nginx.
+app.add_middleware(
+    SegurancaHeadersMiddleware,
+    csp=montar_csp((hash_de_estilo(_PAGINA_404),)),
+)
 
 # Por ULTIMO, e portanto o mais externo: comprime a resposta final, depois de
 # todo mundo ter escrito nela. Compacta por LISTA de content-type — as duas
@@ -222,41 +270,6 @@ async def favicon():
     )
 
 
-# ---------- erro 404 ----------
-# Um 404 sem saida e um beco: quem digitou errado, ou seguiu link velho, fica sem
-# rota de volta. Mas HTML so serve para quem NAVEGA — cliente de API que pede
-# /api/containers/inexistente precisa do JSON de sempre, com o detalhe que a rota
-# levantou. Por isso o tratador ramifica pelo caminho em vez de devolver o mesmo
-# corpo para os dois; trocar o JSON por HTML aqui quebraria o front do proprio
-# cockpit, que le `detail` para mostrar o erro na tela.
-_PAGINA_404 = """<!DOCTYPE html>
-<html lang="pt-BR" data-tema="cockpit">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Página não encontrada — Cockpit Docker</title>
-<link rel="icon" type="image/svg+xml" href="/static/assets/icon.svg">
-<link rel="stylesheet" href="/static/css/base.css">
-<link rel="stylesheet" href="/static/css/themes.css">
-<style>
-  .erro-404{min-height:100vh;display:flex;flex-direction:column;align-items:center;
-    justify-content:center;gap:1rem;padding:2rem;text-align:center;
-    background:var(--bg);color:var(--text)}
-  .erro-404 h1{font-size:1.4rem;margin:0}
-  .erro-404 p{color:var(--text-mute);margin:0;max-width:38rem;line-height:1.6}
-  .erro-404 a{color:var(--accent);font-weight:600}
-</style>
-</head>
-<body>
-<main class="erro-404">
-  <h1>Esta página não existe</h1>
-  <p>O endereço <code>__CAMINHO__</code> não corresponde a nenhuma tela do cockpit.
-     Pode ter sido digitado errado, ou ser um link antigo.</p>
-  <p><a href="/">Voltar para o cockpit</a></p>
-</main>
-</body>
-</html>
-"""
 
 
 @app.exception_handler(404)
