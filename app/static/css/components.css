@@ -55,7 +55,9 @@
   transition:all .2s;font-weight:500;
 }
 .filter-pill:hover{border-color:var(--border-strong);color:var(--text)}
-.filter-pill.active{background:var(--accent);border-color:var(--accent);color:#fff}
+/* Superficie preenchida com texto branco usa --accent-strong, nao --accent: o azul de
+ * TEXTO e claro demais como FUNDO (3.15:1 contra o branco no tema cockpit). */
+.filter-pill.active{background:var(--accent-strong);border-color:var(--accent-strong);color:#fff}
 
 .stack-header{
   display:flex;align-items:center;gap:.5rem;padding:.5rem .8rem;margin-top:.5rem;margin-bottom:.25rem;
@@ -108,7 +110,9 @@
 }
 
 .topbar{
-  height:60px;background:rgba(10,16,32,.85);backdrop-filter:blur(12px);
+  /* Era rgba(10,16,32,.85) fixo: a barra ficava escura mesmo nos temas claros, e o titulo
+   * (--text, escuro nesses temas) caia para 1.22:1 sobre ela. Segue o tema agora. */
+  height:60px;background:var(--topbar-bg);backdrop-filter:blur(12px);
   border-bottom:1px solid var(--border);padding:0 1.5rem;
   display:flex;align-items:center;gap:1rem;flex-shrink:0;
 }
@@ -131,7 +135,7 @@
   color:var(--text-dim);font-weight:500;border:none;background:transparent;transition:all .2s
 }
 .tab-btn:hover{color:var(--text)}
-.tab-btn.active{background:var(--accent);color:#fff}
+.tab-btn.active{background:var(--accent-strong);color:#fff}
 
 .overview-hero{
   background:linear-gradient(180deg,var(--surface) 0%,var(--bg-2) 100%);
@@ -589,8 +593,11 @@
 .rg-warn .rg-val{color:var(--warn)}
 .rg-bad .rg-val{color:var(--bad)}
 .rg-neutro .rg-val{color:var(--text-mute)}
-/* Módulo oculto: o chip continua vivo e clicável — só se declara oculto. */
-.rg-chip.rg-oculto{border-style:dashed;opacity:.75}
+/* Módulo oculto: o chip continua vivo e clicável — só se declara oculto.
+ * Sem `opacity`: a borda tracejada já carrega o significado, e a opacidade misturava o
+ * texto com o fundo, derrubando 5.58:1 para 3.36:1 — desfazendo no render o contraste
+ * que o token garante. Estado visual não deve custar legibilidade. */
+.rg-chip.rg-oculto{border-style:dashed}
 /* Dado velho se declara velho em vez de passar por atual. */
 .rg-chip.rg-velho .rg-val{color:var(--text-mute);font-style:italic}
 
@@ -965,13 +972,18 @@
 .spark-b{width:var(--larg,4%);height:var(--altura,2%);
   transition:height var(--t-valor) var(--ease-quiet)}
 
-/* --- selo de severidade por classe (a paleta saiu do JS) ----------------- */
-.sev-critical{--sev:var(--bad)}
-.sev-high{--sev:var(--warn)}
-.sev-medium{--sev:var(--accent)}
-.sev-low{--sev:var(--text-mute)}
+/* --- selo de severidade por classe (a paleta saiu do JS) -----------------
+ * Cada severidade declara o PAR: fundo (--sev) e primeiro plano (--sev-fg). Texto branco
+ * sobre ambar nunca atinge 4.5:1 — no tema cockpit dava 2.14:1 — entao o selo de aviso usa
+ * texto escuro. `--sev-medium` usa --accent-strong porque o azul de texto, como fundo, e
+ * claro demais para o branco.
+ */
+.sev-critical{--sev:var(--bad); --sev-fg:#fff}
+.sev-high{--sev:var(--warn); --sev-fg:#241a02}
+.sev-medium{--sev:var(--accent-strong); --sev-fg:#fff}
+.sev-low{--sev:var(--neutral); --sev-fg:#fff}
 .atn-card,.ig-finding{border-left:3px solid var(--sev,var(--border))}
-.atn-sev,.ig-finding-sev{background:var(--sev,var(--neutral));color:#fff}
+.atn-sev,.ig-finding-sev{background:var(--sev,var(--neutral));color:var(--sev-fg,#fff)}
 .filter-pill.sev-critical{border-color:var(--bad)}
 .filter-pill.sev-high{border-color:var(--warn)}
 .filter-pill.sev-medium{border-color:var(--accent)}

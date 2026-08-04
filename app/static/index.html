@@ -86,7 +86,11 @@
     <div class="sidebar-search">
       <div class="input-wrap">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <input type="text" class="search-input" id="searchInput" placeholder="Buscar container...">
+        <!-- aria-label em vez de <label> visivel: o campo e identificado pelo icone de lupa
+             e pelo placeholder, e placeholder NAO e nome acessivel — some ao digitar e
+             leitor de tela nao o anuncia como rotulo. -->
+        <input type="text" class="search-input" id="searchInput"
+               aria-label="Buscar container" placeholder="Buscar container...">
       </div>
     </div>
 
@@ -159,7 +163,9 @@
     <div class="modal-title" id="modalTitle">Confirmação</div>
     <div class="modal-text" id="modalText">Tem certeza?</div>
     <div class="modal-input-wrap" id="modalInputWrap" style="display:none">
-      <label style="margin-bottom:.25rem;font-size:.8rem;color:var(--text-dim)">Digite <strong id="modalConfirmName"></strong> para confirmar:</label>
+      <!-- O rotulo ja existia; faltava o `for`, entao a associacao nunca acontecia e o
+           campo chegava sem nome ao leitor de tela. -->
+      <label for="modalInput" style="margin-bottom:.25rem;font-size:.8rem;color:var(--text-dim)">Digite <strong id="modalConfirmName"></strong> para confirmar:</label>
       <input class="modal-input" id="modalInput" type="text" placeholder="digite o nome">
     </div>
     <div class="modal-checkbox" id="modalCheckboxWrap" style="display:none">

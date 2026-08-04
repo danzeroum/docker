@@ -1,8 +1,22 @@
+/* Tokens de tema.
+ *
+ * CONTRASTE: os valores de texto e de superfície preenchida aqui são medidos, não
+ * escolhidos por gosto — cada um atinge no mínimo 4.5:1 (WCAG 2.2 AA) contra a PIOR
+ * superfície do seu próprio tema. Antes desta revisão, `--text-mute` sozinho respondia
+ * por 110 dos 133 nós reprovados nos três temas somados.
+ *
+ * `--accent-strong` existe porque `--accent` tem dois papéis conflitantes: cor de TEXTO
+ * sobre fundo do tema (quer contraste alto contra o fundo) e cor de FUNDO de chip com
+ * texto branco (quer contraste alto contra o branco). Um token só não serve aos dois —
+ * `--accent` continua para texto, `--accent-strong` para superfície preenchida.
+ */
 html[data-tema="cockpit"]{
   --bg:#0a1020; --bg-2:#0f1830; --surface:#141f3a; --surface-2:#1a2747;
   --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.16);
-  --text:#e6edf7; --text-dim:#9aa7bd; --text-mute:#64748b;
-  --accent:#2496ED; --accent-2:#60a5fa;
+  /* text-mute: era #64748b (3.42:1 sobre --surface). Agora 5.75:1 sobre --surface-2. */
+  --text:#e6edf7; --text-dim:#9aa7bd; --text-mute:#94a3b8;
+  --accent:#2496ED; --accent-2:#60a5fa; --accent-strong:#1268b3;
+  --topbar-bg:rgba(10,16,32,.85);
   --ok:#22c55e; --ok-soft:rgba(34,197,94,.14);
   --warn:#f59e0b; --warn-soft:rgba(245,158,11,.14);
   --bad:#ef4444; --bad-soft:rgba(239,68,68,.14);
@@ -12,9 +26,12 @@ html[data-tema="cockpit"]{
 html[data-tema="claro"]{
   --bg:#f1f5f9; --bg-2:#e2e8f0; --surface:#ffffff; --surface-2:#f8fafc;
   --border:rgba(0,0,0,.08); --border-strong:rgba(0,0,0,.16);
-  --text:#0f172a; --text-dim:#475569; --text-mute:#94a3b8;
-  --accent:#2563eb; --accent-2:#60a5fa;
-  --ok:#16a34a; --ok-soft:rgba(22,163,74,.12);
+  /* text-mute: era #94a3b8 (2.34:1 sobre --bg) — o pior dos três temas. Agora 4.96:1. */
+  --text:#0f172a; --text-dim:#475569; --text-mute:#556377;
+  --accent:#2563eb; --accent-2:#60a5fa; --accent-strong:#1d4ed8;
+  --topbar-bg:rgba(255,255,255,.9);
+  /* ok: era #16a34a (3.00:1 sobre --bg). Verde escuro segue legível como "sucesso". */
+  --ok:#166534; --ok-soft:rgba(22,163,74,.12);
   --warn:#d97706; --warn-soft:rgba(217,119,6,.12);
   --bad:#dc2626; --bad-soft:rgba(220,38,38,.12);
   --neutral:#64748b; --neutral-soft:rgba(100,116,139,.12);
@@ -23,11 +40,16 @@ html[data-tema="claro"]{
 html[data-tema="escritorio"]{
   --bg:#f8f9fa; --bg-2:#e9ecef; --surface:#ffffff; --surface-2:#f1f3f5;
   --border:rgba(0,0,0,.12); --border-strong:rgba(0,0,0,.24);
-  --text:#212529; --text-dim:#495057; --text-mute:#868e96;
-  --accent:#1c7ed6; --accent-2:#4dabf7;
-  --ok:#2b8a3e; --ok-soft:rgba(43,138,62,.12);
+  /* text-mute: era #868e96 (3.15:1 sobre --bg). Agora 4.99:1 sobre --bg-2. */
+  --text:#212529; --text-dim:#495057; --text-mute:#5c6570;
+  /* accent: era #1c7ed6 (3.77:1 como texto sobre --surface-2). */
+  --accent:#1668b0; --accent-2:#4dabf7; --accent-strong:#1668b0;
+  --topbar-bg:rgba(255,255,255,.92);
+  /* ok: era #2b8a3e (4.14:1 sobre --bg). */
+  --ok:#237032; --ok-soft:rgba(43,138,62,.12);
   --warn:#e67700; --warn-soft:rgba(230,119,0,.12);
   --bad:#c92a2a; --bad-soft:rgba(201,42,42,.12);
-  --neutral:#868e96; --neutral-soft:rgba(134,142,150,.12);
+  /* neutral: era #868e96 — como FUNDO de chip com texto branco dava 3.32:1. */
+  --neutral:#6b747d; --neutral-soft:rgba(107,116,125,.12);
   --ease-quiet:cubic-bezier(.22,1,.36,1); --ease-precise:cubic-bezier(.4,0,.2,1);
 }
