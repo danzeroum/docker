@@ -6,7 +6,7 @@ import { initCommandPalette } from './commands.js';
 // O núcleo do Cockpit Vivo assumiu a área de tela. Este arquivo cuida do chrome
 // (barra lateral, filtros, trava, tema, paleta) e NÃO conhece módulo nenhum:
 // a única lista de módulos do sistema está em `modulos/index.js`.
-import { iniciar as iniciarCockpit, _interno as cockpit } from './kernel/app.js';
+import { iniciar as iniciarCockpit, alcancavelNoHost, _interno as cockpit } from './kernel/app.js';
 import { container as escopoContainer } from './kernel/escopo.js';
 import { assinar, TICK_MS } from './kernel/relogio.js';
 import { instalar as instalarRolagem } from './kernel/rolagem.js';
@@ -59,26 +59,13 @@ function pollAll() {
   apiGet('system', '/api/system').then(({ data }) => {
     if (data) setState({ system: data });
   });
-  apiGet('findings_count', '/api/findings?status=open').then(({ data }) => {
-    const badge = document.getElementById('findingsBadge');
-    if (!badge) return;
-    if (data && data.length) {
-      // textContent com flash em vez de reescrever o nó: o selo que muda de 3
-      // para 4 se anuncia, e o `:hover` do item de nav não é interrompido.
-      texto(badge, String(data.length), { flash: true });
-      const sevOrder = { critical: 4, high: 3, medium: 2, low: 1 };
-      const maxSev = data.reduce((a, f) => sevOrder[f.severity] > sevOrder[a] ? f.severity : a, 'low');
-      // Cor por classe, não por `style.background`: a paleta fica em
-      // components.css com os tokens de themes.css, e o selo acompanha o tema.
-      classeUnica(badge, SEV_CLASSES, `sev-${maxSev}`);
-      mostrar(badge, true);
-    } else {
-      mostrar(badge, false);
-    }
-  });
+  /* O selo de achados que ficava no item "Incidente" saiu junto com o item. A
+   * contagem NÃO se perdeu, e por isso a busca dedicada some daqui em vez de
+   * ficar alimentando um elemento inexistente: o chip `Atenção` da régua já traz
+   * "N crít +M" com o total no title, e a faixa crítica anuncia o achado mais
+   * grave em banner. Duas leituras melhores que o número solto que havia aqui —
+   * e uma chamada a menos por ciclo de polling. */
 }
-
-const SEV_CLASSES = ['sev-critical', 'sev-high', 'sev-medium', 'sev-low'];
 
 // --- SSE events (real-time from daemon) ---
 let eventSource = null;
@@ -397,6 +384,43 @@ subscribe((s) => {
   if (el) el.textContent = unhealthy > 0 ? `${running}/${total} UP · ${unhealthy} unhealthy` : `${running}/${total} UP`;
 });
 
+/* --- marca de "você está aqui" no rail -------------------------------------
+ *
+ * O rail é chrome, e chrome mora aqui: o kernel não conhece a barra lateral.
+ *
+ * A marca era ESTÁTICA no HTML — `aria-current="page"` fixo no primeiro item,
+ * nunca movido por ninguém. Com o roteador ligado o clique passou a ter efeito,
+ * mas sem esta função o menu continuaria parecendo inerte para quem olha para
+ * ele, e um leitor de tela continuaria anunciando "Visão Geral, página atual"
+ * dentro de qualquer outro módulo. `aria-current` que não acompanha a navegação
+ * é pior que ausente: afirma uma posição errada.
+ *
+ * Escopo (`#/container/x`) não marca item nenhum — nenhum item do rail é aquele
+ * lugar, e quem diz onde se está é o cabeçalho da subtela. Hash vazia marca
+ * "Visão Geral", que é a grade do host. */
+const rotaDe = (h) => String(h || '').replace(/^#\/?/, '').split('?')[0];
+
+function marcarRail() {
+  const atual = rotaDe(location.hash);
+  document.querySelectorAll('.rail-item').forEach((item) => {
+    const meu = rotaDe(item.getAttribute('href')) === atual;
+    atributo(item, 'aria-current', meu ? 'page' : null);
+  });
+}
+
+/* Rede de segurança em tempo de execução: item de rail que o roteador não sabe
+ * alcançar não é exibido. O fiscal de verdade é o teste (`test_rail_navegavel`),
+ * que quebra o CI com o nome do link errado — aqui é só a garantia de que uma
+ * divergência entre o HTML e o registro nunca chegue ao visitante como um clique
+ * que não faz nada. */
+function podarRail() {
+  document.querySelectorAll('.rail-item').forEach((item) => {
+    if (!alcancavelNoHost(item.getAttribute('href'))) item.remove();
+  });
+}
+
+window.addEventListener('hashchange', marcarRail);
+
 // --- Boot ---
 function boot() {
   /* Antes de qualquer dado: o rail e a lista lateral já rolam com o skeleton, e
@@ -416,6 +440,10 @@ function boot() {
     painel: document.getElementById('kernelPainel'),
     subtela: document.getElementById('kernelSubtela'),
   });
+  // Depois do kernel, nunca antes: as duas perguntam ao registro, e quem o
+  // popula é `iniciar()`.
+  podarRail();
+  marcarRail();
   startPolling();
   connectSSE();
 

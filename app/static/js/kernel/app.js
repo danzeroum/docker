@@ -183,7 +183,7 @@ export function iniciar(els) {
   _estado = estadoDoEscopo(_escopo);
 
   window.addEventListener('hashchange', () => {
-    irPara(deHash(location.hash), { semHash: true });
+    rotear(location.hash);
   });
   /* A busca de retorno é do relógio, não daqui: ele dispara UMA atualização por
    * assinante ao voltar. O que sobra para o kernel é dizer a verdade na régua —
@@ -203,29 +203,110 @@ export function iniciar(els) {
   }
 
   pintar();
+  // A hash de entrada passa pelo MESMO roteador que o `hashchange`. Sem isto,
+  // abrir `#/auditoria` direto (link colado, favorito, recarregar a página)
+  // pintaria o host e pararia aí — a mesma falha, só que na primeira carga.
+  rotear(location.hash);
   buscar();
   iniciarPolling();
 }
 
-/* Ponte para os corpos de tela que ainda chamam `navigate('#/algo')`.
+/* --- roteador da hash ------------------------------------------------------
  *
- * A derivação é GENÉRICA de propósito: `#/x` procura um módulo de id `x` no
- * registro e o revela. Não há tabela de apelidos — uma tabela aqui devolveria ao
- * núcleo o conhecimento de módulos que a 2a acabou de tirar dele. Hash que não
- * casa com módulo nenhum cai no escopo host, que é o destino seguro.
+ * UM roteador, dono único da hash. Antes o `hashchange` chamava só `deHash`, que
+ * conhece `#/stack/<id>` e `#/container/<id>` e devolve o host para todo o resto
+ * — e os 11 itens do rail caíam nesse "resto". Clicar não fazia NADA: sem erro
+ * de console, sem 404, a mesma tela. Falha silenciosa, que é o modo de errar
+ * mais caro deste produto (a mesma razão do aviso de nginx ausente em app.py).
+ *
+ * A hash tem duas gramáticas, nesta ordem:
+ *
+ *   `#/stack/<id>`, `#/container/<id>`  →  troca o ESCOPO (outro cockpit)
+ *   `#/<idDeModulo>`                    →  revela e rola até o MÓDULO
+ *
+ * O que não casa com nenhuma das duas cai no host — destino seguro e, para
+ * `#/`, o destino correto.
+ *
+ * A segunda derivação é GENÉRICA de propósito: o id vem do registro, não de uma
+ * tabela de apelidos aqui. Tabela devolveria ao núcleo o conhecimento de módulos
+ * que a Sprint 2a tirou dele, e `grep` de id de módulo neste arquivo tem de
+ * continuar vazio (doc 10 §4).
  */
-export function navegarPorHash(hash) {
-  const id = String(hash || '').replace(/^#\/?/, '').split('?')[0];
-  if (id && porId(id)) {
-    const tipo = tipoDeCockpit(_escopo);
-    const ocultos = new Set(_estado.ocultos || []);
-    if (ocultos.has(id)) _estado = alternarOculto(tipo, _estado, id);
-    pintar();
-    const el = document.querySelector(`.mod[data-modulo="${id}"]`);
-    if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
+export function rotear(hash, { semHash = true } = {}) {
+  const bruto = String(hash || '').replace(/^#\/?/, '').split('?')[0];
+  const [primeiro, segundo] = bruto.split('/');
+
+  if ((primeiro === 'stack' || primeiro === 'container') && segundo) {
+    irPara(deHash(hash), { semHash });
     return;
   }
-  irPara(host());
+
+  const mod = bruto && !segundo ? porId(bruto) : null;
+  if (mod && revelar(mod)) {
+    // A hash só é sincronizada DEPOIS de a revelação dar certo: barra de endereço
+    // que anuncia um destino a que não se chegou é a mesma mentira que este
+    // roteador existe para acabar, só que escrita na URL.
+    if (!semHash) {
+      const alvo = `#/${mod.id}`;
+      if (location.hash !== alvo) location.hash = alvo;
+    }
+    return;
+  }
+
+  irPara(host(), { semHash });
+}
+
+/** Revela e rola até o módulo. `false` = não havia onde revelá-lo. */
+function revelar(mod) {
+  /* Nem todo módulo existe em todo cockpit: `escopos` é declaração de cada um.
+   * Endereçado de um escopo onde não vive, o destino é o host — lá ele TEM caixa.
+   * Mas módulo que não vive nem no host (só de stack, só de container) não tem
+   * onde ser revelado em lugar nenhum, e aí o roteador devolve `false` em vez de
+   * repintar a mesma tela. Repintar a mesma tela é exatamente o defeito de
+   * origem; reintroduzi-lo num caso de canto seria trocar um silêncio por outro. */
+  if (!mod.escopos.includes(tipoDeCockpit(_escopo))) {
+    if (!mod.escopos.includes('host')) return false;
+    irPara(host(), { semHash: true });
+  }
+
+  // Invariante 3 do doc 10, o mesmo do chip da régua: endereçar um módulo oculto
+  // o reexibe. Ocultar não pode significar tornar inalcançável.
+  const ocultos = new Set((_estado && _estado.ocultos) || []);
+  if (ocultos.has(mod.id)) {
+    _estado = alternarOculto(tipoDeCockpit(_escopo), _estado, mod.id);
+  }
+  pintar();
+  const el = document.querySelector(`.mod[data-modulo="${mod.id}"]`);
+  // `block: 'start'` e não `'nearest'`: `'nearest'` é o certo para o chip da
+  // régua ("garanta que dá para ver"), e o errado para navegação explícita. Um
+  // módulo que já estava no rodapé da janela continuaria no rodapé, e clicar no
+  // menu pareceria não ter feito nada — a percepção que originou este conserto.
+  //
+  // Sem `behavior: 'smooth'`: a opção do JS ignora `prefers-reduced-motion`, que
+  // o resto do painel respeita (components.css §6). Rolagem instantânea honra a
+  // preferência por construção, sem precisar consultá-la.
+  if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start' });
+  return true;
+}
+
+/* Um item de navegação só deve existir se levar a algum lugar. Em vez de confiar
+ * que o HTML do rail e o registro de módulos nunca divirjam — divergiram, e o
+ * resultado foram links mortos —, o chrome PERGUNTA ao kernel. Sem tabela: a
+ * resposta sai do registro. */
+export function alcancavelNoHost(hash) {
+  const bruto = String(hash || '').replace(/^#\/?/, '').split('?')[0];
+  const [primeiro, segundo] = bruto.split('/');
+  if ((primeiro === 'stack' || primeiro === 'container') && segundo) return true;
+  if (!bruto) return true;  // `#/` é o próprio cockpit do host
+  const mod = segundo ? null : porId(bruto);
+  return !!(mod && mod.escopos.includes('host'));
+}
+
+/* Ponte para os corpos de tela que chamam `navigate('#/algo')`. Passa pelo mesmo
+ * roteador, com `semHash: false`: navegação programática TEM de aparecer na
+ * barra de endereço, senão a URL mente sobre onde o visitante está. */
+export function navegarPorHash(hash) {
+  rotear(hash, { semHash: false });
 }
 
 /* Exposto para teste: registrar um módulo em runtime e conferir que ele aparece
