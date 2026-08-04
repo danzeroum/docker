@@ -8,7 +8,7 @@ import httpx
 from routers._proxy import proxy_get, proxy_post, proxy_delete, SOCKET_PROXY, ENABLE_TERMINAL
 from masking import mask_inspect
 from cache import cached_or_fetch
-from stats_util import calc_cpu_percent
+from stats_util import calc_cpu_percent, health_status
 from auth import require_unlock
 from db import (
     audit_iniciar, audit_concluir, get_container_history, search_logs,
@@ -41,21 +41,12 @@ def _demux_frame(data: bytes):
 # List
 # ---------------------------------------------------------------------------
 
-def _health_do_inspect(insp) -> str | None:
-    """State.Health.Status do inspect, ou None quando nao ha healthcheck.
-
-    Ausencia de healthcheck e ausencia de dado, nao "saudavel": devolver "ok"
-    aqui faria a listagem afirmar saude que ninguem mediu.
-    """
-    if not isinstance(insp, dict):
-        return None
-    estado = insp.get("State")
-    if not isinstance(estado, dict):
-        return None
-    saude = estado.get("Health")
-    if not isinstance(saude, dict):
-        return None
-    return saude.get("Status") or None
+# Esta funcao era a UNICA implementacao correta da leitura de State.Health, e por ser
+# privada deste modulo os outros consumidores reescreveram a sua — dois com
+# `.get("Health", {})`, que quebra quando a chave existe valendo null. Agora a versao
+# canonica vive em stats_util (ao lado de calc_cpu_percent) e este nome permanece como
+# alias, para nao mexer nas chamadas existentes.
+_health_do_inspect = health_status
 
 
 @router.get("")

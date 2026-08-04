@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Query
 from db import get_host_series, get_findings, get_first_sample_time
 from sampler import get_container_stats
+from stats_util import health_status
 
 router = APIRouter(prefix="/api", tags=["metrics"])
 
@@ -201,7 +202,10 @@ async def get_capacity():
     })
 
     total_containers = sum(v["containers"] for v in stack_mem.values())
-    unhealthy = len([c for cid, data in containers.items() if isinstance(data, dict) and data.get("inspect") and isinstance(data["inspect"], dict) and data["inspect"].get("State", {}).get("Health", {}).get("Status") == "unhealthy"])
+    unhealthy = sum(
+        1 for data in containers.values()
+        if isinstance(data, dict) and health_status(data.get("inspect")) == "unhealthy"
+    )
     postura.append({
         "item": "Containers com saude",
         "valor": f"{total_containers - unhealthy}/{total_containers}" if total_containers else "0/0",
