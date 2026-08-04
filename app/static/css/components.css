@@ -606,9 +606,16 @@
   padding:.55rem 1rem;background:rgba(239,68,68,.1);
   border-bottom:1px solid var(--bad)
 }
+/* O fundo da faixa é `rgba(239,68,68,.1)` cravado, e não `var(--bad-soft)`, o que
+ * parece descuido mas foi MEDIDO: trocar pelo token clareia a faixa nos temas de
+ * fundo escuro e claro o bastante para derrubar este rótulo de 4.66 para 4.47
+ * (cockpit) e de 4.56 para 4.29 (escritorio). Arrumar a inconsistência quebraria os
+ * dois contrastes que hoje passam, então ela fica — declarada, não esquecida. */
 .fc-sev{
   font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
-  color:var(--bad);border:1px solid var(--bad);border-radius:4px;padding:.1rem .3rem
+  /* --bad-text, não --bad: no tema claro o vermelho de marca dá 3.88:1 sobre a
+     faixa. Texto de 0.6rem é texto pequeno — 4.5:1, sem a folga do texto grande. */
+  color:var(--bad-text);border:1px solid var(--bad-text);border-radius:4px;padding:.1rem .3rem
 }
 .fc-titulo{font-size:.8rem;font-weight:600}
 .fc-corpo{font-size:.72rem;color:var(--text-dim)}
@@ -976,12 +983,27 @@
  * sobre ambar nunca atinge 4.5:1 — no tema cockpit dava 2.14:1 — entao o selo de aviso usa
  * texto escuro. `--sev-medium` usa --accent-strong porque o azul de texto, como fundo, e
  * claro demais para o branco.
+ *
+ * `--sev-critical` usa --bad-strong pela MESMA razão do --accent-strong ao lado: o
+ * vermelho que serve de texto sobre fundo escuro não sustenta branco por cima. No tema
+ * cockpit dava 3.76:1; com --bad-strong, 5.74:1.
+ *
+ * Este era o defeito que a auditoria anterior não podia ver: `.atn-sev` só existe no DOM
+ * quando HÁ achado crítico, e a bancada de então não tinha nenhum. Apareceu na primeira
+ * execução contra a homologação, que lê o nginx.conf real e emite dois `http_plain`
+ * críticos. O mecanismo do par estava certo o tempo todo — errado era o valor.
  */
-.sev-critical{--sev:var(--bad); --sev-fg:#fff}
+.sev-critical{--sev:var(--bad-strong); --sev-fg:#fff; --sev-marca:var(--bad)}
 .sev-high{--sev:var(--warn); --sev-fg:#241a02}
 .sev-medium{--sev:var(--accent-strong); --sev-fg:#fff}
 .sev-low{--sev:var(--neutral); --sev-fg:#fff}
-.atn-card,.ig-finding{border-left:3px solid var(--sev,var(--border))}
+/* A faixa lateral usa `--sev-marca`, não `--sev`, e a diferença é medida: `--sev` é
+ * fundo de selo com texto branco por cima, e no tema cockpit precisou escurecer para
+ * 5.74:1. A MESMA cor como traço de 3px sobre a superfície escura cai para 2.84:1 e
+ * fura o 3:1 que a WCAG 1.4.11 pede de componente não textual. São dois papéis com
+ * exigências opostas no mesmo tema; um token só não serve aos dois. Quem não declara
+ * `--sev-marca` cai em `--sev`, que é o certo para as outras três severidades. */
+.atn-card,.ig-finding{border-left:3px solid var(--sev-marca,var(--sev,var(--border)))}
 .atn-sev,.ig-finding-sev{background:var(--sev,var(--neutral));color:var(--sev-fg,#fff)}
 .filter-pill.sev-critical{border-color:var(--bad)}
 .filter-pill.sev-high{border-color:var(--warn)}
