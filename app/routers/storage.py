@@ -157,6 +157,19 @@ def _monta_payload(df: dict, containers: list) -> dict:
         if isinstance(c, dict):
             containers_bytes += c.get("SizeRw") or 0
 
+    # SizeRw por Id, vindo do /system/df.
+    #
+    # A lista `/containers/json?all=1` NAO traz tamanho: o daemon so o calcula
+    # com `size=1`, e pedir isso na chamada que a UI refaz a cada 2 s custaria
+    # uma varredura de camadas por container. Sem este cruzamento todo zumbi
+    # entrava no `reclaimable_bytes` valendo ZERO, e a tela subestimava em
+    # silencio o espaco que a limpeza devolveria. O df ja pagou essa varredura.
+    tamanho_por_id = {
+        c.get("Id"): (c.get("SizeRw") or 0)
+        for c in containers_df
+        if isinstance(c, dict) and c.get("Id")
+    }
+
     zumbis_bytes = 0
     for c in containers:
         if not isinstance(c, dict):
@@ -166,7 +179,9 @@ def _monta_payload(df: dict, containers: list) -> dict:
         idade = _idade_em_dias(_created_iso(c))
         if idade is None or idade < DIAS_CONTAINER_ZUMBI:
             continue
-        tamanho = c.get("SizeRw") or 0
+        # `SizeRw` do proprio item primeiro: quem chamar com `size=1` continua
+        # mandando na resposta. O df e o complemento, nao o substituto.
+        tamanho = c.get("SizeRw") or tamanho_por_id.get(c.get("Id")) or 0
         zumbis_bytes += tamanho
         nomes = c.get("Names") or []
         orphans.append({
