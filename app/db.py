@@ -36,6 +36,24 @@ RETENTION_HOST_DAYS = _env_int("RETENTION_HOST_DAYS", 30, 7)
 # 1440 pontos para 200 px de largura gasta banda e nao muda um pixel.
 MAX_HISTORY_POINTS = 500
 
+# Teto de linhas por leitura de log. Vizinho do de cima pelo mesmo motivo — os
+# dois sao teto de RESPOSTA e nao de armazenamento — mas este tem uma segunda
+# razao, e ela nao e banda.
+#
+# Log e stdout de aplicacao de terceiro: o cockpit nao decide o que entra ali, e
+# dado pessoal chega sem ninguem ter coletado. Mascarar nao resolve, porque nao
+# ha chave para casar em texto livre e adivinhar produz falso negativo silencioso
+# — o que sobra e reduzir o que se expoe de uma vez.
+#
+# O valor antigo era `min(tail, 5000)` embutido no handler, com o parametro
+# pedindo 500 por padrao: o pior caso por requisicao era dez vezes o caso comum,
+# e o numero nao aparecia em lugar nenhum que alguem revisasse. Agora e declarado,
+# entra por env como as retencoes, e o piso do _env_int impede que um .env mal
+# editado o zere.
+#
+# Quem precisa de mais para depurar sobe a variavel deliberadamente.
+LOG_TAIL_MAX = _env_int("LOG_TAIL_MAX", 500, 1)
+
 def _now():
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 

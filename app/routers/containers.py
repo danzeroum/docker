@@ -12,7 +12,7 @@ from stats_util import calc_cpu_percent, health_status
 from auth import require_unlock
 from db import (
     audit_iniciar, audit_concluir, get_container_history, search_logs,
-    MAX_HISTORY_POINTS, BUSCA_MINIMA, MARCA_INICIO, MARCA_FIM,
+    MAX_HISTORY_POINTS, LOG_TAIL_MAX, BUSCA_MINIMA, MARCA_INICIO, MARCA_FIM,
 )
 from actions import habilitadas as acoes_habilitadas
 from sampler import get_container_inspects
@@ -95,7 +95,7 @@ async def inspect_container_json(container_id: str):
 
 @router.get("/{container_id}/logs")
 async def container_logs(container_id: str, tail: int = 500):
-    tail = min(tail, 5000)
+    tail = min(tail, LOG_TAIL_MAX)
     async with httpx.AsyncClient(base_url=SOCKET_PROXY, timeout=20) as client:
         r = await client.get(
             f"/containers/{container_id}/logs",
@@ -181,6 +181,12 @@ async def _log_stream_proxy(container_id: str, tail: int):
 
 @router.get("/{container_id}/logs/stream")
 async def container_logs_stream(container_id: str, tail: int = 100):
+    # O MESMO teto da rota nao-streaming, e aqui ele faltava por inteiro: `tail`
+    # ia do query string direto para o daemon, entao `?tail=999999` despejava o
+    # log inteiro do container antes do primeiro evento de follow. A janela
+    # inicial de um stream e uma leitura como outra qualquer — o que muda depois
+    # e que ela continua, nao que ela comeca maior.
+    tail = min(tail, LOG_TAIL_MAX)
     return StreamingResponse(
         _log_stream_proxy(container_id, tail),
         media_type="text/event-stream",
